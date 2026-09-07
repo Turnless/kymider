@@ -122,6 +122,14 @@ seeds/mnemonics used by the simulation tests.
 
 ## Compile the contracts
 
+> **Windows: do not run `npm run build:contracts` from PowerShell or CMD.**
+> `compact` on the Windows PATH is `C:\Windows\System32\compact.exe` — the
+> built-in NTFS file-compression tool, not the Midnight compiler. The npm
+> script will invoke *that*, and the failure it produces looks nothing like a
+> compiler error. Run the `compact compile` commands from inside WSL (below);
+> the npm script is for Linux/macOS.
+
+
 ```sh
 npm run build:contracts
 ```
@@ -172,11 +180,22 @@ npm run wait:dust
 
 ## Tests
 
-Unit tests (no network):
+Unit tests (no network, no Docker):
 
 ```sh
 npm run test:unit
 ```
+
+Two layers run here:
+
+1. **Circuit math** (`solvencyProof.unit.test.ts`) — the TypeScript reference
+   implementation in `client/proof/solvencyProof.ts`.
+2. **The compiled contracts themselves** (`*.contract.test.ts`) — the Compact
+   programs executed locally through `tests/unit/support/simulators.ts`:
+   constructor guards, commitment binding, verdict derivation, every
+   caller-authorization assert, and the tamper path. This needs no proof
+   server and no network; only real ZK proof generation and network
+   verification are left to the devnet simulation below.
 
 Simulation (needs devnet up, or a testnet):
 
@@ -231,10 +250,16 @@ client/
   demo.ts                   # end-to-end demo CLI
   check-balance.ts          # print a wallet's balances
   utils.ts                  # byte helpers (hexToBytes, bytesToHex, bytesEqual)
+  env.ts                    # .env loader for the CLI entry points
+  identity.ts               # persistent dapp secret key (.wallet-seed)
+  state.ts                  # .midnight-state.json read/write
 scripts/
   wait-for-dust.ts          # wait for NIGHT + DUST accumulation
 tests/
-  unit/solvencyProof.unit.test.ts
+  unit/solvencyProof.unit.test.ts       # circuit math (reference impl)
+  unit/solvencyProof.contract.test.ts   # compiled contract, offline
+  unit/registry.contract.test.ts        # compiled contract, offline
+  unit/support/simulators.ts            # offline contract simulators
   simulation/wave1.simulation.test.ts
 frontend/
   src/
@@ -261,15 +286,27 @@ docs/
   currently checks the on-chain *record* (attestation, commitment ↔ Registry
   consistency). Wiring full PLONK verification against `verifierKey` is a
   Wave-1 stretch item; the network already verifies proofs at submission.
-- **Registry does not verify instance ownership.** Anyone can `register` an
-  address they deploy. The Registry is a discovery index; attestations are
-  still only producible by the true `owner` of a SolvencyProof instance, so a
-  mis-registration can be detected by comparing commitments. A future wave may
-  add a registration proof.
+- **Registry does not verify instance ownership.** The Registry cannot check
+  who deployed the instance at `instanceAddr` (Midnight has no cross-contract
+  reads), and `register` rejects an address that is already indexed. A stranger
+  who registers someone else's instance address first, under their own pubkey,
+  therefore locks the real owner out of the index permanently — `register`,
+  `updateCommitment` and `suspend` are all closed to them after that. The
+  squatted record is *detectable* (its commitment will not match the
+  instance's real on-chain commitment) but not repairable. Pinned by a test in
+  `tests/unit/registry.contract.test.ts`. Fixing it properly means keying the
+  map on the caller's dapp pubkey instead of the instance address, which is a
+  contract change (and so a recompile).
+- **One claim per lender, forever.** `requestClaim` asserts the lender has no
+  claim at all, so once a claim is approved or rejected that lender can never
+  be underwritten again — no re-request, no proof refresh after `updateFacts`.
+  Wave 2's time-boxed proofs (FR-2.4) need this changed. Pinned by a test in
+  `tests/unit/solvencyProof.contract.test.ts`.
+- **Net worth floors at zero.** An insolvent borrower (debts > balance) gets
+  `netWorth = 0` rather than a negative value, so a claim with a zero net-worth
+  threshold passes on that leg. Also pinned by a test.
 - **Data honesty is out of scope for ZK.** Proofs prove computation, not
   truthfulness; demo data is self-reported. Attested data provenance lands in
   Wave 3.
 - **`wallet-sdk` is pinned to 1.2.0** via `package.json` `overrides` to match
   the MidnightJS 4.1.1 release train (see the root `package.json`).
-- **No `LICENSE` file yet.** README references an Apache-2.0 LICENSE for
-  Midnight-related code; the file is to be added by the project owner.

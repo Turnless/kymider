@@ -56,6 +56,9 @@ kymider/
 │   ├── demo.ts                 # end-to-end demo CLI
 │   ├── check-balance.ts        # print a wallet's balances
 │   ├── utils.ts                # byte helpers (hexToBytes, bytesToHex, bytesEqual)
+│   ├── env.ts                  # .env loader for the CLI entry points
+│   ├── identity.ts             # persistent dapp secret key (.wallet-seed)
+│   ├── state.ts                # .midnight-state.json read/write
 │   └── proof/
 │       └── solvencyProof.ts    # reference circuit math (computeSolvency, DTI, net worth)
 ├── frontend/
@@ -71,9 +74,12 @@ kymider/
 │   └── wait-for-dust.ts        # wait for NIGHT + DUST accumulation
 ├── tests/
 │   ├── unit/
-│   │   └── solvencyProof.unit.test.ts
+│   │   ├── solvencyProof.unit.test.ts       # circuit math (reference impl)
+│   │   ├── solvencyProof.contract.test.ts   # compiled contract, run offline
+│   │   ├── registry.contract.test.ts        # compiled contract, run offline
+│   │   └── support/simulators.ts            # offline contract simulators
 │   └── simulation/
-│       └── wave1.simulation.test.ts
+│       └── wave1.simulation.test.ts         # two wallets on the devnet
 ├── docs/
 │   ├── architecture-wave1.md
 │   ├── architecture-wave2.md
@@ -108,7 +114,7 @@ Full setup details, prerequisites and troubleshooting are in [`docs/scaffold.md`
 3. Compile contracts (needs the `compact` compiler): `npm run build:contracts`
 4. Wait for NIGHT + DUST to accumulate: `npm run wait:dust`
 5. Run tests:
-   - Unit (no network): `npm run test:unit`
+   - Unit + offline contract tests (no network, no Docker): `npm run test:unit`
    - Simulation (devnet): `npm run test:simulation`
 6. Run the end-to-end demo: `npm run demo`
 
