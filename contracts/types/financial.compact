@@ -1,0 +1,22 @@
+pragma language_version 0.23;
+import CompactStandardLibrary;
+
+// Kymider — shared financial types (Wave 1).
+//
+// NOTE: Compact user-module imports are not yet wired into the Wave 1 build;
+// the compiler does not see this file. These types are kept here as a single
+// source of truth for documentation, and are duplicated inline in
+// solvencyProof.compact and registry.compact. When Wave 2 introduces more
+// shared surface (LoanTerms, Payment, ...), wire `import "types/financial.compact"`
+// into the build and delete the duplicates.
+
+export struct FinancialFacts {
+  balance: Uint<64>;
+  debts: Uint<64>;
+  income: Uint<64>;
+}
+
+export struct ClaimParams {
+  thresholdNetWorth: Uint<64>;
+  maxDti: Uint<64>;
+}

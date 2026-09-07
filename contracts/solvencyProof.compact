@@ -1,0 +1,161 @@
+pragma language_version 0.23;
+import CompactStandardLibrary;
+
+// Kymider — SolvencyProof (per-borrower instance).
+//
+// One contract instance per borrower (Wave 1 architecture, docs/architecture-wave1.md).
+//
+// Privacy model:
+//   - Financial facts (balance, debts, income) are NEVER stored on-chain. They are
+//     held by the borrower's client (private state store) and passed into circuits as
+//     private witness inputs.
+//   - The on-chain `commitment` is a persistent hash of the current facts. Every
+//     provable transition recomputes that hash in-circuit and asserts it matches, so
+//     facts cannot be silently swapped.
+//   - The ZK proof is verified by the Midnight network at submission. A lender can
+//     additionally verify the attested result off-chain against `verifierKey`.
+//
+// Authorization model (no native roles on Midnight — explicit caller checks):
+//   - `owner` is the deploying borrower's dapp pubkey.
+//   - Borrower-only transitions assert getDappPubKey(localSk()) == owner.
+//   - Lender-only transitions assert the caller is in `authorizedLenders` AND is
+//     acting on their own claim (caller == lender).
+//
+// Provenance: ZK proves *computation*, not *honesty*. Facts are self-reported
+// (demo data). Co-signed/attested data sources are scoped for Wave 3.
+
+export enum ClaimStatus { PENDING, APPROVED, REJECTED }
+export enum AttestationStatus { NONE, PASS, FAIL }
+
+export struct Claim {
+  thresholdNetWorth: Uint<64>;
+  maxDti: Uint<64>;
+  status: ClaimStatus;
+}
+
+// --- public ledger state --------------------------------------------------
+export ledger owner: Bytes<32>;              // borrower dapp pubkey (deployer)
+export ledger commitment: Bytes<32>;         // persistent hash of current facts
+export ledger verifierKey: Bytes<32>;        // circuit-set identifier for off-chain verification
+export ledger authorizedLenders: Set<Bytes<32>>;
+export ledger claims: Map<Bytes<32>, Claim>; // lender pubkey -> requested claim
+export ledger attestations: Map<Bytes<32>, AttestationStatus>; // lender -> computed verdict
+
+// --- private witness ------------------------------------------------------
+witness localSk(): Bytes<32>;
+
+constructor(initialBalance: Uint<64>, initialDebts: Uint<64>, initialIncome: Uint<64>) {
+  const sk = localSk();
+  // Range guards keep DTI arithmetic (debts*100, maxDti*income) inside Uint<64>.
+  // Bound = 2^50 (~1.1e15) — far beyond any realistic financial fact.
+  assert(initialBalance <= 1125899906842624, "balance exceeds supported range");
+  assert(initialDebts <= 1125899906842624, "debts exceed supported range");
+  assert(initialIncome <= 1125899906842624, "income exceeds supported range");
+  assert(initialIncome > 0, "income must be non-zero");
+  owner = disclose(getDappPubKey(sk));
+  commitment = disclose(commitFacts(initialBalance, initialDebts, initialIncome));
+  verifierKey = disclose(kymiderVerifierKey());
+}
+
+// Dapp-scoped identity: the same salt is used by Registry, so a borrower has one
+// identity across both programs. Mirrors the getDappPubKey pattern from
+// example-battleship.
+export pure circuit getDappPubKey(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "kymider:pk:"), sk]);
+}
+
+// Identifies the circuit set used for off-chain verification. The real PLONK
+// verification key lives in the compiled artifacts (compiled/solvency-proof).
+pure circuit kymiderVerifierKey(): Bytes<32> {
+  return persistentHash<Vector<1, Bytes<32>>>([pad(32, "kymider:sp:vk:")]);
+}
+
+pure circuit commitFacts(balance: Uint<64>, debts: Uint<64>, income: Uint<64>): Bytes<32> {
+  return persistentHash<Vector<3, Uint<64>>>([balance, debts, income]);
+}
+
+// --- borrower-only transitions -------------------------------------------
+
+export circuit addLender(lender: Bytes<32>): [] {
+  const sk = localSk();
+  assert(getDappPubKey(sk) == owner, "only the borrower may authorize a lender");
+  authorizedLenders.insert(disclose(lender));
+}
+
+// The borrower updates their facts by committing to a new hash. Once updated,
+// old facts no longer match the commitment, so future proofs use the new facts.
+export circuit updateFacts(balance: Uint<64>, debts: Uint<64>, income: Uint<64>): [] {
+  const sk = localSk();
+  assert(getDappPubKey(sk) == owner, "only the borrower may update facts");
+  assert(balance <= 1125899906842624, "balance exceeds supported range");
+  assert(debts <= 1125899906842624, "debts exceed supported range");
+  assert(income <= 1125899906842624, "income exceeds supported range");
+  assert(income > 0, "income must be non-zero");
+  commitment = disclose(commitFacts(balance, debts, income));
+}
+
+// Borrower proves solvency against the CURRENT committed facts for a lender's
+// pending claim. The circuit recomputes the commitment from the private facts
+// (so swapping facts fails the network proof) and derives the verdict.
+export circuit proveSolvency(lender: Bytes<32>, balance: Uint<64>, debts: Uint<64>, income: Uint<64>): [] {
+  const sk = localSk();
+  assert(getDappPubKey(sk) == owner, "only the borrower may prove solvency");
+  assert(claims.member(disclose(lender)), "no claim requested by this lender");
+  const claim = claims.lookup(disclose(lender));
+  assert(claim.status == ClaimStatus.PENDING, "claim already decided");
+  assert(commitment == commitFacts(balance, debts, income), "facts do not match committed facts");
+  assert(income > 0, "income must be non-zero");
+  const netWorth = balance >= debts ? balance - debts : 0;
+  // Compact has no division operator. The DTI criterion `debts*100/income <=
+  // maxDti` is exactly equivalent to `debts*100 <= maxDti*income`, which is
+  // evaluated with no truncation (conservative for underwriting). Range guards
+  // in the constructor/updateFacts keep both products inside Uint<64>.
+  const dtiQualified = debts * 100 <= claim.maxDti * income;
+  const qualified = netWorth >= claim.thresholdNetWorth && dtiQualified;
+
+  attestations.insert(disclose(lender), disclose(qualified ? AttestationStatus.PASS : AttestationStatus.FAIL));
+}
+
+// --- lender-only transitions ---------------------------------------------
+
+export circuit requestClaim(lender: Bytes<32>, thresholdNetWorth: Uint<64>, maxDti: Uint<64>): [] {
+  const sk = localSk();
+  const caller = getDappPubKey(sk);
+  assert(caller == lender, "only the lender may request their own claim");
+  assert(authorizedLenders.member(disclose(lender)), "lender is not authorized by the borrower");
+  assert(!claims.member(disclose(lender)), "a claim already exists for this lender");
+  assert(maxDti <= 10000, "max DTI limit too high");
+
+  claims.insert(
+    disclose(lender),
+    Claim { thresholdNetWorth: disclose(thresholdNetWorth), maxDti: disclose(maxDti), status: ClaimStatus.PENDING },
+  );
+}
+
+export circuit approve(lender: Bytes<32>): [] {
+  const sk = localSk();
+  const caller = getDappPubKey(sk);
+  assert(caller == lender, "only the lender may decide their own claim");
+  assert(authorizedLenders.member(disclose(lender)), "lender is not authorized");
+  assert(claims.member(disclose(lender)), "no claim requested by this lender");
+  const claim = claims.lookup(disclose(lender));
+  assert(claim.status == ClaimStatus.PENDING, "claim already decided");
+  claims.insert(
+    disclose(lender),
+    Claim { thresholdNetWorth: claim.thresholdNetWorth, maxDti: claim.maxDti, status: ClaimStatus.APPROVED },
+  );
+}
+
+export circuit reject(lender: Bytes<32>): [] {
+  const sk = localSk();
+  const caller = getDappPubKey(sk);
+  assert(caller == lender, "only the lender may decide their own claim");
+  assert(authorizedLenders.member(disclose(lender)), "lender is not authorized");
+  assert(claims.member(disclose(lender)), "no claim requested by this lender");
+  const claim = claims.lookup(disclose(lender));
+  assert(claim.status == ClaimStatus.PENDING, "claim already decided");
+  claims.insert(
+    disclose(lender),
+    Claim { thresholdNetWorth: claim.thresholdNetWorth, maxDti: claim.maxDti, status: ClaimStatus.REJECTED },
+  );
+}

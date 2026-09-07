@@ -1,0 +1,67 @@
+# Midnight local devnet for Kymider Wave 1 (per-borrower SolvencyProof + Registry).
+# Services: proof server, indexer, and a dev-preset Midnight node on network
+# id 'undeployed'. Genesis pre-mints NIGHT to the well-known seed
+# 0x00..01, so no wallet extension or faucet is required locally.
+#
+# Reference: https://github.com/midnightntwrk/example-battleship
+
+services:
+  proof-server:
+    image: 'midnightntwrk/proof-server:8.1.0'
+    command: ['midnight-proof-server', '-v']
+    ports:
+      - '127.0.0.1:6300:6300'
+    environment:
+      RUST_BACKTRACE: 'full'
+    healthcheck:
+      test: ['CMD-SHELL', 'echo > /dev/tcp/127.0.0.1/6300']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  indexer:
+    image: 'midnightntwrk/indexer-standalone:4.3.3'
+    ports:
+      - '127.0.0.1:8088:8088'
+    environment:
+      RUST_LOG: 'indexer=info,chain_indexer=info,indexer_api=info,wallet_indexer=info,indexer_common=info,fastrace_opentelemetry=off,info'
+      APP__INFRA__NODE__URL: 'ws://node:9944'
+      APP__APPLICATION__NETWORK_ID: 'undeployed'
+      APP__INFRA__STORAGE__PASSWORD: 'indexer'
+      APP__INFRA__PUB_SUB__PASSWORD: 'indexer'
+      APP__INFRA__LEDGER_STATE_STORAGE__PASSWORD: 'indexer'
+      APP__INFRA__SECRET: '303132333435363738393031323334353637383930313233343536373839303132'
+      APP__INFRA__SPO_NODE__URL: 'ws://node:9944'
+      APP__INFRA__SPO_NODE__BLOCKFROST_ID: 'e2e-test-dummy-id'
+    healthcheck:
+      test: ['CMD-SHELL', 'cat /var/run/indexer-standalone/running']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    depends_on:
+      node:
+        condition: service_healthy
+
+  node:
+    image: 'midnightntwrk/midnight-node:1.0.0'
+    ports:
+      - '127.0.0.1:9944:9944'
+    # /health goes green at genesis, ~2s before block 1 exists, but the
+    # indexer's spo-indexer treats a missing block 1 as fatal. Gate on
+    # block 1 so `depends_on: service_healthy` actually holds.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS -H 'Content-Type: application/json'
+          -d '{"jsonrpc":"2.0","id":1,"method":"chain_getBlockHash","params":[1]}'
+          http://localhost:9944 | grep -q '"result":"0x'
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    environment:
+      CFG_PRESET: 'dev'
+      SIDECHAIN_BLOCK_BENEFICIARY: '04bcf7ad3be7a5c790460be82a713af570f22e0f801f6659ab8e84a52be6969e'

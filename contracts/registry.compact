@@ -1,0 +1,69 @@
+pragma language_version 0.23;
+import CompactStandardLibrary;
+
+// Kymider — Registry (shared, public-only).
+//
+// A second, public-only program. Lenders discover borrowers by querying this
+// index; they never read another borrower's private state. The Registry and the
+// per-borrower SolvencyProof instances are separate programs; they reference
+// each other by contract address.
+//
+// Authorization: `register`/`updateCommitment`/`suspend` assert the caller's
+// dapp pubkey matches the owner recorded for the instance. The Registry cannot
+// cryptographically prove the caller deployed the SolvencyProof instance at
+// `instanceAddr` (no cross-contract calls on Midnight) — the address<->owner
+// binding is asserted by the caller's signature on the register transaction.
+// This is the documented Wave-1 simplification.
+
+export enum BorrowStatus { UNREGISTERED, ACTIVE, SUSPENDED }
+
+export struct BorrowerRecord {
+  owner: Bytes<32>;
+  commitment: Bytes<32>;
+  status: BorrowStatus;
+}
+
+export ledger borrowers: Map<Bytes<32>, BorrowerRecord>; // instanceAddr -> record
+export ledger borrowerCount: Counter;
+
+witness localSk(): Bytes<32>;
+
+// Same salt as SolvencyProof so a borrower has one dapp identity across programs.
+export pure circuit getDappPubKey(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "kymider:pk:"), sk]);
+}
+
+constructor() {}
+
+export circuit register(instanceAddr: Bytes<32>, owner: Bytes<32>, commitment: Bytes<32>): [] {
+  const sk = localSk();
+  assert(getDappPubKey(sk) == owner, "only the borrower may register their own instance");
+  assert(!borrowers.member(disclose(instanceAddr)), "instance already registered");
+  borrowers.insert(
+    disclose(instanceAddr),
+    BorrowerRecord { owner: disclose(owner), commitment: disclose(commitment), status: BorrowStatus.ACTIVE },
+  );
+  borrowerCount.increment(1);
+}
+
+export circuit updateCommitment(instanceAddr: Bytes<32>, commitment: Bytes<32>): [] {
+  const sk = localSk();
+  assert(borrowers.member(disclose(instanceAddr)), "instance not registered");
+  const record = borrowers.lookup(disclose(instanceAddr));
+  assert(getDappPubKey(sk) == record.owner, "only the owner may update commitment");
+  borrowers.insert(
+    disclose(instanceAddr),
+    BorrowerRecord { owner: record.owner, commitment: disclose(commitment), status: record.status },
+  );
+}
+
+export circuit suspend(instanceAddr: Bytes<32>): [] {
+  const sk = localSk();
+  assert(borrowers.member(disclose(instanceAddr)), "instance not registered");
+  const record = borrowers.lookup(disclose(instanceAddr));
+  assert(getDappPubKey(sk) == record.owner, "only the owner may suspend");
+  borrowers.insert(
+    disclose(instanceAddr),
+    BorrowerRecord { owner: record.owner, commitment: record.commitment, status: BorrowStatus.SUSPENDED },
+  );
+}
