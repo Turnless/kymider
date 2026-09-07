@@ -2,6 +2,8 @@
 
 **Privacy-first loan underwriting on [Midnight](https://docs.midnight.network/)**
 
+[![CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml/badge.svg)](https://github.com/Turnless/kymider/actions/workflows/ci.yml)
+
 Borrowers prove creditworthiness — solvency, liquidity, payment history, debt ratios — to lenders using **zero-knowledge proofs**, without ever revealing balances, transaction history, or identity.
 
 ## What Kymider does
