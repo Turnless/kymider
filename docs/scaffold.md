@@ -221,6 +221,28 @@ Simulation covers:
 8. `updateFacts` re-commits; the commitment changes.
 9. Re-proving an already-decided claim is rejected (claim must be `PENDING`).
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs the whole slice on Linux runners, which is the
+only place it goes green in one pass: the `compact` compiler ships Linux-only
+binaries, and the devnet needs Docker.
+
+| Job | Needs Docker | What it proves |
+|---|---|---|
+| `contracts` | no | The Compact programs compile (the Buildathon technical gate). Caches `compiled/` on the hash of `contracts/**/*.compact` and publishes it as an artifact. |
+| `unit` | no | `typecheck` + the 49 unit and offline contract tests. |
+| `simulation` | yes | `docker compose up --wait`, DUST accrual, then the two-wallet ZK simulation with real proof generation and network verification. |
+
+This matters if you develop on Windows: Docker Desktop requires Windows 10
+**22H2 (build 19045)** or newer, so on an older build the devnet cannot run
+locally at all and CI is the only route. The `contracts` job is also the
+practical way to recompile after editing a `.compact` file without a local WSL
+toolchain — download the `compiled-contracts` artifact from the run.
+
+The toolchain version is pinned in one place, the `COMPACT_TOOLCHAIN` env var
+at the top of the workflow. Keep it on the 0.23 language line to match
+`pragma language_version 0.23`.
+
 ## Demo + deployment CLI
 
 ```sh

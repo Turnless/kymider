@@ -1,0 +1,168 @@
+name: CI
+
+# Kymider runs its full vertical slice here rather than on a developer machine:
+# the `compact` compiler is a Linux-only binary and the devnet (Midnight node +
+# indexer + proof server) needs Docker, so Linux runners are the only place the
+# whole thing goes green in one pass.
+#
+# Layout:
+#   contracts  -> compile the Compact programs, cache + publish compiled/
+#   unit       -> typecheck + unit and offline contract tests (no Docker)
+#   simulation -> docker compose devnet + the two-wallet ZK simulation
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Toolchain 0.31.1 is the last release on the Compact 0.23 language line,
+  # which is what `pragma language_version 0.23` in contracts/ requires.
+  COMPACT_TOOLCHAIN: '0.31.1'
+  NODE_VERSION: '22'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Compile contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # The compiled artifacts are deterministic for a given source + toolchain,
+      # and ZK key generation is the slowest step in the pipeline, so cache them.
+      - name: Restore compiled contracts
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: compiled
+          key: compact-${{ env.COMPACT_TOOLCHAIN }}-${{ hashFiles('contracts/**/*.compact') }}
+
+      - name: Install the Compact toolchain
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          # The installer (cargo-dist) picks the first of $XDG_BIN_HOME,
+          # $XDG_DATA_HOME/../bin, $HOME/.local/bin. Pin the first so the
+          # install location is deterministic instead of runner-dependent, and
+          # because it only wires up PATH for interactive shells.
+          export XDG_BIN_HOME="$HOME/.local/bin"
+          mkdir -p "$XDG_BIN_HOME"
+
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+
+          if [ ! -x "$XDG_BIN_HOME/compact" ]; then
+            echo "::error::compact was not installed to $XDG_BIN_HOME"
+            find "$HOME" -maxdepth 5 -name compact -type f 2>/dev/null || true
+            exit 1
+          fi
+          echo "$XDG_BIN_HOME" >> "$GITHUB_PATH"
+
+      - name: Pin the toolchain to the 0.23 language line
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          compact update "$COMPACT_TOOLCHAIN"
+          compact --version
+
+      - name: Compile
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: npm run build:contracts
+
+      - name: Check the artifacts look complete
+        run: |
+          set -euo pipefail
+          for d in compiled/solvency-proof compiled/registry; do
+            test -f "$d/contract/index.js"  || { echo "::error::missing $d/contract/index.js"; exit 1; }
+            test -d "$d/keys"              || { echo "::error::missing $d/keys"; exit 1; }
+          done
+          echo "Compiled artifacts:"
+          du -sh compiled/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compiled-contracts
+          path: compiled
+          retention-days: 7
+
+  unit:
+    name: Typecheck + unit tests
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: compiled-contracts
+          path: compiled
+
+      - run: npm ci
+
+      # contracts/index.ts imports from compiled/, so this only passes once the
+      # artifacts are in place.
+      - run: npm run typecheck
+
+      # Circuit math plus the compiled contracts driven offline through
+      # tests/unit/support/simulators.ts - no Docker, no proof server.
+      - run: npm run test:unit
+
+  simulation:
+    name: Devnet simulation
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: compiled-contracts
+          path: compiled
+
+      - run: npm ci
+
+      # Healthchecks in docker-compose.yml gate this: the node must have
+      # produced block 1 before the indexer is allowed to start.
+      - name: Start the local devnet
+        run: docker compose up -d --wait
+
+      - name: Report service state
+        run: docker compose ps
+
+      # Proof generation burns DUST, which accrues from staked NIGHT, so the
+      # wallet has to be funded before the simulation can prove anything.
+      - name: Wait for NIGHT + DUST
+        run: npm run wait:dust
+
+      - name: Run the Wave 1 simulation
+        run: npm run test:simulation
+
+      - name: Devnet logs
+        if: failure()
+        run: docker compose logs --no-color --tail 400
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
