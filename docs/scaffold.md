@@ -301,9 +301,11 @@ docs/
 - **Compiled artifacts are now checked in workflow-wise.** `contracts/index.ts`
   imports from `compiled/`, so `npm run typecheck` only passes after
   `npm run build:contracts` (the artifacts are git-ignored and regenerated).
-- **Local verification of the ZK flow requires Docker Desktop** (Midnight node,
-  indexer, proof server). The contracts are compiled and typecheck + unit tests
-  are green; the two-wallet simulation still needs the devnet running.
+- **Running the ZK flow locally requires Docker Desktop** (Midnight node,
+  indexer, proof server), which in turn requires Windows 10 22H2 / build 19045
+  or newer. On an older Windows build the devnet cannot run locally at all —
+  use CI, which runs the full two-wallet simulation on every push (see
+  "Continuous integration"). Proof generation there takes ~5 minutes.
 - **Off-chain proof verification** (`verifyOffChain` in `client/index.ts`)
   currently checks the on-chain *record* (attestation, commitment ↔ Registry
   consistency). Wiring full PLONK verification against `verifierKey` is a
