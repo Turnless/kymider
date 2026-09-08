@@ -99,6 +99,12 @@ export type Ledger = {
     lookup(key_0: Uint8Array): AttestationStatus;
     [Symbol.iterator](): Iterator<[Uint8Array, AttestationStatus]>
   };
+  openClaims: {
+    isEmpty(): boolean;
+    size(): bigint;
+    member(elem_0: Uint8Array): boolean;
+    [Symbol.iterator](): Iterator<Uint8Array>
+  };
 }
 
 export type ContractReferenceLocations = any;

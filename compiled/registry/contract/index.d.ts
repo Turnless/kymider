@@ -2,7 +2,7 @@ import type * as __compactRuntime from '@midnight-ntwrk/compact-runtime';
 
 export enum BorrowStatus { UNREGISTERED = 0, ACTIVE = 1, SUSPENDED = 2 }
 
-export type BorrowerRecord = { owner: Uint8Array;
+export type BorrowerRecord = { instanceAddr: Uint8Array;
                                commitment: Uint8Array;
                                status: BorrowStatus
                              };
@@ -14,25 +14,19 @@ export type Witnesses<PS> = {
 export type ImpureCircuits<PS> = {
   register(context: __compactRuntime.CircuitContext<PS>,
            instanceAddr_0: Uint8Array,
-           owner_0: Uint8Array,
            commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   updateCommitment(context: __compactRuntime.CircuitContext<PS>,
-                   instanceAddr_0: Uint8Array,
                    commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  suspend(context: __compactRuntime.CircuitContext<PS>,
-          instanceAddr_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  suspend(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
 }
 
 export type ProvableCircuits<PS> = {
   register(context: __compactRuntime.CircuitContext<PS>,
            instanceAddr_0: Uint8Array,
-           owner_0: Uint8Array,
            commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   updateCommitment(context: __compactRuntime.CircuitContext<PS>,
-                   instanceAddr_0: Uint8Array,
                    commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  suspend(context: __compactRuntime.CircuitContext<PS>,
-          instanceAddr_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  suspend(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
 }
 
 export type PureCircuits = {
@@ -43,13 +37,10 @@ export type Circuits<PS> = {
   getDappPubKey(context: __compactRuntime.CircuitContext<PS>, sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
   register(context: __compactRuntime.CircuitContext<PS>,
            instanceAddr_0: Uint8Array,
-           owner_0: Uint8Array,
            commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   updateCommitment(context: __compactRuntime.CircuitContext<PS>,
-                   instanceAddr_0: Uint8Array,
                    commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  suspend(context: __compactRuntime.CircuitContext<PS>,
-          instanceAddr_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  suspend(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
 }
 
 export type Ledger = {

@@ -18,13 +18,13 @@ class _BorrowerRecord_0 {
   }
   fromValue(value_0) {
     return {
-      owner: _descriptor_0.fromValue(value_0),
+      instanceAddr: _descriptor_0.fromValue(value_0),
       commitment: _descriptor_0.fromValue(value_0),
       status: _descriptor_1.fromValue(value_0)
     }
   }
   toValue(value_0) {
-    return _descriptor_0.toValue(value_0.owner).concat(_descriptor_0.toValue(value_0.commitment).concat(_descriptor_1.toValue(value_0.status)));
+    return _descriptor_0.toValue(value_0.instanceAddr).concat(_descriptor_0.toValue(value_0.commitment).concat(_descriptor_1.toValue(value_0.status)));
   }
 }
 
@@ -95,84 +95,30 @@ export class Contract {
         return { result: pureCircuits.getDappPubKey(...args_1), context };
       },
       register: (...args_1) => {
-        if (args_1.length !== 4) {
-          throw new __compactRuntime.CompactError(`register: expected 4 arguments (as invoked from Typescript), received ${args_1.length}`);
-        }
-        const contextOrig_0 = args_1[0];
-        const instanceAddr_0 = args_1[1];
-        const owner_0 = args_1[2];
-        const commitment_0 = args_1[3];
-        if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
-          __compactRuntime.typeError('register',
-                                     'argument 1 (as invoked from Typescript)',
-                                     'registry.compact line 38 char 1',
-                                     'CircuitContext',
-                                     contextOrig_0)
-        }
-        if (!(instanceAddr_0.buffer instanceof ArrayBuffer && instanceAddr_0.BYTES_PER_ELEMENT === 1 && instanceAddr_0.length === 32)) {
-          __compactRuntime.typeError('register',
-                                     'argument 1 (argument 2 as invoked from Typescript)',
-                                     'registry.compact line 38 char 1',
-                                     'Bytes<32>',
-                                     instanceAddr_0)
-        }
-        if (!(owner_0.buffer instanceof ArrayBuffer && owner_0.BYTES_PER_ELEMENT === 1 && owner_0.length === 32)) {
-          __compactRuntime.typeError('register',
-                                     'argument 2 (argument 3 as invoked from Typescript)',
-                                     'registry.compact line 38 char 1',
-                                     'Bytes<32>',
-                                     owner_0)
-        }
-        if (!(commitment_0.buffer instanceof ArrayBuffer && commitment_0.BYTES_PER_ELEMENT === 1 && commitment_0.length === 32)) {
-          __compactRuntime.typeError('register',
-                                     'argument 3 (argument 4 as invoked from Typescript)',
-                                     'registry.compact line 38 char 1',
-                                     'Bytes<32>',
-                                     commitment_0)
-        }
-        const context = { ...contextOrig_0, gasCost: __compactRuntime.emptyRunningCost() };
-        const partialProofData = {
-          input: {
-            value: _descriptor_0.toValue(instanceAddr_0).concat(_descriptor_0.toValue(owner_0).concat(_descriptor_0.toValue(commitment_0))),
-            alignment: _descriptor_0.alignment().concat(_descriptor_0.alignment().concat(_descriptor_0.alignment()))
-          },
-          output: undefined,
-          publicTranscript: [],
-          privateTranscriptOutputs: []
-        };
-        const result_0 = this._register_0(context,
-                                          partialProofData,
-                                          instanceAddr_0,
-                                          owner_0,
-                                          commitment_0);
-        partialProofData.output = { value: [], alignment: [] };
-        return { result: result_0, context: context, proofData: partialProofData, gasCost: context.gasCost };
-      },
-      updateCommitment: (...args_1) => {
         if (args_1.length !== 3) {
-          throw new __compactRuntime.CompactError(`updateCommitment: expected 3 arguments (as invoked from Typescript), received ${args_1.length}`);
+          throw new __compactRuntime.CompactError(`register: expected 3 arguments (as invoked from Typescript), received ${args_1.length}`);
         }
         const contextOrig_0 = args_1[0];
         const instanceAddr_0 = args_1[1];
         const commitment_0 = args_1[2];
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
-          __compactRuntime.typeError('updateCommitment',
+          __compactRuntime.typeError('register',
                                      'argument 1 (as invoked from Typescript)',
-                                     'registry.compact line 49 char 1',
+                                     'registry.compact line 48 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(instanceAddr_0.buffer instanceof ArrayBuffer && instanceAddr_0.BYTES_PER_ELEMENT === 1 && instanceAddr_0.length === 32)) {
-          __compactRuntime.typeError('updateCommitment',
+          __compactRuntime.typeError('register',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'registry.compact line 49 char 1',
+                                     'registry.compact line 48 char 1',
                                      'Bytes<32>',
                                      instanceAddr_0)
         }
         if (!(commitment_0.buffer instanceof ArrayBuffer && commitment_0.BYTES_PER_ELEMENT === 1 && commitment_0.length === 32)) {
-          __compactRuntime.typeError('updateCommitment',
+          __compactRuntime.typeError('register',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'registry.compact line 49 char 1',
+                                     'registry.compact line 48 char 1',
                                      'Bytes<32>',
                                      commitment_0)
         }
@@ -186,46 +132,69 @@ export class Contract {
           publicTranscript: [],
           privateTranscriptOutputs: []
         };
-        const result_0 = this._updateCommitment_0(context,
-                                                  partialProofData,
-                                                  instanceAddr_0,
-                                                  commitment_0);
+        const result_0 = this._register_0(context,
+                                          partialProofData,
+                                          instanceAddr_0,
+                                          commitment_0);
         partialProofData.output = { value: [], alignment: [] };
         return { result: result_0, context: context, proofData: partialProofData, gasCost: context.gasCost };
       },
-      suspend: (...args_1) => {
+      updateCommitment: (...args_1) => {
         if (args_1.length !== 2) {
-          throw new __compactRuntime.CompactError(`suspend: expected 2 arguments (as invoked from Typescript), received ${args_1.length}`);
+          throw new __compactRuntime.CompactError(`updateCommitment: expected 2 arguments (as invoked from Typescript), received ${args_1.length}`);
         }
         const contextOrig_0 = args_1[0];
-        const instanceAddr_0 = args_1[1];
+        const commitment_0 = args_1[1];
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
-          __compactRuntime.typeError('suspend',
+          __compactRuntime.typeError('updateCommitment',
                                      'argument 1 (as invoked from Typescript)',
-                                     'registry.compact line 60 char 1',
+                                     'registry.compact line 62 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
-        if (!(instanceAddr_0.buffer instanceof ArrayBuffer && instanceAddr_0.BYTES_PER_ELEMENT === 1 && instanceAddr_0.length === 32)) {
-          __compactRuntime.typeError('suspend',
+        if (!(commitment_0.buffer instanceof ArrayBuffer && commitment_0.BYTES_PER_ELEMENT === 1 && commitment_0.length === 32)) {
+          __compactRuntime.typeError('updateCommitment',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'registry.compact line 60 char 1',
+                                     'registry.compact line 62 char 1',
                                      'Bytes<32>',
-                                     instanceAddr_0)
+                                     commitment_0)
         }
         const context = { ...contextOrig_0, gasCost: __compactRuntime.emptyRunningCost() };
         const partialProofData = {
           input: {
-            value: _descriptor_0.toValue(instanceAddr_0),
+            value: _descriptor_0.toValue(commitment_0),
             alignment: _descriptor_0.alignment()
           },
           output: undefined,
           publicTranscript: [],
           privateTranscriptOutputs: []
         };
-        const result_0 = this._suspend_0(context,
-                                         partialProofData,
-                                         instanceAddr_0);
+        const result_0 = this._updateCommitment_0(context,
+                                                  partialProofData,
+                                                  commitment_0);
+        partialProofData.output = { value: [], alignment: [] };
+        return { result: result_0, context: context, proofData: partialProofData, gasCost: context.gasCost };
+      },
+      suspend: (...args_1) => {
+        if (args_1.length !== 1) {
+          throw new __compactRuntime.CompactError(`suspend: expected 1 argument (as invoked from Typescript), received ${args_1.length}`);
+        }
+        const contextOrig_0 = args_1[0];
+        if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
+          __compactRuntime.typeError('suspend',
+                                     'argument 1 (as invoked from Typescript)',
+                                     'registry.compact line 76 char 1',
+                                     'CircuitContext',
+                                     contextOrig_0)
+        }
+        const context = { ...contextOrig_0, gasCost: __compactRuntime.emptyRunningCost() };
+        const partialProofData = {
+          input: { value: [], alignment: [] },
+          output: undefined,
+          publicTranscript: [],
+          privateTranscriptOutputs: []
+        };
+        const result_0 = this._suspend_0(context, partialProofData);
         partialProofData.output = { value: [], alignment: [] };
         return { result: result_0, context: context, proofData: partialProofData, gasCost: context.gasCost };
       }
@@ -312,7 +281,7 @@ export class Contract {
     if (!(result_0.buffer instanceof ArrayBuffer && result_0.BYTES_PER_ELEMENT === 1 && result_0.length === 32)) {
       __compactRuntime.typeError('localSk',
                                  'return value',
-                                 'registry.compact line 29 char 1',
+                                 'registry.compact line 39 char 1',
                                  'Bytes<32>',
                                  result_0)
     }
@@ -326,11 +295,9 @@ export class Contract {
     return this._persistentHash_0([new Uint8Array([107, 121, 109, 105, 100, 101, 114, 58, 112, 107, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
                                    sk_0]);
   }
-  _register_0(context, partialProofData, instanceAddr_0, owner_0, commitment_0)
-  {
-    const sk_0 = this._localSk_0(context, partialProofData);
-    __compactRuntime.assert(this._equal_0(this._getDappPubKey_0(sk_0), owner_0),
-                            'only the borrower may register their own instance');
+  _register_0(context, partialProofData, instanceAddr_0, commitment_0) {
+    const owner_0 = this._getDappPubKey_0(this._localSk_0(context,
+                                                          partialProofData));
     __compactRuntime.assert(!_descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                        partialProofData,
                                                                                        [
@@ -342,13 +309,15 @@ export class Contract {
                                                                                                           value: { value: _descriptor_10.toValue(0n),
                                                                                                                    alignment: _descriptor_10.alignment() } }] } },
                                                                                         { push: { storage: false,
-                                                                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(instanceAddr_0),
+                                                                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(owner_0),
                                                                                                                                                alignment: _descriptor_0.alignment() }).encode() } },
                                                                                         'member',
                                                                                         { popeq: { cached: true,
                                                                                                    result: undefined } }]).value),
-                            'instance already registered');
-    const tmp_0 = { owner: owner_0, commitment: commitment_0, status: 1 };
+                            'this identity already has a registered instance');
+    const tmp_0 = { instanceAddr: instanceAddr_0,
+                    commitment: commitment_0,
+                    status: 1 };
     __compactRuntime.queryLedgerState(context,
                                       partialProofData,
                                       [
@@ -359,7 +328,7 @@ export class Contract {
                                                          value: { value: _descriptor_10.toValue(0n),
                                                                   alignment: _descriptor_10.alignment() } }] } },
                                        { push: { storage: false,
-                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(instanceAddr_0),
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(owner_0),
                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                        { push: { storage: true,
                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_2.toValue(tmp_0),
@@ -384,8 +353,9 @@ export class Contract {
                                        { ins: { cached: true, n: 1 } }]);
     return [];
   }
-  _updateCommitment_0(context, partialProofData, instanceAddr_0, commitment_0) {
-    const sk_0 = this._localSk_0(context, partialProofData);
+  _updateCommitment_0(context, partialProofData, commitment_0) {
+    const owner_0 = this._getDappPubKey_0(this._localSk_0(context,
+                                                          partialProofData));
     __compactRuntime.assert(_descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
                                                                                       [
@@ -397,12 +367,12 @@ export class Contract {
                                                                                                          value: { value: _descriptor_10.toValue(0n),
                                                                                                                   alignment: _descriptor_10.alignment() } }] } },
                                                                                        { push: { storage: false,
-                                                                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(instanceAddr_0),
+                                                                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(owner_0),
                                                                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                                                                        'member',
                                                                                        { popeq: { cached: true,
                                                                                                   result: undefined } }]).value),
-                            'instance not registered');
+                            'no instance registered for this identity');
     const record_0 = _descriptor_2.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                partialProofData,
                                                                                [
@@ -417,14 +387,11 @@ export class Contract {
                                                                                          pushPath: false,
                                                                                          path: [
                                                                                                 { tag: 'value',
-                                                                                                  value: { value: _descriptor_0.toValue(instanceAddr_0),
+                                                                                                  value: { value: _descriptor_0.toValue(owner_0),
                                                                                                            alignment: _descriptor_0.alignment() } }] } },
                                                                                 { popeq: { cached: false,
                                                                                            result: undefined } }]).value);
-    __compactRuntime.assert(this._equal_1(this._getDappPubKey_0(sk_0),
-                                          record_0.owner),
-                            'only the owner may update commitment');
-    const tmp_0 = { owner: record_0.owner,
+    const tmp_0 = { instanceAddr: record_0.instanceAddr,
                     commitment: commitment_0,
                     status: record_0.status };
     __compactRuntime.queryLedgerState(context,
@@ -437,7 +404,7 @@ export class Contract {
                                                          value: { value: _descriptor_10.toValue(0n),
                                                                   alignment: _descriptor_10.alignment() } }] } },
                                        { push: { storage: false,
-                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(instanceAddr_0),
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(owner_0),
                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                        { push: { storage: true,
                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_2.toValue(tmp_0),
@@ -446,8 +413,9 @@ export class Contract {
                                        { ins: { cached: true, n: 1 } }]);
     return [];
   }
-  _suspend_0(context, partialProofData, instanceAddr_0) {
-    const sk_0 = this._localSk_0(context, partialProofData);
+  _suspend_0(context, partialProofData) {
+    const owner_0 = this._getDappPubKey_0(this._localSk_0(context,
+                                                          partialProofData));
     __compactRuntime.assert(_descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
                                                                                       [
@@ -459,12 +427,12 @@ export class Contract {
                                                                                                          value: { value: _descriptor_10.toValue(0n),
                                                                                                                   alignment: _descriptor_10.alignment() } }] } },
                                                                                        { push: { storage: false,
-                                                                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(instanceAddr_0),
+                                                                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(owner_0),
                                                                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                                                                        'member',
                                                                                        { popeq: { cached: true,
                                                                                                   result: undefined } }]).value),
-                            'instance not registered');
+                            'no instance registered for this identity');
     const record_0 = _descriptor_2.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                partialProofData,
                                                                                [
@@ -479,14 +447,11 @@ export class Contract {
                                                                                          pushPath: false,
                                                                                          path: [
                                                                                                 { tag: 'value',
-                                                                                                  value: { value: _descriptor_0.toValue(instanceAddr_0),
+                                                                                                  value: { value: _descriptor_0.toValue(owner_0),
                                                                                                            alignment: _descriptor_0.alignment() } }] } },
                                                                                 { popeq: { cached: false,
                                                                                            result: undefined } }]).value);
-    __compactRuntime.assert(this._equal_2(this._getDappPubKey_0(sk_0),
-                                          record_0.owner),
-                            'only the owner may suspend');
-    const tmp_0 = { owner: record_0.owner,
+    const tmp_0 = { instanceAddr: record_0.instanceAddr,
                     commitment: record_0.commitment,
                     status: 2 };
     __compactRuntime.queryLedgerState(context,
@@ -499,7 +464,7 @@ export class Contract {
                                                          value: { value: _descriptor_10.toValue(0n),
                                                                   alignment: _descriptor_10.alignment() } }] } },
                                        { push: { storage: false,
-                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(instanceAddr_0),
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(owner_0),
                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                        { push: { storage: true,
                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_2.toValue(tmp_0),
@@ -507,18 +472,6 @@ export class Contract {
                                        { ins: { cached: false, n: 1 } },
                                        { ins: { cached: true, n: 1 } }]);
     return [];
-  }
-  _equal_0(x0, y0) {
-    if (!x0.every((x, i) => y0[i] === x)) { return false; }
-    return true;
-  }
-  _equal_1(x0, y0) {
-    if (!x0.every((x, i) => y0[i] === x)) { return false; }
-    return true;
-  }
-  _equal_2(x0, y0) {
-    if (!x0.every((x, i) => y0[i] === x)) { return false; }
-    return true;
   }
 }
 export function ledger(stateOrChargedState) {
@@ -584,7 +537,7 @@ export function ledger(stateOrChargedState) {
         if (!(key_0.buffer instanceof ArrayBuffer && key_0.BYTES_PER_ELEMENT === 1 && key_0.length === 32)) {
           __compactRuntime.typeError('member',
                                      'argument 1',
-                                     'registry.compact line 26 char 1',
+                                     'registry.compact line 36 char 1',
                                      'Bytes<32>',
                                      key_0)
         }
@@ -613,7 +566,7 @@ export function ledger(stateOrChargedState) {
         if (!(key_0.buffer instanceof ArrayBuffer && key_0.BYTES_PER_ELEMENT === 1 && key_0.length === 32)) {
           __compactRuntime.typeError('lookup',
                                      'argument 1',
-                                     'registry.compact line 26 char 1',
+                                     'registry.compact line 36 char 1',
                                      'Bytes<32>',
                                      key_0)
         }
@@ -673,7 +626,7 @@ export const pureCircuits = {
     if (!(sk_0.buffer instanceof ArrayBuffer && sk_0.BYTES_PER_ELEMENT === 1 && sk_0.length === 32)) {
       __compactRuntime.typeError('getDappPubKey',
                                  'argument 1',
-                                 'registry.compact line 32 char 1',
+                                 'registry.compact line 42 char 1',
                                  'Bytes<32>',
                                  sk_0)
     }

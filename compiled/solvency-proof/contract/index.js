@@ -114,14 +114,14 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('addLender',
                                      'argument 1 (as invoked from Typescript)',
-                                     'solvencyProof.compact line 79 char 1',
+                                     'solvencyProof.compact line 85 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(lender_0.buffer instanceof ArrayBuffer && lender_0.BYTES_PER_ELEMENT === 1 && lender_0.length === 32)) {
           __compactRuntime.typeError('addLender',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'solvencyProof.compact line 79 char 1',
+                                     'solvencyProof.compact line 85 char 1',
                                      'Bytes<32>',
                                      lender_0)
         }
@@ -150,28 +150,28 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('updateFacts',
                                      'argument 1 (as invoked from Typescript)',
-                                     'solvencyProof.compact line 87 char 1',
+                                     'solvencyProof.compact line 93 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(typeof(balance_0) === 'bigint' && balance_0 >= 0n && balance_0 <= 18446744073709551615n)) {
           __compactRuntime.typeError('updateFacts',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'solvencyProof.compact line 87 char 1',
+                                     'solvencyProof.compact line 93 char 1',
                                      'Uint<0..18446744073709551616>',
                                      balance_0)
         }
         if (!(typeof(debts_0) === 'bigint' && debts_0 >= 0n && debts_0 <= 18446744073709551615n)) {
           __compactRuntime.typeError('updateFacts',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'solvencyProof.compact line 87 char 1',
+                                     'solvencyProof.compact line 93 char 1',
                                      'Uint<0..18446744073709551616>',
                                      debts_0)
         }
         if (!(typeof(income_0) === 'bigint' && income_0 >= 0n && income_0 <= 18446744073709551615n)) {
           __compactRuntime.typeError('updateFacts',
                                      'argument 3 (argument 4 as invoked from Typescript)',
-                                     'solvencyProof.compact line 87 char 1',
+                                     'solvencyProof.compact line 93 char 1',
                                      'Uint<0..18446744073709551616>',
                                      income_0)
         }
@@ -205,35 +205,35 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('proveSolvency',
                                      'argument 1 (as invoked from Typescript)',
-                                     'solvencyProof.compact line 100 char 1',
+                                     'solvencyProof.compact line 106 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(lender_0.buffer instanceof ArrayBuffer && lender_0.BYTES_PER_ELEMENT === 1 && lender_0.length === 32)) {
           __compactRuntime.typeError('proveSolvency',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'solvencyProof.compact line 100 char 1',
+                                     'solvencyProof.compact line 106 char 1',
                                      'Bytes<32>',
                                      lender_0)
         }
         if (!(typeof(balance_0) === 'bigint' && balance_0 >= 0n && balance_0 <= 18446744073709551615n)) {
           __compactRuntime.typeError('proveSolvency',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'solvencyProof.compact line 100 char 1',
+                                     'solvencyProof.compact line 106 char 1',
                                      'Uint<0..18446744073709551616>',
                                      balance_0)
         }
         if (!(typeof(debts_0) === 'bigint' && debts_0 >= 0n && debts_0 <= 18446744073709551615n)) {
           __compactRuntime.typeError('proveSolvency',
                                      'argument 3 (argument 4 as invoked from Typescript)',
-                                     'solvencyProof.compact line 100 char 1',
+                                     'solvencyProof.compact line 106 char 1',
                                      'Uint<0..18446744073709551616>',
                                      debts_0)
         }
         if (!(typeof(income_0) === 'bigint' && income_0 >= 0n && income_0 <= 18446744073709551615n)) {
           __compactRuntime.typeError('proveSolvency',
                                      'argument 4 (argument 5 as invoked from Typescript)',
-                                     'solvencyProof.compact line 100 char 1',
+                                     'solvencyProof.compact line 106 char 1',
                                      'Uint<0..18446744073709551616>',
                                      income_0)
         }
@@ -267,28 +267,28 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('requestClaim',
                                      'argument 1 (as invoked from Typescript)',
-                                     'solvencyProof.compact line 121 char 1',
+                                     'solvencyProof.compact line 132 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(lender_0.buffer instanceof ArrayBuffer && lender_0.BYTES_PER_ELEMENT === 1 && lender_0.length === 32)) {
           __compactRuntime.typeError('requestClaim',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'solvencyProof.compact line 121 char 1',
+                                     'solvencyProof.compact line 132 char 1',
                                      'Bytes<32>',
                                      lender_0)
         }
         if (!(typeof(thresholdNetWorth_0) === 'bigint' && thresholdNetWorth_0 >= 0n && thresholdNetWorth_0 <= 18446744073709551615n)) {
           __compactRuntime.typeError('requestClaim',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'solvencyProof.compact line 121 char 1',
+                                     'solvencyProof.compact line 132 char 1',
                                      'Uint<0..18446744073709551616>',
                                      thresholdNetWorth_0)
         }
         if (!(typeof(maxDti_0) === 'bigint' && maxDti_0 >= 0n && maxDti_0 <= 18446744073709551615n)) {
           __compactRuntime.typeError('requestClaim',
                                      'argument 3 (argument 4 as invoked from Typescript)',
-                                     'solvencyProof.compact line 121 char 1',
+                                     'solvencyProof.compact line 132 char 1',
                                      'Uint<0..18446744073709551616>',
                                      maxDti_0)
         }
@@ -319,14 +319,14 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('approve',
                                      'argument 1 (as invoked from Typescript)',
-                                     'solvencyProof.compact line 135 char 1',
+                                     'solvencyProof.compact line 150 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(lender_0.buffer instanceof ArrayBuffer && lender_0.BYTES_PER_ELEMENT === 1 && lender_0.length === 32)) {
           __compactRuntime.typeError('approve',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'solvencyProof.compact line 135 char 1',
+                                     'solvencyProof.compact line 150 char 1',
                                      'Bytes<32>',
                                      lender_0)
         }
@@ -353,14 +353,14 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('reject',
                                      'argument 1 (as invoked from Typescript)',
-                                     'solvencyProof.compact line 149 char 1',
+                                     'solvencyProof.compact line 165 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(lender_0.buffer instanceof ArrayBuffer && lender_0.BYTES_PER_ELEMENT === 1 && lender_0.length === 32)) {
           __compactRuntime.typeError('reject',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'solvencyProof.compact line 149 char 1',
+                                     'solvencyProof.compact line 165 char 1',
                                      'Bytes<32>',
                                      lender_0)
         }
@@ -419,26 +419,27 @@ export class Contract {
     if (!(typeof(initialBalance_0) === 'bigint' && initialBalance_0 >= 0n && initialBalance_0 <= 18446744073709551615n)) {
       __compactRuntime.typeError('Contract state constructor',
                                  'argument 1 (argument 2 as invoked from Typescript)',
-                                 'solvencyProof.compact line 47 char 1',
+                                 'solvencyProof.compact line 53 char 1',
                                  'Uint<0..18446744073709551616>',
                                  initialBalance_0)
     }
     if (!(typeof(initialDebts_0) === 'bigint' && initialDebts_0 >= 0n && initialDebts_0 <= 18446744073709551615n)) {
       __compactRuntime.typeError('Contract state constructor',
                                  'argument 2 (argument 3 as invoked from Typescript)',
-                                 'solvencyProof.compact line 47 char 1',
+                                 'solvencyProof.compact line 53 char 1',
                                  'Uint<0..18446744073709551616>',
                                  initialDebts_0)
     }
     if (!(typeof(initialIncome_0) === 'bigint' && initialIncome_0 >= 0n && initialIncome_0 <= 18446744073709551615n)) {
       __compactRuntime.typeError('Contract state constructor',
                                  'argument 3 (argument 4 as invoked from Typescript)',
-                                 'solvencyProof.compact line 47 char 1',
+                                 'solvencyProof.compact line 53 char 1',
                                  'Uint<0..18446744073709551616>',
                                  initialIncome_0)
     }
     const state_0 = new __compactRuntime.ContractState();
     let stateValue_0 = __compactRuntime.StateValue.newArray();
+    stateValue_0 = stateValue_0.arrayPush(__compactRuntime.StateValue.newNull());
     stateValue_0 = stateValue_0.arrayPush(__compactRuntime.StateValue.newNull());
     stateValue_0 = stateValue_0.arrayPush(__compactRuntime.StateValue.newNull());
     stateValue_0 = stateValue_0.arrayPush(__compactRuntime.StateValue.newNull());
@@ -522,6 +523,17 @@ export class Contract {
                                                           new __compactRuntime.StateMap()
                                                         ).encode() } },
                                        { ins: { cached: false, n: 1 } }]);
+    __compactRuntime.queryLedgerState(context,
+                                      partialProofData,
+                                      [
+                                       { push: { storage: false,
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_12.toValue(6n),
+                                                                                              alignment: _descriptor_12.alignment() }).encode() } },
+                                       { push: { storage: true,
+                                                 value: __compactRuntime.StateValue.newMap(
+                                                          new __compactRuntime.StateMap()
+                                                        ).encode() } },
+                                       { ins: { cached: false, n: 1 } }]);
     const sk_0 = this._localSk_0(context, partialProofData);
     __compactRuntime.assert(initialBalance_0 <= 1125899906842624n,
                             'balance exceeds supported range');
@@ -591,7 +603,7 @@ export class Contract {
     if (!(result_0.buffer instanceof ArrayBuffer && result_0.BYTES_PER_ELEMENT === 1 && result_0.length === 32)) {
       __compactRuntime.typeError('localSk',
                                  'return value',
-                                 'solvencyProof.compact line 45 char 1',
+                                 'solvencyProof.compact line 51 char 1',
                                  'Bytes<32>',
                                  result_0)
     }
@@ -756,7 +768,8 @@ export class Contract {
                                                               income_0)),
                             'facts do not match committed facts');
     __compactRuntime.assert(income_0 > 0n, 'income must be non-zero');
-    const netWorth_0 = balance_0 >= debts_0 ?
+    const solvent_0 = balance_0 >= debts_0;
+    const netWorth_0 = solvent_0 ?
                        (__compactRuntime.assert(balance_0 >= debts_0,
                                                 'result of subtraction would be negative'),
                         balance_0 - debts_0)
@@ -765,7 +778,7 @@ export class Contract {
     let t_0;
     const dtiQualified_0 = (t_0 = debts_0 * 100n,
                             t_0 <= claim_0.maxDti * income_0);
-    const qualified_0 = netWorth_0 >= claim_0.thresholdNetWorth
+    const qualified_0 = solvent_0 && netWorth_0 >= claim_0.thresholdNetWorth
                         &&
                         dtiQualified_0;
     const tmp_0 = qualified_0 ? 1 : 2;
@@ -823,7 +836,7 @@ export class Contract {
                                                                                                  pushPath: false,
                                                                                                  path: [
                                                                                                         { tag: 'value',
-                                                                                                          value: { value: _descriptor_12.toValue(4n),
+                                                                                                          value: { value: _descriptor_12.toValue(6n),
                                                                                                                    alignment: _descriptor_12.alignment() } }] } },
                                                                                         { push: { storage: false,
                                                                                                   value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(lender_0),
@@ -831,7 +844,7 @@ export class Contract {
                                                                                         'member',
                                                                                         { popeq: { cached: true,
                                                                                                    result: undefined } }]).value),
-                            'a claim already exists for this lender');
+                            'a claim is already open for this lender');
     __compactRuntime.assert(maxDti_0 <= 10000n, 'max DTI limit too high');
     const tmp_0 = { thresholdNetWorth: thresholdNetWorth_0,
                     maxDti: maxDti_0,
@@ -851,6 +864,39 @@ export class Contract {
                                        { push: { storage: true,
                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_3.toValue(tmp_0),
                                                                                               alignment: _descriptor_3.alignment() }).encode() } },
+                                       { ins: { cached: false, n: 1 } },
+                                       { ins: { cached: true, n: 1 } }]);
+    __compactRuntime.queryLedgerState(context,
+                                      partialProofData,
+                                      [
+                                       { idx: { cached: false,
+                                                pushPath: true,
+                                                path: [
+                                                       { tag: 'value',
+                                                         value: { value: _descriptor_12.toValue(6n),
+                                                                  alignment: _descriptor_12.alignment() } }] } },
+                                       { push: { storage: false,
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(lender_0),
+                                                                                              alignment: _descriptor_0.alignment() }).encode() } },
+                                       { push: { storage: true,
+                                                 value: __compactRuntime.StateValue.newNull().encode() } },
+                                       { ins: { cached: false, n: 1 } },
+                                       { ins: { cached: true, n: 1 } }]);
+    __compactRuntime.queryLedgerState(context,
+                                      partialProofData,
+                                      [
+                                       { idx: { cached: false,
+                                                pushPath: true,
+                                                path: [
+                                                       { tag: 'value',
+                                                         value: { value: _descriptor_12.toValue(5n),
+                                                                  alignment: _descriptor_12.alignment() } }] } },
+                                       { push: { storage: false,
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(lender_0),
+                                                                                              alignment: _descriptor_0.alignment() }).encode() } },
+                                       { push: { storage: true,
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_5.toValue(0),
+                                                                                              alignment: _descriptor_5.alignment() }).encode() } },
                                        { ins: { cached: false, n: 1 } },
                                        { ins: { cached: true, n: 1 } }]);
     return [];
@@ -933,6 +979,20 @@ export class Contract {
                                                                                               alignment: _descriptor_3.alignment() }).encode() } },
                                        { ins: { cached: false, n: 1 } },
                                        { ins: { cached: true, n: 1 } }]);
+    __compactRuntime.queryLedgerState(context,
+                                      partialProofData,
+                                      [
+                                       { idx: { cached: false,
+                                                pushPath: true,
+                                                path: [
+                                                       { tag: 'value',
+                                                         value: { value: _descriptor_12.toValue(6n),
+                                                                  alignment: _descriptor_12.alignment() } }] } },
+                                       { push: { storage: false,
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(lender_0),
+                                                                                              alignment: _descriptor_0.alignment() }).encode() } },
+                                       { rem: { cached: false } },
+                                       { ins: { cached: true, n: 1 } }]);
     return [];
   }
   _reject_0(context, partialProofData, lender_0) {
@@ -1012,6 +1072,20 @@ export class Contract {
                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_3.toValue(tmp_0),
                                                                                               alignment: _descriptor_3.alignment() }).encode() } },
                                        { ins: { cached: false, n: 1 } },
+                                       { ins: { cached: true, n: 1 } }]);
+    __compactRuntime.queryLedgerState(context,
+                                      partialProofData,
+                                      [
+                                       { idx: { cached: false,
+                                                pushPath: true,
+                                                path: [
+                                                       { tag: 'value',
+                                                         value: { value: _descriptor_12.toValue(6n),
+                                                                  alignment: _descriptor_12.alignment() } }] } },
+                                       { push: { storage: false,
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(lender_0),
+                                                                                              alignment: _descriptor_0.alignment() }).encode() } },
+                                       { rem: { cached: false } },
                                        { ins: { cached: true, n: 1 } }]);
     return [];
   }
@@ -1395,6 +1469,84 @@ export function ledger(stateOrChargedState) {
         const self_0 = state.asArray()[5];
         return self_0.asMap().keys().map(  (key) => {    const value = self_0.asMap().get(key).asCell();    return [      _descriptor_0.fromValue(key.value),      _descriptor_5.fromValue(value.value)    ];  })[Symbol.iterator]();
       }
+    },
+    openClaims: {
+      isEmpty(...args_0) {
+        if (args_0.length !== 0) {
+          throw new __compactRuntime.CompactError(`isEmpty: expected 0 arguments, received ${args_0.length}`);
+        }
+        return _descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                         partialProofData,
+                                                                         [
+                                                                          { dup: { n: 0 } },
+                                                                          { idx: { cached: false,
+                                                                                   pushPath: false,
+                                                                                   path: [
+                                                                                          { tag: 'value',
+                                                                                            value: { value: _descriptor_12.toValue(6n),
+                                                                                                     alignment: _descriptor_12.alignment() } }] } },
+                                                                          'size',
+                                                                          { push: { storage: false,
+                                                                                    value: __compactRuntime.StateValue.newCell({ value: _descriptor_1.toValue(0n),
+                                                                                                                                 alignment: _descriptor_1.alignment() }).encode() } },
+                                                                          'eq',
+                                                                          { popeq: { cached: true,
+                                                                                     result: undefined } }]).value);
+      },
+      size(...args_0) {
+        if (args_0.length !== 0) {
+          throw new __compactRuntime.CompactError(`size: expected 0 arguments, received ${args_0.length}`);
+        }
+        return _descriptor_1.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                         partialProofData,
+                                                                         [
+                                                                          { dup: { n: 0 } },
+                                                                          { idx: { cached: false,
+                                                                                   pushPath: false,
+                                                                                   path: [
+                                                                                          { tag: 'value',
+                                                                                            value: { value: _descriptor_12.toValue(6n),
+                                                                                                     alignment: _descriptor_12.alignment() } }] } },
+                                                                          'size',
+                                                                          { popeq: { cached: true,
+                                                                                     result: undefined } }]).value);
+      },
+      member(...args_0) {
+        if (args_0.length !== 1) {
+          throw new __compactRuntime.CompactError(`member: expected 1 argument, received ${args_0.length}`);
+        }
+        const elem_0 = args_0[0];
+        if (!(elem_0.buffer instanceof ArrayBuffer && elem_0.BYTES_PER_ELEMENT === 1 && elem_0.length === 32)) {
+          __compactRuntime.typeError('member',
+                                     'argument 1',
+                                     'solvencyProof.compact line 48 char 1',
+                                     'Bytes<32>',
+                                     elem_0)
+        }
+        return _descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                         partialProofData,
+                                                                         [
+                                                                          { dup: { n: 0 } },
+                                                                          { idx: { cached: false,
+                                                                                   pushPath: false,
+                                                                                   path: [
+                                                                                          { tag: 'value',
+                                                                                            value: { value: _descriptor_12.toValue(6n),
+                                                                                                     alignment: _descriptor_12.alignment() } }] } },
+                                                                          { push: { storage: false,
+                                                                                    value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(elem_0),
+                                                                                                                                 alignment: _descriptor_0.alignment() }).encode() } },
+                                                                          'member',
+                                                                          { popeq: { cached: true,
+                                                                                     result: undefined } }]).value);
+      },
+      [Symbol.iterator](...args_0) {
+        if (args_0.length !== 0) {
+          throw new __compactRuntime.CompactError(`iter: expected 0 arguments, received ${args_0.length}`);
+        }
+        const self_0 = state.asArray()[6];
+        return self_0.asMap().keys().map((elem) => _descriptor_0.fromValue(elem.value))[Symbol.iterator]();
+      }
     }
   };
 }
@@ -1411,7 +1563,7 @@ export const pureCircuits = {
     if (!(sk_0.buffer instanceof ArrayBuffer && sk_0.BYTES_PER_ELEMENT === 1 && sk_0.length === 32)) {
       __compactRuntime.typeError('getDappPubKey',
                                  'argument 1',
-                                 'solvencyProof.compact line 63 char 1',
+                                 'solvencyProof.compact line 69 char 1',
                                  'Bytes<32>',
                                  sk_0)
     }
