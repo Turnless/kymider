@@ -13,6 +13,10 @@ const root = (p: string) => fileURLToPath(new URL(p, import.meta.url))
 // through vite-plugin-wasm. That plugin emits top-level await, so every build
 // target here has to be one that supports it.
 export default defineConfig({
+  // GitHub Pages serves a project site from /<repo>/, so the base path has to
+  // be baked in at build time. CI sets it; local dev and any root-served host
+  // keep "/". The router reads the same value through import.meta.env.BASE_URL.
+  base: process.env.PAGES_BASE ?? '/',
   plugins: [wasm(), react(), tailwindcss()],
   resolve: {
     alias: {

@@ -16,7 +16,8 @@ export default function App() {
 
   return (
     <KymiderContext.Provider value={client}>
-      <BrowserRouter>
+      {/* Served from /<repo>/ on GitHub Pages, from / everywhere else. */}
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/app/*" element={<ConsoleRoutes />} />

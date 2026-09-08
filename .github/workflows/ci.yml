@@ -182,6 +182,61 @@ jobs:
       - run: npm run build
         working-directory: frontend
 
+  # Publish the console so it can be opened rather than installed. It is a
+  # static bundle that runs the contracts client-side, so there is nothing to
+  # host but files.
+  pages:
+    name: Publish the console
+    needs: contracts
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: compiled-contracts
+          path: compiled
+
+      - run: npm ci
+        working-directory: frontend
+
+      - run: npm run build
+        working-directory: frontend
+        env:
+          # A project site lives under /<repo>/, not at the domain root.
+          PAGES_BASE: /${{ github.event.repository.name }}/
+
+      # Pages has no rewrite rules, so a deep link like /app/facts would 404
+      # before the app ever loads. Serving index.html as the 404 page hands the
+      # URL to the router instead.
+      - run: cp frontend/dist/index.html frontend/dist/404.html
+
+      # enablement turns Pages on for the repository the first time, so this
+      # does not need a manual trip through repository settings.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
   simulation:
     name: Devnet simulation
     needs: contracts
