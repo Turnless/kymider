@@ -5,6 +5,19 @@ node_modules/
 compiled/*
 !compiled/.gitkeep
 
+# ...except the compiled contract modules (176 KB total). They are generated,
+# but the generator is a Linux-only binary, so without them a fresh clone
+# cannot build the web console or run the offline contract tests at all. The
+# 25 MB of ZK prover/verifier keys stay out — nothing but the devnet needs
+# them, and CI recompiles everything from source on each push, which is what
+# catches these ever drifting from the .compact sources.
+!compiled/registry/
+!compiled/solvency-proof/
+compiled/registry/*
+compiled/solvency-proof/*
+!compiled/registry/contract/
+!compiled/solvency-proof/contract/
+
 # Runtime/deployment state
 .midnight-state.json
 .wallet-seed
@@ -26,3 +39,6 @@ build/
 Thumbs.db
 # Dapp secret keys (owner identity for SolvencyProof instances)
 .wallet-seed*
+
+# Seeded design-canvas page (2.5 MB; regenerate from design/*.dc.html)
+design/kymider-underwriting-console.html
