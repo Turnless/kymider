@@ -418,7 +418,9 @@ type SolvencyCircuitArgs =
   | [lender: Uint8Array, thresholdNetWorth: bigint, maxDti: bigint]
   | [lender: Uint8Array, balance: bigint, debts: bigint, income: bigint];
 
+// Rows are keyed on the caller, so none of these name a record to act on:
+// suspend takes nothing, updateCommitment takes only the new commitment.
 type RegistryCircuitArgs =
-  | [instanceAddr: Uint8Array]
-  | [instanceAddr: Uint8Array, commitment: Uint8Array]
-  | [instanceAddr: Uint8Array, owner: Uint8Array, commitment: Uint8Array];
+  | []
+  | [commitment: Uint8Array]
+  | [instanceAddr: Uint8Array, commitment: Uint8Array];

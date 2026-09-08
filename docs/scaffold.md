@@ -32,20 +32,25 @@ See `docs/architecture-wave1.md` for the full design. Key mechanics:
 - `proveSolvency` recomputes the commitment **inside the circuit** from the
   submitted facts, so facts that do not match the committed ones produce an
   invalid proof and are rejected by the network.
-- The verdict logic (`netWorth >= threshold && debts*100 <= maxDti*income`) is also
+- The verdict logic (`solvent && netWorth >= threshold && debts*100 <= maxDti*income`) is also
   computed inside the circuit and recorded as `PASS`/`FAIL`. Compact has no
   division operator, so the DTI criterion uses the exact cross-multiplied form
   (identical to `dti <= maxDti`, with no truncation — conservative for
   underwriting); range guards in the contract keep the `* 100` products inside
   `Uint<64>`.
+- A claim's life is per round, not per pair: `openClaims` holds the lenders
+  with an undecided claim, `requestClaim` refuses only while one is open, and
+  approve/reject close it. Asking again resets that lender's attestation to
+  `NONE`, so a new question never inherits the previous round's answer.
 - Caller authorization is explicit: the borrower is the `owner` (from `sk`);
   a lender must be in `authorizedLenders` and be the `caller` to act.
 - Identity: `getDappPubKey(sk) = persistentHash([pad(32,"kymider:pk:"), sk])`
   uses the **same salt** in both contracts, so one key gives one identity
   across SolvencyProof and Registry.
-- The Registry cannot prove a contract instance is genuinely owned by the
-  person who registers it (cross-contract ownership is not verifiable on
-  Midnight). This is a documented Wave-1 simplification — see "Constraints".
+- Registry rows are keyed on the **caller's** dapp pubkey, so a caller can only
+  ever write to their own row. Midnight still cannot prove who deployed the
+  instance a row points at, so a lender checks that a row sits under the
+  instance's own `owner` before trusting it — see "Constraints".
 
 ## Prerequisites
 
@@ -362,25 +367,16 @@ docs/
   **superseded** in the directory, on the borrower's claims, and on the
   lender's verdict panel; the borrower is prompted to prove again. Carrying the
   commitment into the attestation record on-chain is the durable fix.
-- **Registry does not verify instance ownership.** The Registry cannot check
-  who deployed the instance at `instanceAddr` (Midnight has no cross-contract
-  reads), and `register` rejects an address that is already indexed. A stranger
-  who registers someone else's instance address first, under their own pubkey,
-  therefore locks the real owner out of the index permanently — `register`,
-  `updateCommitment` and `suspend` are all closed to them after that. The
-  squatted record is *detectable* (its commitment will not match the
-  instance's real on-chain commitment) but not repairable. Pinned by a test in
-  `tests/unit/registry.contract.test.ts`. Fixing it properly means keying the
-  map on the caller's dapp pubkey instead of the instance address, which is a
-  contract change (and so a recompile).
-- **One claim per lender, forever.** `requestClaim` asserts the lender has no
-  claim at all, so once a claim is approved or rejected that lender can never
-  be underwritten again — no re-request, no proof refresh after `updateFacts`.
-  Wave 2's time-boxed proofs (FR-2.4) need this changed. Pinned by a test in
-  `tests/unit/solvencyProof.contract.test.ts`.
-- **Net worth floors at zero.** An insolvent borrower (debts > balance) gets
-  `netWorth = 0` rather than a negative value, so a claim with a zero net-worth
-  threshold passes on that leg. Also pinned by a test.
+- **Registry still cannot verify instance ownership** — Midnight has no
+  cross-contract reads, so nothing stops a caller pointing their row at an
+  instance they did not deploy. What that claim can no longer do is displace
+  anyone: rows are keyed on the **caller's dapp pubkey**, so a caller can only
+  ever write to their own row, and the real owner registers, updates and
+  suspends theirs regardless. A lender tells a genuine row from a claimed one
+  by the key, not the contents: the row must sit under the instance's own
+  `owner`. `verifyOffChain` and the console's directory both make that check.
+  (This replaced the squatting bug, where the map was keyed on the instance
+  address and whoever registered it first locked everyone else out.)
 - **Data honesty is out of scope for ZK.** Proofs prove computation, not
   truthfulness; demo data is self-reported. Attested data provenance lands in
   Wave 3.
