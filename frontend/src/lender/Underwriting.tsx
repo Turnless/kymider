@@ -19,6 +19,7 @@ export function Underwriting() {
   const [threshold, setThreshold] = useState('500,000');
   const [maxDti, setMaxDti] = useState('40');
   const [busy, setBusy] = useState<'request' | 'decide' | null>(null);
+  const [reopening, setReopening] = useState(false);
 
   const detail = client.instance(address);
   if (!detail) {
@@ -38,12 +39,19 @@ export function Underwriting() {
   const mine = detail.requests.find((r) => r.lender.id === me.id)!;
   const others = detail.requests.filter((r) => r.lender.id !== me.id && r.verdict !== 'NONE');
 
-  const step = mine.claimState === 'NONE' ? 1 : mine.verdict === 'NONE' ? 2 : 3;
   const decided = mine.claimState === 'APPROVED' || mine.claimState === 'REJECTED';
+  // A decided claim no longer ends the relationship: the contract closes it and
+  // the same pair can underwrite again on new terms. `reopening` is that second
+  // pass, kept local because nothing on-chain distinguishes "done" from
+  // "about to ask again".
+  const reopened = decided && reopening;
+  const canRequest = mine.claimState === 'NONE' || reopened;
+  const step = canRequest ? 1 : mine.verdict === 'NONE' ? 2 : 3;
 
   const request = async () => {
     setBusy('request');
     try {
+      setReopening(false);
       await client.requestClaim(address, {
         thresholdNetWorth: toBigInt(threshold),
         maxDti: toBigInt(maxDti),
@@ -150,7 +158,7 @@ export function Underwriting() {
                 />
               ))}
               <span className="ml-2 text-[11px] text-[rgba(255,247,235,0.5)]">
-                {decided ? 'Complete' : `Step ${step} of 3`}
+                {decided && !reopened ? 'Complete' : `Step ${step} of 3`}
               </span>
             </div>
           </div>
@@ -253,7 +261,7 @@ export function Underwriting() {
           )}
 
           <div className="mt-auto pt-6">
-            {decided ? (
+            {decided && !reopened ? (
               <div
                 className="rounded-[13px] px-4 py-4"
                 style={{
@@ -272,6 +280,17 @@ export function Underwriting() {
                 <p className="mt-1 text-[11px] text-[rgba(255,247,235,0.5)]">
                   Recorded on the borrower instance.
                 </p>
+                {/* A decision used to be the end of this pair, permanently.
+                    The claim is closed rather than sealed now, so the same
+                    lender can come back on different terms. */}
+                <button
+                  type="button"
+                  className="btn mt-3 px-4 py-[7px] text-[12px]"
+                  style={{ background: 'rgba(255,247,235,0.12)', color: 'var(--color-cream)' }}
+                  onClick={() => setReopening(true)}
+                >
+                  Underwrite again
+                </button>
               </div>
             ) : (
               step === 3 && (
