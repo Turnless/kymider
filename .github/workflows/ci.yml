@@ -226,11 +226,11 @@ jobs:
       # URL to the router instead.
       - run: cp frontend/dist/index.html frontend/dist/404.html
 
-      # enablement turns Pages on for the repository the first time, so this
-      # does not need a manual trip through repository settings.
+      # One-time manual step: Settings -> Pages -> Source: "GitHub Actions".
+      # `enablement: true` cannot substitute for it — the default Actions token
+      # is not allowed to CREATE a Pages site ("Resource not accessible by
+      # integration"), only to deploy to one that already exists.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
