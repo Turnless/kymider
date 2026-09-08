@@ -12,7 +12,10 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    # Every branch, not just main: the compiler is Linux-only, so CI is the only
+    # place contract work can be checked at all, and dispatching runs by hand
+    # for each attempt is slower than the runners are.
+    branches: ['**']
   pull_request:
   workflow_dispatch:
 
