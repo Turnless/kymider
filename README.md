@@ -4,6 +4,13 @@
 
 [![CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml/badge.svg)](https://github.com/Turnless/kymider/actions/workflows/ci.yml)
 
+### ▶ [Open the live console](https://turnless.github.io/kymider/)
+
+It runs the **real compiled contracts in your browser** — nothing to install,
+no wallet, no node. Commit a statement as a borrower, then switch to the lender
+side and underwrite someone: the verdict comes back from the contract, and
+every figure behind it reads *not disclosed*.
+
 Borrowers prove creditworthiness — solvency, liquidity, payment history, debt ratios — to lenders using **zero-knowledge proofs**, without ever revealing balances, transaction history, or identity.
 
 ## What Kymider does
@@ -110,6 +117,11 @@ kymider/
 See `docs/architecture-wave1.md`, `docs/architecture-wave2.md`, `docs/architecture-wave3.md` for full detail.
 
 ## See it run
+
+**Hosted:** <https://turnless.github.io/kymider/> — published from `main` by CI
+on every push.
+
+Or locally:
 
 ```sh
 git clone https://github.com/Turnless/kymider && cd kymider/frontend
