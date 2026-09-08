@@ -1,243 +1,354 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import 'tailwindcss';
 
+/* Design tokens lifted from the canvas (design/*.dc.html). The console is
+   cream on an espresso rail; the landing is the same two colours with their
+   roles swapped, so the site and the app read as one product. */
 @theme {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --color-espresso: #1b1410;
+  --color-cream: #fff7eb;
+  --color-sand: #f9f0e0;
+  --color-accent: #d46d25;
+  --color-accent-bright: #e8873f;
+  --color-ink: #0f172a;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* Everything below is layered on purpose. Unlayered CSS outranks every
+   layered rule, so a bare `.btn { padding }` would silently beat `px-7` on the
+   same element — and no reset belongs here at all, since preflight already
+   zeroes margin, padding and box-sizing. */
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-height: 100vh;
+    background: var(--color-cream);
+    color: var(--color-ink);
+  }
+
+  a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-accent-bright);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.16);
+    border-radius: 4px;
+  }
 }
 
-html {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer components {
+  /* Every figure on screen is a number a reader compares against another
+     number, so they all get tabular numerals. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  .mono {
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 11px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .badge-pass {
+    background: rgba(22, 163, 74, 0.1);
+    color: #16a34a;
+    border: 1px solid rgba(22, 163, 74, 0.2);
+  }
+  .badge-fail {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(220, 38, 38, 0.2);
+  }
+  .badge-pending {
+    background: rgba(217, 119, 6, 0.1);
+    color: #d97706;
+    border: 1px solid rgba(217, 119, 6, 0.2);
+  }
+  .badge-neutral {
+    background: rgba(15, 23, 42, 0.06);
+    color: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+  }
+
+  /* On espresso surfaces the same states need lighter ink to stay legible. */
+  .badge-pass-dark {
+    background: rgba(94, 201, 138, 0.16);
+    color: #7bd9a5;
+    border: 1px solid rgba(94, 201, 138, 0.3);
+  }
+  .badge-fail-dark {
+    background: rgba(232, 112, 95, 0.16);
+    color: #f09484;
+    border: 1px solid rgba(232, 112, 95, 0.3);
+  }
+
+  /* ── Controls ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 20px;
+    border-radius: 13px;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      background 0.18s ease,
+      box-shadow 0.18s ease,
+      opacity 0.18s ease;
+  }
+  .btn:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  .btn-accent {
+    background: var(--color-accent);
+    color: #1b1410;
+  }
+  .btn-accent:not(:disabled):hover {
+    background: var(--color-accent-bright);
+  }
+
+  .btn-ink {
+    background: var(--color-espresso);
+    color: var(--color-cream);
+  }
+  .btn-ink:not(:disabled):hover {
+    background: #2b201a;
+  }
+
+  .btn-quiet {
+    background: transparent;
+    color: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(15, 23, 42, 0.14);
+  }
+  .btn-quiet:not(:disabled):hover {
+    background: rgba(15, 23, 42, 0.04);
+  }
+
+  .input {
+    width: 100%;
+    padding: 11px 13px;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 11px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+    transition:
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(212, 109, 37, 0.12);
+  }
+
+  .card {
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 18px;
+  }
+
+  .card-dark {
+    background: var(--color-espresso);
+    border: 1px solid rgba(255, 247, 235, 0.08);
+    border-radius: 18px;
+    color: var(--color-cream);
+  }
+
+  .label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: rgba(15, 23, 42, 0.45);
+  }
+  .label-dark {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: rgba(255, 247, 235, 0.45);
+  }
 }
 
-body {
-  min-height: 100vh;
+@keyframes k-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
-
-/* ── Glassmorphism on light ── */
-.glass {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.04);
+@keyframes k-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.glass-strong {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+/* ── Scroll choreography ──────────────────────────────────────────────────
+   The hero pins and the page slides up over it; a progress bar tracks the
+   read, the bloom drifts slower than the content, and each section rises as
+   it enters. All of it is scroll-driven CSS — no listeners, no observers, and
+   nothing that runs off the main thread's mercy.
+
+   Every rule is progressive enhancement: without `animation-timeline` support
+   (or with reduced motion asked for) each element simply renders in its final
+   state, which is why the reveal keyframes animate *to* the resting style. */
+
+@keyframes k-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
-.glass-dark {
-  background: rgba(0, 0, 0, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+@keyframes k-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* ── Ambient background orbs ── */
-.ambient-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  pointer-events: none;
-  opacity: 0.5;
+/* The hero is pinned, so it is dismissed rather than scrolled: it recedes and
+   fades over the first viewport as the body climbs over it. */
+@keyframes k-hero-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.965);
+  }
 }
 
-/* ── Animations ── */
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes k-parallax {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 24vh, 0);
+  }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
+@layer utilities {
+  .rise {
+    animation: k-rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .spin {
+    animation: k-spin 0.8s linear infinite;
+  }
+
+  /* The hero sits behind and stays put; the body is opaque and rides over it. */
+  .k-pin {
+    position: sticky;
+    top: 0;
+    z-index: 0;
+  }
+  .k-over {
+    position: relative;
+    z-index: 1;
+    background: var(--color-espresso);
+  }
+
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .k-progress {
+        transform-origin: 0 50%;
+        animation: k-progress linear both;
+        animation-timeline: scroll(root block);
+      }
+
+      .k-hero-out {
+        animation: k-hero-out linear both;
+        animation-timeline: scroll(root block);
+        animation-range: 0 90vh;
+      }
+
+      .k-parallax {
+        animation: k-parallax linear both;
+        animation-timeline: scroll(root block);
+        animation-range: 0 240vh;
+      }
+
+      .k-reveal {
+        animation: k-reveal linear both;
+        animation-timeline: view();
+        animation-range: entry 8% cover 28%;
+      }
+
+      /* Children of a revealed block arrive just behind it, so a section reads
+         as one gesture rather than four separate ones. */
+      .k-reveal-stagger > * {
+        animation: k-reveal linear both;
+        animation-timeline: view();
+      }
+      .k-reveal-stagger > *:nth-child(1) {
+        animation-range: entry 8% cover 26%;
+      }
+      .k-reveal-stagger > *:nth-child(2) {
+        animation-range: entry 12% cover 30%;
+      }
+      .k-reveal-stagger > *:nth-child(3) {
+        animation-range: entry 16% cover 34%;
+      }
+      .k-reveal-stagger > *:nth-child(4) {
+        animation-range: entry 20% cover 38%;
+      }
+    }
+  }
 }
 
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.animate-fade-in-up {
-  animation: fade-in-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-/* ── Stagger children ── */
-.stagger > * {
-  opacity: 0;
-  animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-.stagger > *:nth-child(1) { animation-delay: 0.06s; }
-.stagger > *:nth-child(2) { animation-delay: 0.12s; }
-.stagger > *:nth-child(3) { animation-delay: 0.18s; }
-.stagger > *:nth-child(4) { animation-delay: 0.24s; }
-.stagger > *:nth-child(5) { animation-delay: 0.30s; }
-.stagger > *:nth-child(6) { animation-delay: 0.36s; }
-
-/* ── Typography ── */
-.heading-xl {
-  font-size: clamp(2.5rem, 5vw, 4.5rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-}
-
-.heading-lg {
-  font-size: clamp(1.75rem, 3vw, 2.5rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-
-/* ── Buttons ── */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 28px;
-  background: #000000;
-  color: #F8FAFC;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 14px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  text-decoration: none;
-}
-
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-}
-
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 28px;
-  background: #D46D25;
-  color: #F8FAFC;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 14px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  text-decoration: none;
-}
-
-.btn-secondary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(212, 109, 37, 0.3);
-}
-
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 28px;
-  background: transparent;
-  color: #0F172A;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 14px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  text-decoration: none;
-}
-
-.btn-ghost:hover {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(15, 23, 42, 0.2);
-}
-
-/* ── Inputs ── */
-.input-field {
-  width: 100%;
-  padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #0F172A;
-  transition: all 0.25s ease;
-}
-
-.input-field:focus {
-  outline: none;
-  border-color: #D46D25;
-  box-shadow: 0 0 0 3px rgba(212, 109, 37, 0.1);
-}
-
-.input-field::placeholder {
-  color: rgba(15, 23, 42, 0.3);
-}
-
-/* ── Status badges ── */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-
-.badge-pass {
-  background: rgba(22, 163, 74, 0.1);
-  color: #16a34a;
-  border: 1px solid rgba(22, 163, 74, 0.2);
-}
-
-.badge-fail {
-  background: rgba(220, 38, 38, 0.1);
-  color: #dc2626;
-  border: 1px solid rgba(220, 38, 38, 0.2);
-}
-
-.badge-pending {
-  background: rgba(217, 119, 6, 0.1);
-  color: #d97706;
-  border: 1px solid rgba(217, 119, 6, 0.2);
-}
-
-/* ── Card hover ── */
-.card-hover {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .spin {
+    animation: none;
+  }
 }
