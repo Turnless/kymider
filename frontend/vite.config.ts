@@ -40,7 +40,21 @@ export default defineConfig({
     port: 3000,
     fs: { allow: [root('.'), root('..')] },
   },
-  build: { target: 'esnext' },
+  build: {
+    target: 'esnext',
+    // CSS minification is off on purpose. Vite's minifier (Lightning CSS)
+    // merges animation longhands into the `animation` shorthand, and
+    // `animation-timeline` is not a legal component of that shorthand, so
+    //   animation: k-lap linear both; animation-timeline: --k-track;
+    // became `animation: linear both k-lap --k-track` — which the browser
+    // rejects wholesale. Every scroll-driven animation on the landing page was
+    // silently dead in production while dev (unminified) looked perfect.
+    // Splitting the declarations across two rules does not help: it merges
+    // rules with identical selectors too. esbuild would not do this, but Vite 8
+    // runs on rolldown and ships no esbuild to switch to. The CSS is ~7 kB
+    // gzipped either way, so correctness is worth more than the bytes here.
+    cssMinify: false,
+  },
   optimizeDeps: {
     // Only the wasm-bindgen package must stay unbundled — the dependency
     // optimizer cannot follow its bare .wasm import. compact-runtime itself
