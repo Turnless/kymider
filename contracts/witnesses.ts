@@ -7,7 +7,7 @@
 //
 // Pattern adapted from midnightntwrk/example-battleship (Apache-2.0).
 
-import type { WitnessContext } from '@midnight-ntwrk/midnight-js-protocol/compact-runtime';
+import type { WitnessContext } from '@midnight-ntwrk/compact-runtime';
 import type { Ledger as SolvencyLedger } from '../compiled/solvency-proof/contract/index.js';
 import type { Ledger as RegistryLedger } from '../compiled/registry/contract/index.js';
 
