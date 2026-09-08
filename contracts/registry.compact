@@ -8,22 +8,32 @@ import CompactStandardLibrary;
 // per-borrower SolvencyProof instances are separate programs; they reference
 // each other by contract address.
 //
-// Authorization: `register`/`updateCommitment`/`suspend` assert the caller's
-// dapp pubkey matches the owner recorded for the instance. The Registry cannot
-// cryptographically prove the caller deployed the SolvencyProof instance at
-// `instanceAddr` (no cross-contract calls on Midnight) — the address<->owner
-// binding is asserted by the caller's signature on the register transaction.
-// This is the documented Wave-1 simplification.
+// Authorization: the map is keyed on the CALLER's dapp pubkey, so a caller can
+// only ever write to their own row. That is the whole authorization model —
+// there is nothing to assert, because there is no way to address someone else's
+// record.
+//
+// Keying on the instance address instead (as this did originally) is what
+// allowed squatting: `register` rejects an address that is already indexed, so
+// a stranger who registered someone else's instance address first, under their
+// own pubkey, locked the real owner out of the index permanently.
+//
+// What this still cannot do is prove the caller deployed the instance at
+// `instanceAddr` — Midnight has no cross-contract reads. A squatter can point
+// their own row at someone else's instance. That claim is now harmless for
+// discovery (it cannot displace the real owner's row) but a lender must still
+// check that the instance's own `owner` matches the row's key before relying on
+// it. That check is the lender's, and the console does it.
 
 export enum BorrowStatus { UNREGISTERED, ACTIVE, SUSPENDED }
 
 export struct BorrowerRecord {
-  owner: Bytes<32>;
+  instanceAddr: Bytes<32>;
   commitment: Bytes<32>;
   status: BorrowStatus;
 }
 
-export ledger borrowers: Map<Bytes<32>, BorrowerRecord>; // instanceAddr -> record
+export ledger borrowers: Map<Bytes<32>, BorrowerRecord>; // ownerPubKey -> record
 export ledger borrowerCount: Counter;
 
 witness localSk(): Bytes<32>;
@@ -35,35 +45,44 @@ export pure circuit getDappPubKey(sk: Bytes<32>): Bytes<32> {
 
 constructor() {}
 
-export circuit register(instanceAddr: Bytes<32>, owner: Bytes<32>, commitment: Bytes<32>): [] {
-  const sk = localSk();
-  assert(getDappPubKey(sk) == owner, "only the borrower may register their own instance");
-  assert(!borrowers.member(disclose(instanceAddr)), "instance already registered");
+export circuit register(instanceAddr: Bytes<32>, commitment: Bytes<32>): [] {
+  const owner = getDappPubKey(localSk());
+  assert(!borrowers.member(disclose(owner)), "this identity already has a registered instance");
   borrowers.insert(
-    disclose(instanceAddr),
-    BorrowerRecord { owner: disclose(owner), commitment: disclose(commitment), status: BorrowStatus.ACTIVE },
+    disclose(owner),
+    BorrowerRecord {
+      instanceAddr: disclose(instanceAddr),
+      commitment: disclose(commitment),
+      status: BorrowStatus.ACTIVE,
+    },
   );
   borrowerCount.increment(1);
 }
 
-export circuit updateCommitment(instanceAddr: Bytes<32>, commitment: Bytes<32>): [] {
-  const sk = localSk();
-  assert(borrowers.member(disclose(instanceAddr)), "instance not registered");
-  const record = borrowers.lookup(disclose(instanceAddr));
-  assert(getDappPubKey(sk) == record.owner, "only the owner may update commitment");
+export circuit updateCommitment(commitment: Bytes<32>): [] {
+  const owner = getDappPubKey(localSk());
+  assert(borrowers.member(disclose(owner)), "no instance registered for this identity");
+  const record = borrowers.lookup(disclose(owner));
   borrowers.insert(
-    disclose(instanceAddr),
-    BorrowerRecord { owner: record.owner, commitment: disclose(commitment), status: record.status },
+    disclose(owner),
+    BorrowerRecord {
+      instanceAddr: record.instanceAddr,
+      commitment: disclose(commitment),
+      status: record.status,
+    },
   );
 }
 
-export circuit suspend(instanceAddr: Bytes<32>): [] {
-  const sk = localSk();
-  assert(borrowers.member(disclose(instanceAddr)), "instance not registered");
-  const record = borrowers.lookup(disclose(instanceAddr));
-  assert(getDappPubKey(sk) == record.owner, "only the owner may suspend");
+export circuit suspend(): [] {
+  const owner = getDappPubKey(localSk());
+  assert(borrowers.member(disclose(owner)), "no instance registered for this identity");
+  const record = borrowers.lookup(disclose(owner));
   borrowers.insert(
-    disclose(instanceAddr),
-    BorrowerRecord { owner: record.owner, commitment: record.commitment, status: BorrowStatus.SUSPENDED },
+    disclose(owner),
+    BorrowerRecord {
+      instanceAddr: record.instanceAddr,
+      commitment: record.commitment,
+      status: BorrowStatus.SUSPENDED,
+    },
   );
 }

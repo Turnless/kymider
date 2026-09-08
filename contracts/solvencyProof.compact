@@ -40,6 +40,12 @@ export ledger verifierKey: Bytes<32>;        // circuit-set identifier for off-c
 export ledger authorizedLenders: Set<Bytes<32>>;
 export ledger claims: Map<Bytes<32>, Claim>; // lender pubkey -> requested claim
 export ledger attestations: Map<Bytes<32>, AttestationStatus>; // lender -> computed verdict
+// Lenders with an undecided claim. `claims` keeps every claim ever made, so it
+// cannot answer "may this lender ask again?" without a conditional lookup; this
+// set answers it with a plain membership test. A lender is added on request and
+// removed on approve/reject, which is what lets the same pair re-underwrite
+// instead of being dead to each other after one decision.
+export ledger openClaims: Set<Bytes<32>>;
 
 // --- private witness ------------------------------------------------------
 witness localSk(): Bytes<32>;
@@ -105,13 +111,18 @@ export circuit proveSolvency(lender: Bytes<32>, balance: Uint<64>, debts: Uint<6
   assert(claim.status == ClaimStatus.PENDING, "claim already decided");
   assert(commitment == commitFacts(balance, debts, income), "facts do not match committed facts");
   assert(income > 0, "income must be non-zero");
-  const netWorth = balance >= debts ? balance - debts : 0;
+  // Net worth still floors at zero because Uint<64> cannot go negative, but the
+  // floor must not read as "qualified". Without `solvent`, a borrower whose
+  // debts exceed their balance passes any claim with a zero threshold, since
+  // 0 >= 0 holds — which is exactly the borrower such a claim should catch.
+  const solvent = balance >= debts;
+  const netWorth = solvent ? balance - debts : 0;
   // Compact has no division operator. The DTI criterion `debts*100/income <=
   // maxDti` is exactly equivalent to `debts*100 <= maxDti*income`, which is
   // evaluated with no truncation (conservative for underwriting). Range guards
   // in the constructor/updateFacts keep both products inside Uint<64>.
   const dtiQualified = debts * 100 <= claim.maxDti * income;
-  const qualified = netWorth >= claim.thresholdNetWorth && dtiQualified;
+  const qualified = solvent && netWorth >= claim.thresholdNetWorth && dtiQualified;
 
   attestations.insert(disclose(lender), disclose(qualified ? AttestationStatus.PASS : AttestationStatus.FAIL));
 }
@@ -123,13 +134,17 @@ export circuit requestClaim(lender: Bytes<32>, thresholdNetWorth: Uint<64>, maxD
   const caller = getDappPubKey(sk);
   assert(caller == lender, "only the lender may request their own claim");
   assert(authorizedLenders.member(disclose(lender)), "lender is not authorized by the borrower");
-  assert(!claims.member(disclose(lender)), "a claim already exists for this lender");
+  assert(!openClaims.member(disclose(lender)), "a claim is already open for this lender");
   assert(maxDti <= 10000, "max DTI limit too high");
 
   claims.insert(
     disclose(lender),
     Claim { thresholdNetWorth: disclose(thresholdNetWorth), maxDti: disclose(maxDti), status: ClaimStatus.PENDING },
   );
+  openClaims.insert(disclose(lender));
+  // A fresh question deserves a fresh answer: clear any verdict from the
+  // previous round so the new claim does not inherit it.
+  attestations.insert(disclose(lender), AttestationStatus.NONE);
 }
 
 export circuit approve(lender: Bytes<32>): [] {
@@ -144,6 +159,7 @@ export circuit approve(lender: Bytes<32>): [] {
     disclose(lender),
     Claim { thresholdNetWorth: claim.thresholdNetWorth, maxDti: claim.maxDti, status: ClaimStatus.APPROVED },
   );
+  openClaims.remove(disclose(lender));
 }
 
 export circuit reject(lender: Bytes<32>): [] {
@@ -158,4 +174,5 @@ export circuit reject(lender: Bytes<32>): [] {
     disclose(lender),
     Claim { thresholdNetWorth: claim.thresholdNetWorth, maxDti: claim.maxDti, status: ClaimStatus.REJECTED },
   );
+  openClaims.remove(disclose(lender));
 }
