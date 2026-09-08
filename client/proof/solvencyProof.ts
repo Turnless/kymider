@@ -7,9 +7,11 @@
 // boundary thresholds, zero income, net worth flooring).
 //
 // Keep this file in lock-step with the Compact code:
-//   - netWorth = balance >= debts ? balance - debts : 0
+//   - solvent  = balance >= debts   (the zero floor must not read as qualified)
+//   - netWorth = solvent ? balance - debts : 0
 //   - DTI criterion (exact, no division — Compact has no `/` operator):
-//     PASS iff netWorth >= thresholdNetWorth && debts * 100 <= maxDti * income
+//     PASS iff solvent && netWorth >= thresholdNetWorth
+//              && debts * 100 <= maxDti * income
 //
 // The circuit enforces the same semantics over Uint<64>, with range guards in
 // the contract (constructor/updateFacts bound facts to 2^50; requestClaim
@@ -47,7 +49,11 @@ export function computeSolvency(facts: FinancialFacts, claim: ClaimParams): Solv
   if (facts.income <= 0n) {
     return 'FAIL';
   }
+  // Net worth floors at zero because Uint<64> cannot go negative, but the floor
+  // must not read as qualified: without this, a borrower whose debts exceed
+  // their balance clears any claim with a zero threshold, since 0 >= 0 holds.
+  const solvent = facts.balance >= facts.debts;
   const netWorth = computeNetWorth(facts);
   const dtiQualified = facts.debts * 100n <= claim.maxDti * facts.income;
-  return netWorth >= claim.thresholdNetWorth && dtiQualified ? 'PASS' : 'FAIL';
+  return solvent && netWorth >= claim.thresholdNetWorth && dtiQualified ? 'PASS' : 'FAIL';
 }

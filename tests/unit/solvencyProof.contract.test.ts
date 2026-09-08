@@ -102,11 +102,11 @@ describe('SolvencyProof — authorization', () => {
     ).toThrow(/max DTI limit too high/);
   });
 
-  it('refuses a second claim from the same lender', () => {
+  it('refuses a second claim while the first is still open', () => {
     sim.as(BORROWER_SK).addLender(LENDER_PK);
     sim.as(LENDER_SK).requestClaim(LENDER_PK, CLAIM);
     expect(() => sim.as(LENDER_SK).requestClaim(LENDER_PK, CLAIM)).toThrow(
-      /a claim already exists for this lender/,
+      /a claim is already open for this lender/,
     );
   });
 });
@@ -209,29 +209,69 @@ describe('SolvencyProof — deciding a claim', () => {
   });
 });
 
-describe('SolvencyProof — known Wave-1 limitations', () => {
-  // Documented, not desired. `requestClaim` asserts the lender has no claim at
-  // all, so once a claim is decided that lender can never be underwritten
-  // again — no re-request, no proof refresh after updateFacts. Fixing this is
-  // a contract change (it needs a recompile); this test pins the current
-  // behaviour so the fix is visible when it lands.
-  it('locks a lender out after their claim is decided', () => {
+describe('SolvencyProof — re-underwriting after a decision', () => {
+  // This used to pin the opposite: `requestClaim` asserted the lender had no
+  // claim at all, so once a claim was decided that pair was dead — no
+  // re-request, no refresh after updateFacts. An `openClaims` set now tracks
+  // undecided claims, so a decided one can be asked again.
+  it('lets a lender ask again once their claim is decided', () => {
     const sim = new SolvencySimulator(FACTS, BORROWER_SK);
     sim.as(BORROWER_SK).addLender(LENDER_PK);
     sim.as(LENDER_SK).requestClaim(LENDER_PK, CLAIM);
     sim.as(BORROWER_SK).proveSolvency(LENDER_PK);
     sim.as(LENDER_SK).approve(LENDER_PK);
 
-    expect(() => sim.as(LENDER_SK).requestClaim(LENDER_PK, CLAIM)).toThrow(
-      /a claim already exists for this lender/,
-    );
+    const stricter = { thresholdNetWorth: 900_000n, maxDti: 20n };
+    sim.as(LENDER_SK).requestClaim(LENDER_PK, stricter);
+
+    const claim = sim.ledger().claims.lookup(LENDER_PK);
+    expect(claim.thresholdNetWorth).toBe(stricter.thresholdNetWorth);
+    expect(claim.status).toEqual(ClaimStatus.PENDING);
   });
 
-  // An insolvent borrower (debts > balance) has net worth floored to 0, so a
-  // claim with a zero threshold still passes on the net-worth leg.
-  it('passes a zero net-worth threshold even when debts exceed balance', () => {
+  it('clears the previous verdict so a new claim does not inherit it', () => {
+    const sim = new SolvencySimulator(FACTS, BORROWER_SK);
+    sim.as(BORROWER_SK).addLender(LENDER_PK);
+    sim.as(LENDER_SK).requestClaim(LENDER_PK, CLAIM);
+    sim.as(BORROWER_SK).proveSolvency(LENDER_PK);
+    expect(sim.ledger().attestations.lookup(LENDER_PK)).toEqual(AttestationStatus.PASS);
+    sim.as(LENDER_SK).reject(LENDER_PK);
+
+    sim.as(LENDER_SK).requestClaim(LENDER_PK, CLAIM);
+    expect(sim.ledger().attestations.lookup(LENDER_PK)).toEqual(AttestationStatus.NONE);
+  });
+
+  it('still refuses a re-request while the new claim is open', () => {
+    const sim = new SolvencySimulator(FACTS, BORROWER_SK);
+    sim.as(BORROWER_SK).addLender(LENDER_PK);
+    sim.as(LENDER_SK).requestClaim(LENDER_PK, CLAIM);
+    sim.as(BORROWER_SK).proveSolvency(LENDER_PK);
+    sim.as(LENDER_SK).approve(LENDER_PK);
+    sim.as(LENDER_SK).requestClaim(LENDER_PK, CLAIM);
+
+    expect(() => sim.as(LENDER_SK).requestClaim(LENDER_PK, CLAIM)).toThrow(
+      /a claim is already open for this lender/,
+    );
+  });
+});
+
+describe('SolvencyProof — insolvency', () => {
+  // This used to pin the opposite too: net worth floors at zero because
+  // Uint<64> cannot go negative, and the floor satisfied a zero threshold, so
+  // the borrower a zero-threshold claim exists to catch was the one it passed.
+  it('fails a zero net-worth threshold when debts exceed balance', () => {
     const insolvent = { balance: 10_000n, debts: 90_000n, income: 1_000_000n };
     const sim = new SolvencySimulator(insolvent, BORROWER_SK);
+    sim.as(BORROWER_SK).addLender(LENDER_PK);
+    sim.as(LENDER_SK).requestClaim(LENDER_PK, { thresholdNetWorth: 0n, maxDti: 40n });
+    sim.as(BORROWER_SK).proveSolvency(LENDER_PK);
+
+    expect(sim.ledger().attestations.lookup(LENDER_PK)).toEqual(AttestationStatus.FAIL);
+  });
+
+  it('still passes a solvent borrower at exactly zero net worth', () => {
+    const breakEven = { balance: 90_000n, debts: 90_000n, income: 1_000_000n };
+    const sim = new SolvencySimulator(breakEven, BORROWER_SK);
     sim.as(BORROWER_SK).addLender(LENDER_PK);
     sim.as(LENDER_SK).requestClaim(LENDER_PK, { thresholdNetWorth: 0n, maxDti: 40n });
     sim.as(BORROWER_SK).proveSolvency(LENDER_PK);

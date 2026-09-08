@@ -82,4 +82,20 @@ describe('computeSolvency (mirrors proveSolvency circuit)', () => {
   it('boundary: one unit above max DTI is FAIL', () => {
     expect(computeSolvency({ balance: 1_000_000n, debts: 400_100n, income: 10_000n }, CLAIM)).toBe('FAIL');
   });
+
+  // Net worth floors at zero, so without an explicit solvency check an
+  // insolvent borrower clears a zero threshold: 0 >= 0 holds.
+  it('FAIL when debts exceed balance, even against a zero threshold', () => {
+    const zeroThreshold = { thresholdNetWorth: 0n, maxDti: 40n };
+    expect(
+      computeSolvency({ balance: 10_000n, debts: 90_000n, income: 1_000_000n }, zeroThreshold),
+    ).toBe('FAIL');
+  });
+
+  it('PASS at exactly break-even against a zero threshold', () => {
+    const zeroThreshold = { thresholdNetWorth: 0n, maxDti: 40n };
+    expect(
+      computeSolvency({ balance: 90_000n, debts: 90_000n, income: 1_000_000n }, zeroThreshold),
+    ).toBe('PASS');
+  });
 });

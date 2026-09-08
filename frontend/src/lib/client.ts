@@ -117,9 +117,13 @@ export const dtiPercentOf = ({ debts, income }: FinancialFacts): number | null =
 
 /** The verdict the circuit would reach, cross-multiplied rather than divided. */
 export const previewVerdict = (facts: FinancialFacts, terms: ClaimTerms): Verdict => {
+  // Solvency is checked outright, not left to the floored net worth: 0 >= 0
+  // would otherwise clear a zero threshold for a borrower whose debts exceed
+  // their balance.
+  const solvent = facts.balance >= facts.debts;
   const netWorthHolds = netWorthOf(facts) >= terms.thresholdNetWorth;
-  const dtiHolds = facts.debts * 100n <= terms.maxDti * facts.income;
-  return netWorthHolds && dtiHolds ? 'PASS' : 'FAIL';
+  const dtiHolds = facts.income > 0n && facts.debts * 100n <= terms.maxDti * facts.income;
+  return solvent && netWorthHolds && dtiHolds ? 'PASS' : 'FAIL';
 };
 
 // --- formatting -----------------------------------------------------------

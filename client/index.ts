@@ -142,7 +142,9 @@ export class KymiderClient {
   // --- borrower flows -----------------------------------------------------
 
   // Index this borrower's SolvencyProof instance in the shared Registry. Reads
-  // owner + commitment from the deployed instance's public state.
+  // the commitment from the deployed instance's public state; the row is keyed
+  // on the caller's own dapp pubkey, so there is no owner argument to pass and
+  // no way to write to anyone else's record.
   async registerWithRegistry(
     registryAddress: ContractAddress,
     solvencyAddress: ContractAddress,
@@ -150,7 +152,6 @@ export class KymiderClient {
     const state = await this.solvencyState(solvencyAddress);
     await this.submitRegistryCall(registryAddress, 'register', [
       encodeContractAddress(solvencyAddress),
-      state.owner,
       state.commitment,
     ]);
     this.logger.info(`Registered ${solvencyAddress} in registry ${registryAddress}`);
@@ -164,10 +165,7 @@ export class KymiderClient {
     solvencyAddress: ContractAddress,
   ): Promise<void> {
     const state = await this.solvencyState(solvencyAddress);
-    await this.submitRegistryCall(registryAddress, 'updateCommitment', [
-      encodeContractAddress(solvencyAddress),
-      state.commitment,
-    ]);
+    await this.submitRegistryCall(registryAddress, 'updateCommitment', [state.commitment]);
     this.logger.info(`Registry commitment updated for ${solvencyAddress}`);
   }
 
@@ -276,10 +274,12 @@ export class KymiderClient {
   async listBorrowers(registryAddress: ContractAddress): Promise<BorrowerRow[]> {
     const state = await this.registryState(registryAddress);
     const rows: BorrowerRow[] = [];
-    for (const [key, value] of state.borrowers) {
+    // Rows are keyed on the owner's dapp pubkey now, and carry the instance
+    // address they point at.
+    for (const [owner, value] of state.borrowers) {
       rows.push({
-        instanceAddress: decodeContractAddress(key as Uint8Array),
-        owner: value.owner,
+        instanceAddress: decodeContractAddress(value.instanceAddr),
+        owner: owner as Uint8Array,
         commitment: value.commitment,
         status: value.status,
       });
@@ -325,11 +325,20 @@ export class KymiderClient {
     ]);
     const attestation = await this.attestationFor(solvencyAddress, lenderPubKey);
 
+    // The Registry row is keyed on the owner's dapp pubkey, so this now checks
+    // three things rather than one: that the instance's own owner has a row,
+    // that the row points back at this instance, and that it carries the
+    // instance's current commitment. A stranger pointing their row at this
+    // address no longer affects the answer — their row is under their key.
     const registered = await this.registryState(registryAddress);
-    const instanceKey = encodeContractAddress(solvencyAddress);
+    const ownerKey = state.owner;
+    const row = registered.borrowers.member(ownerKey)
+      ? registered.borrowers.lookup(ownerKey)
+      : null;
     const commitmentMatches =
-      registered.borrowers.member(instanceKey) &&
-      bytesEqual(registered.borrowers.lookup(instanceKey).commitment, state.commitment);
+      row !== null &&
+      bytesEqual(row.instanceAddr, encodeContractAddress(solvencyAddress)) &&
+      bytesEqual(row.commitment, state.commitment);
 
     const verified = attestation !== AttestationStatus.NONE && commitmentMatches;
     this.logger.info(

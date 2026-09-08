@@ -188,27 +188,20 @@ export class RegistrySimulator {
     return this;
   }
 
-  register(instanceAddr: Uint8Array, owner: Uint8Array, commitment: Uint8Array): this {
-    this.ctx = this.contract.impureCircuits.register(
-      this.ctx,
-      instanceAddr,
-      owner,
-      commitment,
-    ).context;
+  // Rows are keyed on the caller's dapp pubkey, so none of these take an owner
+  // or an address to act on: `as(sk)` alone decides whose row is written.
+  register(instanceAddr: Uint8Array, commitment: Uint8Array): this {
+    this.ctx = this.contract.impureCircuits.register(this.ctx, instanceAddr, commitment).context;
     return this;
   }
 
-  updateCommitment(instanceAddr: Uint8Array, commitment: Uint8Array): this {
-    this.ctx = this.contract.impureCircuits.updateCommitment(
-      this.ctx,
-      instanceAddr,
-      commitment,
-    ).context;
+  updateCommitment(commitment: Uint8Array): this {
+    this.ctx = this.contract.impureCircuits.updateCommitment(this.ctx, commitment).context;
     return this;
   }
 
-  suspend(instanceAddr: Uint8Array): this {
-    this.ctx = this.contract.impureCircuits.suspend(this.ctx, instanceAddr).context;
+  suspend(): this {
+    this.ctx = this.contract.impureCircuits.suspend(this.ctx).context;
     return this;
   }
 }

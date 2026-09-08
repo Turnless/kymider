@@ -159,6 +159,9 @@ class Instance {
       terms.maxDti,
     ).context;
     this.askedAt.set(hex(lender), askedAt ?? new Date());
+    // The contract resets the attestation to NONE on a new request, so there is
+    // no longer a verdict to call superseded.
+    this.provedAgainst.delete(hex(lender));
     this.lastUpdate = new Date();
   }
 
@@ -214,19 +217,21 @@ class Registry {
     this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, sk } };
   }
 
-  register(sk: Uint8Array, addr: Uint8Array, owner: Uint8Array, commitment: Uint8Array): void {
+  // Rows are keyed on the caller's dapp pubkey, so `sk` alone decides whose row
+  // is written — there is no way to address anyone else's.
+  register(sk: Uint8Array, addr: Uint8Array, commitment: Uint8Array): void {
     this.as(sk);
-    this.ctx = this.contract.impureCircuits.register(this.ctx, addr, owner, commitment).context;
+    this.ctx = this.contract.impureCircuits.register(this.ctx, addr, commitment).context;
   }
 
-  updateCommitment(sk: Uint8Array, addr: Uint8Array, commitment: Uint8Array): void {
+  updateCommitment(sk: Uint8Array, commitment: Uint8Array): void {
     this.as(sk);
-    this.ctx = this.contract.impureCircuits.updateCommitment(this.ctx, addr, commitment).context;
+    this.ctx = this.contract.impureCircuits.updateCommitment(this.ctx, commitment).context;
   }
 
-  suspend(sk: Uint8Array, addr: Uint8Array): void {
+  suspend(sk: Uint8Array): void {
     this.as(sk);
-    this.ctx = this.contract.impureCircuits.suspend(this.ctx, addr).context;
+    this.ctx = this.contract.impureCircuits.suspend(this.ctx).context;
   }
 }
 
@@ -330,7 +335,7 @@ export class SimulatedKymiderClient implements KymiderClient {
       });
       // Only the record's own owner may suspend it — the registrar has no such
       // power, which is the contract's rule, not this file's.
-      if (suspend) this.registry.suspend(inst.ownerSk, inst.addressBytes);
+      if (suspend) this.registry.suspend(inst.ownerSk);
       // Seeding all six instances in the same millisecond would otherwise show
       // a directory where every row was touched "just now".
       inst.lastUpdate = new Date(Date.now() - ageHours * 3_600_000);
@@ -343,7 +348,7 @@ export class SimulatedKymiderClient implements KymiderClient {
     const inst = new Instance(facts, skFrom(seed));
     this.instances.set(inst.address, inst);
     const led = inst.ledger();
-    this.registry.register(inst.ownerSk, inst.addressBytes, led.owner, led.commitment);
+    this.registry.register(inst.ownerSk, inst.addressBytes, led.commitment);
     return inst;
   }
 
@@ -403,11 +408,7 @@ export class SimulatedKymiderClient implements KymiderClient {
     this.mine.updateFacts(facts);
     // The registry entry would otherwise still advertise the old commitment,
     // and an honest borrower would fail off-chain verification.
-    this.registry.updateCommitment(
-      this.mine.ownerSk,
-      this.mine.addressBytes,
-      this.mine.ledger().commitment,
-    );
+    this.registry.updateCommitment(this.mine.ownerSk, this.mine.ledger().commitment);
     this.changed();
   }
 
@@ -431,14 +432,20 @@ export class SimulatedKymiderClient implements KymiderClient {
   directory(): DirectoryRow[] {
     const reg = this.registry.ledger();
     const rows: DirectoryRow[] = [];
-    for (const [addrBytes, rec] of reg.borrowers) {
-      const inst = this.findByBytes(addrBytes);
+    // Rows are keyed on the owner's dapp pubkey and carry the instance they
+    // point at. Anyone may claim any address, so `matchesInstance` is the check
+    // that matters: the row must be under the instance's OWN owner key and
+    // carry that instance's current commitment.
+    for (const [ownerKey, rec] of reg.borrowers) {
+      const inst = this.findByBytes(rec.instanceAddr);
       if (!inst) continue;
       const record = this.recordFor(inst);
+      const genuine =
+        hex(inst.ledger().owner) === hex(ownerKey) && hex(rec.commitment) === record.commitment;
       rows.push({
         ...record,
         status: rec.status === BorrowStatus.SUSPENDED ? 'SUSPENDED' : 'ACTIVE',
-        matchesInstance: hex(rec.commitment) === record.commitment,
+        matchesInstance: genuine,
       });
     }
     return rows;
@@ -486,6 +493,9 @@ export class SimulatedKymiderClient implements KymiderClient {
     let passCount = 0;
     let staleCount = 0;
     for (const [lender, status] of led.attestations) {
+      // A re-request resets the entry to NONE, so the map holds placeholders as
+      // well as verdicts. Only a real verdict counts as an attestation.
+      if (status === AttestationStatus.NONE) continue;
       attestationCount += 1;
       if (status === AttestationStatus.PASS) passCount += 1;
       const provedAgainst = inst.provedAgainst.get(hex(lender));
@@ -506,8 +516,10 @@ export class SimulatedKymiderClient implements KymiderClient {
   private directoryRecord(inst: Instance): PublicRecord {
     const record = this.recordFor(inst);
     const reg = this.registry.ledger();
-    if (reg.borrowers.member(inst.addressBytes)) {
-      const rec = reg.borrowers.lookup(inst.addressBytes);
+    // The instance's own owner key is the only row that can speak for it.
+    const ownerKey = inst.ledger().owner;
+    if (reg.borrowers.member(ownerKey)) {
+      const rec = reg.borrowers.lookup(ownerKey);
       record.status = rec.status === BorrowStatus.SUSPENDED ? 'SUSPENDED' : 'ACTIVE';
     }
     return record;
