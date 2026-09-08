@@ -261,10 +261,12 @@
 @keyframes k-hero-out {
   from {
     opacity: 1;
+    filter: blur(0px);
     transform: translateY(0) scale(1);
   }
   to {
     opacity: 0;
+    filter: blur(3px);
     transform: translateY(-40px) scale(0.965);
   }
 }
@@ -315,10 +317,13 @@
      Large screens only, deliberately: a pinned panel taller than the viewport
      can never scroll to its own overflow, and on a phone almost every panel
      is taller than the viewport. Below lg these are ordinary sections. */
-  /* The height guard matters as much as the width one: the tallest panel needs
-     about 565px, so below a 600px-tall viewport the stack would pin a panel
-     that cannot show all of itself. There it stays an ordinary section. */
-  @media (width >= 64rem) and (height >= 37.5rem) {
+  /* The height guard matters as much as the width one: a pinned panel taller
+     than the viewport can never scroll to its own overflow. The tallest panel
+     measures ~534px across the whole lg range, so 35rem leaves it room. The
+     threshold is deliberately not rounded up: at 37.5rem a 1366x768 laptop —
+     a 585px viewport, and the most common laptop screen there is — fell below
+     the guard and got no stacking at all. */
+  @media (width >= 64rem) and (height >= 35rem) {
     /* The track is the scroll distance; the panel inside it is what pins. The
        panel cannot drive its own view() timeline — once stuck, its box stops
        moving through the scrollport and the timeline freezes — so the static

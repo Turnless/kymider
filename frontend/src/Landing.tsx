@@ -160,7 +160,7 @@ function Disclosure() {
   const [showLender, setShowLender] = useState(false);
 
   return (
-    <section className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-16" style={{ zIndex: 1 }}>
+    <section className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 1 }}>
       <div className="k-reveal mx-auto w-full max-w-[1140px]">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
           <div>
@@ -253,7 +253,7 @@ function Disclosure() {
  */
 function ConsoleShowcase() {
   return (
-    <section className="k-stack bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28 lg:py-16" style={{ zIndex: 2 }}>
+    <section className="k-stack bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 2 }}>
       <div className="k-reveal mx-auto w-full max-w-[1140px]">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
           <div>
@@ -332,7 +332,7 @@ function HowItWorks() {
   ];
 
   return (
-    <section id="how" className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-16" style={{ zIndex: 3 }}>
+    <section id="how" className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 3 }}>
       <div className="k-reveal mx-auto w-full max-w-[1140px]">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
           How it works
@@ -360,7 +360,7 @@ function HowItWorks() {
 /** Saying plainly what a proof does not establish is worth more than a claim. */
 function Honesty() {
   return (
-    <section id="honesty" className="k-stack bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28 lg:py-16" style={{ zIndex: 4 }}>
+    <section id="honesty" className="k-stack bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 4 }}>
       <div className="k-reveal mx-auto grid w-full max-w-[1140px] gap-10 lg:grid-cols-2">
         <div>
           <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
@@ -389,7 +389,7 @@ function Honesty() {
 
 function Closing() {
   return (
-    <section className="k-stack relative overflow-hidden bg-espresso px-5 py-24 text-center text-cream sm:px-8 sm:py-32 lg:py-16" style={{ zIndex: 5 }}>
+    <section className="k-stack relative overflow-hidden bg-espresso px-5 py-24 text-center text-cream sm:px-8 sm:py-32 lg:py-12" style={{ zIndex: 5 }}>
       <div
         aria-hidden="true"
         className="pointer-events-none absolute bottom-[-40%] left-1/2 size-[620px] -translate-x-1/2 rounded-full opacity-60"
