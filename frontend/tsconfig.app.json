@@ -12,7 +12,11 @@
     "moduleResolution": "bundler",
     "paths": {
       "@compiled/*": ["../compiled/*"],
-      "@contracts/*": ["../contracts/*"]
+      "@contracts/*": ["../contracts/*"],
+      // contracts/witnesses.ts lives above this package, so TypeScript would
+      // look for the runtime in the ROOT node_modules. Point it here instead,
+      // so the console typechecks and builds without a root install.
+      "@midnight-ntwrk/compact-runtime": ["./node_modules/@midnight-ntwrk/compact-runtime"]
     },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,

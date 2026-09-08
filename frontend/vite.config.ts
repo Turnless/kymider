@@ -19,13 +19,15 @@ export default defineConfig({
       '@compiled': root('../compiled'),
       '@contracts': root('../contracts'),
       // The compiled contracts and witnesses live above this package, so they
-      // resolve the runtime from the ROOT node_modules while app code would
-      // resolve this package's own copy — two different wasm runtimes in one
-      // bundle. Pin both to the root copy, which is also the one the Node
-      // client and the CI unit tests run against.
-      '@midnight-ntwrk/compact-runtime': root('../node_modules/@midnight-ntwrk/compact-runtime'),
+      // would resolve the runtime from the ROOT node_modules while app code
+      // resolves this package's own copy — two different wasm runtimes in one
+      // bundle. Pin both to THIS package's copy, so `cd frontend && npm
+      // install && npm run dev` works on a fresh clone with no root install.
+      // package.json pins onchain-runtime-v3 to the version the Node client and
+      // the unit tests use, so the two halves still run the same runtime.
+      '@midnight-ntwrk/compact-runtime': root('./node_modules/@midnight-ntwrk/compact-runtime'),
       '@midnight-ntwrk/onchain-runtime-v3': root(
-        '../node_modules/@midnight-ntwrk/onchain-runtime-v3',
+        './node_modules/@midnight-ntwrk/onchain-runtime-v3',
       ),
     },
     dedupe: ['@midnight-ntwrk/compact-runtime', '@midnight-ntwrk/onchain-runtime-v3'],

@@ -63,15 +63,19 @@ kymider/
 │   ├── state.ts                # .midnight-state.json read/write
 │   └── proof/
 │       └── solvencyProof.ts    # reference circuit math (computeSolvency, DTI, net worth)
-├── frontend/
+├── frontend/                   # web console — runs the real contracts in-browser
 │   ├── src/
-│   │   ├── App.tsx             # Router + role toggle
-│   │   ├── components/         # Shared UI components
-│   │   ├── borrower/           # Borrower screens
-│   │   ├── lender/             # Lender screens
-│   │   └── lib/                # Client integration, formatters
+│   │   ├── Landing.tsx         # marketing page (scroll-driven)
+│   │   ├── App.tsx             # routes + borrower/lender role
+│   │   ├── borrower/           # Overview, Facts, Claims
+│   │   ├── lender/             # Directory, Underwriting
+│   │   ├── components/         # console shell, badges
+│   │   └── lib/
+│   │       ├── client.ts       # the KymiderClient interface the screens use
+│   │       ├── contracts.ts    # browser-safe compiled-contract exports
+│   │       └── simulatedClient.ts  # that interface, on the real contracts
 │   ├── package.json
-│   └── vite.config.ts
+│   └── vite.config.ts          # wasm plugin + single-runtime pinning
 ├── scripts/
 │   └── wait-for-dust.ts        # wait for NIGHT + DUST accumulation
 ├── tests/
@@ -105,20 +109,49 @@ kymider/
 
 See `docs/architecture-wave1.md`, `docs/architecture-wave2.md`, `docs/architecture-wave3.md` for full detail.
 
-## Getting started
+## See it run
+
+```sh
+git clone https://github.com/Turnless/kymider && cd kymider/frontend
+npm install && npm run dev          # http://localhost:3000
+```
+
+No Docker, no node, no wallet extension. The console runs the **compiled
+Compact contracts themselves** in your browser: six `SolvencyProof` instances
+and a `Registry` are deployed into `compact-runtime` at page load, and every
+figure on screen is read back off that ledger. Authorization asserts,
+commitment binding and PASS/FAIL verdicts are the contract's, not the UI's — so
+the console cannot show you a state the chain would refuse.
+
+Walk the borrower side (commit a statement, answer a lender's request), then
+flip to the lender side and underwrite someone: name your terms, watch the
+verdict land, and see all three figures behind it read `not disclosed`.
+
+It does not generate ZK proofs or submit transactions — that is the Node client
+below, and the devnet simulation CI runs on every push.
+
+## Running the rest
 
 Full setup details, prerequisites and troubleshooting are in [`docs/scaffold.md`](./docs/scaffold.md).
 
 > Windows: use `npm.cmd` instead of `npm` (npm.ps1 is blocked by the default execution policy).
 
+Offline, and enough for most work — no Docker required:
+
 1. Install dependencies: `npm install`
-2. Start the local devnet: `npm run env:up` (Docker Desktop + WSL on Windows)
-3. Compile contracts (needs the `compact` compiler): `npm run build:contracts`
-4. Wait for NIGHT + DUST to accumulate: `npm run wait:dust`
-5. Run tests:
-   - Unit + offline contract tests (no network, no Docker): `npm run test:unit`
-   - Simulation (devnet): `npm run test:simulation`
-6. Run the end-to-end demo: `npm run demo`
+2. Run the tests: `npm run test:unit` (circuit math plus the compiled contracts
+   driven offline — 49 tests in a few seconds)
+
+The full ZK flow, which needs Docker for the node, indexer and proof server:
+
+3. Start the local devnet: `npm run env:up`
+4. Compile contracts (needs the Linux-only `compact` compiler): `npm run build:contracts`
+5. Wait for NIGHT + DUST to accumulate: `npm run wait:dust`
+6. Run the devnet simulation: `npm run test:simulation`
+7. Run the end-to-end demo: `npm run demo`
+
+If Docker or the compiler are not available to you, CI runs all of it on every
+push — including real ZK proof generation against a real Midnight node.
 
 ## License
 
