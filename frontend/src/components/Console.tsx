@@ -4,6 +4,9 @@ import type { ReactNode } from 'react';
 /**
  * The console frame: a warm-dark rail carried over from the landing, so
  * arriving from the site reads as a continuation rather than a jump.
+ *
+ * Below `lg` the rail becomes a top bar — a 190px column is half a phone
+ * screen — with the section links scrolling horizontally under the brand.
  */
 
 export type Role = 'borrower' | 'lender';
@@ -38,22 +41,49 @@ export function Console({
     navigate(next === 'borrower' ? '/app/overview' : '/app/directory');
   };
 
+  const roleToggle = (
+    <div className="flex rounded-[10px] bg-[rgba(255,247,235,0.07)] p-[3px]">
+      {(['borrower', 'lender'] as const).map((r) => (
+        <button
+          key={r}
+          type="button"
+          onClick={() => switchTo(r)}
+          aria-pressed={role === r}
+          className={[
+            'flex-1 rounded-[8px] px-3 py-[6px] text-[11px] font-semibold capitalize transition-colors',
+            role === r
+              ? 'bg-cream text-espresso'
+              : 'text-[rgba(255,247,235,0.5)] hover:text-[rgba(255,247,235,0.8)]',
+          ].join(' ')}
+        >
+          {r}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="flex min-h-screen">
-      <aside className="flex w-[190px] shrink-0 flex-col justify-between bg-espresso px-4 py-6">
+    <div className="flex min-h-screen flex-col lg:flex-row">
+      <aside className="flex shrink-0 flex-col bg-espresso lg:w-[190px] lg:justify-between lg:px-4 lg:py-6">
         <div>
-          <div className="mb-8 flex items-center gap-2 px-2">
-            <Mark />
-            <span className="text-[11px] font-black tracking-[1.6px] text-cream">KYMIDER</span>
+          <div className="flex items-center justify-between gap-3 px-4 py-3 lg:mb-8 lg:px-2 lg:py-0">
+            <span className="flex items-center gap-2">
+              <Mark />
+              <span className="text-[11px] font-black tracking-[1.6px] text-cream">KYMIDER</span>
+            </span>
+            {/* On a phone the role switch belongs beside the brand, not at the
+                bottom of a column that no longer exists. */}
+            <span className="lg:hidden">{roleToggle}</span>
           </div>
-          <nav className="flex flex-col gap-1">
+
+          <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-x-visible lg:px-0 lg:pb-0">
             {nav.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
                   [
-                    'flex items-center gap-[11px] rounded-[10px] px-3 py-[10px] text-[13px] transition-colors',
+                    'flex shrink-0 items-center gap-[11px] rounded-[10px] px-3 py-[10px] text-[13px] transition-colors',
                     isActive
                       ? 'bg-[rgba(255,247,235,0.08)] font-semibold text-cream'
                       : 'font-medium text-[rgba(255,247,235,0.5)] hover:text-[rgba(255,247,235,0.8)]',
@@ -76,25 +106,8 @@ export function Console({
           </nav>
         </div>
 
-        <div>
-          <div className="flex rounded-[10px] bg-[rgba(255,247,235,0.07)] p-[3px]">
-            {(['borrower', 'lender'] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => switchTo(r)}
-                aria-pressed={role === r}
-                className={[
-                  'flex-1 rounded-[8px] py-[6px] text-[11px] font-semibold capitalize transition-colors',
-                  role === r
-                    ? 'bg-cream text-espresso'
-                    : 'text-[rgba(255,247,235,0.5)] hover:text-[rgba(255,247,235,0.8)]',
-                ].join(' ')}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
+        <div className="hidden lg:block">
+          {roleToggle}
           <p className="mt-3 flex items-center gap-[6px] px-1 text-[10px] text-[rgba(255,247,235,0.35)]">
             <span className="size-[5px] rounded-full bg-accent" />
             Local simulation
@@ -103,7 +116,7 @@ export function Console({
       </aside>
 
       <main
-        className="min-w-0 flex-1 px-9 py-7"
+        className="min-w-0 flex-1 px-4 py-5 lg:px-9 lg:py-7"
         style={{ background: surface === 'sand' ? 'var(--color-sand)' : 'var(--color-cream)' }}
       >
         {children}

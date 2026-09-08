@@ -31,18 +31,18 @@ export function Directory() {
 
   return (
     <div className="mx-auto max-w-[1180px]">
-      <header className="mb-6 flex items-end justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-[26px] font-bold tracking-[-0.02em]">Directory</h1>
-        <dl className="flex gap-8">
+        <dl className="flex flex-wrap gap-6 sm:gap-8">
           <Stat label="Instances" value={rows.length} />
           <Stat label="Attestations" value={totalAttestations} />
           <Stat label="Passing" value={totalPassing} />
         </dl>
       </header>
 
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
-          className="input max-w-[300px]"
+          className="input w-full sm:max-w-[300px]"
           type="search"
           placeholder="Search instance or commitment"
           value={query}
@@ -72,7 +72,7 @@ export function Directory() {
             </button>
           ))}
         </div>
-        <span className="ml-auto text-[11px] text-[rgba(15,23,42,0.4)]">
+        <span className="text-[11px] sm:ml-auto text-[rgba(15,23,42,0.4)]">
           {visible.length} of {rows.length} instances
         </span>
       </div>
@@ -83,7 +83,8 @@ export function Directory() {
             No instance matches that search.
           </p>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px]">
             <thead>
               <tr className="label border-b border-[rgba(15,23,42,0.08)]">
                 <th className="px-5 py-[11px] text-left font-bold">Instance</th>
@@ -96,7 +97,14 @@ export function Directory() {
             </thead>
             <tbody>
               {visible.map((r) => (
-                <tr key={r.instance} className="border-t border-[rgba(15,23,42,0.06)]">
+                // The Action column sits past the right edge on a phone, so the
+                // row itself opens the record and the button is a shortcut
+                // rather than the only way in.
+                <tr
+                  key={r.instance}
+                  onClick={() => navigate(`/app/instance/${r.instance}`)}
+                  className="cursor-pointer border-t border-[rgba(15,23,42,0.06)] transition-colors hover:bg-[rgba(15,23,42,0.02)]"
+                >
                   <td className="mono px-5 py-[13px] text-[12px] font-semibold">
                     {shortHex('0x' + r.instance, 8, 4)}
                   </td>
@@ -136,6 +144,7 @@ export function Directory() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 

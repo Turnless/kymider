@@ -26,7 +26,7 @@ export function Overview() {
 
   return (
     <div className="mx-auto max-w-[1180px]">
-      <header className="mb-6 flex items-center justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[26px] font-bold tracking-[-0.02em]">Overview</h1>
           <span className="mono text-[11px] text-[rgba(15,23,42,0.4)]">
@@ -43,9 +43,9 @@ export function Overview() {
         </div>
       </header>
 
-      <div className="grid grid-cols-[1fr_340px] gap-5">
-        <div className="flex flex-col gap-5">
-          <section className="card grid grid-cols-3 divide-x divide-[rgba(15,23,42,0.08)] px-2 py-5">
+      <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+        <div className="flex min-w-0 flex-col gap-5">
+          <section className="card grid grid-cols-1 divide-y divide-[rgba(15,23,42,0.08)] px-2 py-5 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <Figure
               label="Net worth"
               value={hide(money(netWorthOf(facts)))}
@@ -76,7 +76,8 @@ export function Overview() {
                 {requests.filter((r) => r.terms).length} requests
               </span>
             </div>
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px]">
               <thead>
                 <tr className="label">
                   <th className="px-5 py-[10px] text-left font-bold">Lender</th>
@@ -116,10 +117,11 @@ export function Overview() {
                   ))}
               </tbody>
             </table>
+            </div>
           </section>
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-5">
           <section className="card-dark p-5">
             <p className="label-dark mb-4">On-chain record</p>
             <dl className="flex flex-col gap-[10px] text-[11px]">
@@ -162,7 +164,7 @@ export function Overview() {
 
 function Figure({ label, value, note }: { label: string; value: string; note: string }) {
   return (
-    <div className="px-5">
+    <div className="px-5 py-3 sm:py-0">
       <p className="label mb-[6px]">{label}</p>
       <p className="tnum text-[30px] font-bold leading-none tracking-[-0.02em]">{value}</p>
       <p className="mt-[6px] text-[11px] text-[rgba(15,23,42,0.42)]">{note}</p>

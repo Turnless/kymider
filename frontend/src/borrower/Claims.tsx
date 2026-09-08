@@ -33,7 +33,7 @@ export function Claims() {
 
   return (
     <div className="mx-auto max-w-[1180px]">
-      <header className="mb-6 flex items-center justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-[26px] font-bold tracking-[-0.02em]">Claims</h1>
         <div className="flex rounded-[11px] bg-[rgba(15,23,42,0.05)] p-[3px]">
           {(
@@ -62,7 +62,7 @@ export function Claims() {
       </header>
 
       {pending && (
-        <section className="card-dark rise mb-5 flex items-center justify-between gap-6 p-6">
+        <section className="card-dark rise mb-5 flex flex-col items-start justify-between gap-5 p-6 sm:flex-row sm:items-center sm:gap-6">
           <div className="min-w-0">
             <p className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.8px] text-accent">
               <span className="size-[5px] rounded-full bg-accent" />
@@ -82,7 +82,7 @@ export function Claims() {
           </div>
           <button
             type="button"
-            className="btn btn-accent shrink-0 px-[30px] py-4 text-[14px]"
+            className="btn btn-accent w-full shrink-0 px-[30px] py-4 text-[14px] sm:w-auto"
             style={{ boxShadow: '0 0 34px rgba(212,109,37,0.32)' }}
             onClick={() => prove(pending.lender.id)}
             disabled={proving !== null}
@@ -113,7 +113,8 @@ export function Claims() {
             No claims match this filter.
           </p>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[680px]">
             <thead>
               <tr className="label">
                 <th className="px-5 py-[10px] text-left font-bold">Lender</th>
@@ -156,6 +157,7 @@ export function Claims() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </div>

@@ -72,7 +72,7 @@ export function Underwriting() {
 
   return (
     <div className="mx-auto max-w-[1180px]">
-      <header className="mb-6 flex items-start justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="mb-[3px] text-[11px] text-[rgba(15,23,42,0.4)]">Directory</p>
           <div className="flex items-center gap-3">
@@ -87,8 +87,8 @@ export function Underwriting() {
         </Link>
       </header>
 
-      <div className="grid grid-cols-[1fr_1fr] gap-5">
-        <div className="flex flex-col gap-5">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-5">
           <section className="card p-6">
             <p className="label mb-4">Public record</p>
             <dl className="flex flex-col gap-[10px] text-[11px]">
@@ -145,7 +145,7 @@ export function Underwriting() {
         </div>
 
         <section className="card-dark flex flex-col p-6">
-          <div className="mb-5 flex items-center justify-between">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <p className="label-dark">Underwriting</p>
             <div className="flex items-center gap-2">
               {[1, 2, 3].map((n) => (
@@ -242,7 +242,7 @@ export function Underwriting() {
                 </div>
               )}
 
-              <div className="mt-4 grid grid-cols-3 gap-3">
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {['Cash and equivalents', 'Outstanding debts', 'Annual income'].map((label) => (
                   <div
                     key={label}

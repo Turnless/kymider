@@ -62,12 +62,12 @@ export function Facts() {
 
   return (
     <div className="mx-auto max-w-[1180px]">
-      <header className="mb-6 flex items-center justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-[26px] font-bold tracking-[-0.02em]">Private facts</h1>
         <span className="badge badge-pending">Nothing on this screen is transmitted</span>
       </header>
 
-      <div className="grid grid-cols-[1fr_1fr] gap-5">
+      <div className="grid gap-5 lg:grid-cols-2">
         <section className="card flex flex-col justify-between p-6">
           <div>
             <p className="label mb-4">Statement</p>
@@ -116,7 +116,7 @@ export function Facts() {
         <div className="flex flex-col gap-5">
           <section className="card p-6">
             <p className="label mb-4">Derived on this device</p>
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <p className="mb-1 text-[11px] font-semibold text-[rgba(15,23,42,0.5)]">
                   Net worth

@@ -38,7 +38,7 @@ function ScrollProgress() {
 
 function Nav() {
   return (
-    <nav className="mx-auto flex max-w-[1140px] items-center justify-between px-8 py-6">
+    <nav className="mx-auto flex max-w-[1140px] items-center justify-between gap-4 px-5 py-5 sm:px-8 sm:py-6">
       <span className="flex items-center gap-2 text-[11px] font-black tracking-[1.6px]">
         <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
           <circle cx="8" cy="8" r="7" fill="none" stroke="var(--color-accent)" strokeWidth="1.5" />
@@ -46,11 +46,13 @@ function Nav() {
         </svg>
         KYMIDER
       </span>
-      <div className="flex items-center gap-7 text-[12px] font-medium text-[rgba(255,247,235,0.6)]">
-        <a href="#how" className="text-inherit hover:text-cream">
+      <div className="flex items-center gap-5 text-[12px] font-medium text-[rgba(255,247,235,0.6)] sm:gap-7">
+        {/* The section links collide with the wordmark on a phone; the one
+            that matters there is the call to action. */}
+        <a href="#how" className="hidden text-inherit hover:text-cream sm:inline">
           How it works
         </a>
-        <a href="#honesty" className="text-inherit hover:text-cream">
+        <a href="#honesty" className="hidden text-inherit hover:text-cream sm:inline">
           What we claim
         </a>
         <Link to="/app/overview" className="btn btn-accent px-4 py-[7px] text-[12px]">
@@ -63,7 +65,7 @@ function Nav() {
 
 function Hero() {
   return (
-    <header className="k-pin relative flex min-h-[92vh] items-center overflow-hidden px-8 pb-28 pt-10">
+    <header className="k-pin relative flex min-h-[92vh] items-center overflow-hidden px-5 pb-20 pt-6 sm:px-8 sm:pb-28 sm:pt-10">
       <div
         aria-hidden="true"
         className="k-parallax pointer-events-none absolute right-[-10%] top-[-20%] size-[720px] rounded-full opacity-70"
@@ -121,7 +123,7 @@ function Disclosure() {
   const [showLender, setShowLender] = useState(false);
 
   return (
-    <section className="k-reveal border-t border-[rgba(255,247,235,0.07)] px-8 py-24">
+    <section className="k-reveal border-t border-[rgba(255,247,235,0.07)] px-5 py-16 sm:px-8 sm:py-24">
       <div className="mx-auto max-w-[1140px]">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
           <div>
@@ -222,7 +224,7 @@ function HowItWorks() {
   ];
 
   return (
-    <section id="how" className="k-reveal border-t border-[rgba(255,247,235,0.07)] px-8 py-24">
+    <section id="how" className="k-reveal border-t border-[rgba(255,247,235,0.07)] px-5 py-16 sm:px-8 sm:py-24">
       <div className="mx-auto max-w-[1140px]">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
           How it works
@@ -255,7 +257,7 @@ function HowItWorks() {
 /** Saying plainly what a proof does not establish is worth more than a claim. */
 function Honesty() {
   return (
-    <section id="honesty" className="k-reveal border-t border-[rgba(255,247,235,0.07)] px-8 py-24">
+    <section id="honesty" className="k-reveal border-t border-[rgba(255,247,235,0.07)] px-5 py-16 sm:px-8 sm:py-24">
       <div className="mx-auto grid max-w-[1140px] gap-10 lg:grid-cols-2">
         <div>
           <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
@@ -284,7 +286,7 @@ function Honesty() {
 
 function Closing() {
   return (
-    <section className="k-reveal relative overflow-hidden border-t border-[rgba(255,247,235,0.07)] px-8 py-28 text-center">
+    <section className="k-reveal relative overflow-hidden border-t border-[rgba(255,247,235,0.07)] px-5 py-20 text-center sm:px-8 sm:py-28">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute bottom-[-40%] left-1/2 size-[620px] -translate-x-1/2 rounded-full opacity-60"
@@ -319,7 +321,7 @@ function Closing() {
 
 function Footer() {
   return (
-    <footer className="border-t border-[rgba(255,247,235,0.07)] px-8 py-8">
+    <footer className="border-t border-[rgba(255,247,235,0.07)] px-5 py-8 sm:px-8">
       <div className="mx-auto flex max-w-[1140px] flex-wrap items-center justify-between gap-4 text-[11px] text-[rgba(255,247,235,0.35)]">
         <span className="font-black tracking-[1.6px]">KYMIDER</span>
         <div className="flex gap-6">
