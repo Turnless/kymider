@@ -269,6 +269,16 @@
   }
 }
 
+/* The outgoing panel of a stacked pair: dimmed and softened as it is covered,
+   pulled back slightly so the incoming panel reads as being in front of it. */
+@keyframes k-lap {
+  to {
+    opacity: 0.4;
+    filter: blur(3px);
+    transform: scale(0.965);
+  }
+}
+
 @keyframes k-parallax {
   from {
     transform: translate3d(0, 0, 0);
@@ -297,6 +307,64 @@
   .k-over {
     position: relative;
     z-index: 1;
+  }
+
+  /* Stacked scroll: every panel pins at the top in turn and the next one
+     slides up over it, so the page reads as a deck rather than a column.
+     Each panel needs an opaque ground and a z-index above the one before.
+     Large screens only, deliberately: a pinned panel taller than the viewport
+     can never scroll to its own overflow, and on a phone almost every panel
+     is taller than the viewport. Below lg these are ordinary sections. */
+  /* The height guard matters as much as the width one: the tallest panel needs
+     about 565px, so below a 600px-tall viewport the stack would pin a panel
+     that cannot show all of itself. There it stays an ordinary section. */
+  @media (width >= 64rem) and (height >= 37.5rem) {
+    /* The track is the scroll distance; the panel inside it is what pins. The
+       panel cannot drive its own view() timeline — once stuck, its box stops
+       moving through the scrollport and the timeline freezes — so the static
+       track supplies one and the panel animates against it. */
+    .k-stack {
+      position: sticky;
+      top: 0;
+      display: flex;
+      align-items: center;
+      min-height: 100svh;
+      border-radius: 28px;
+      overflow: hidden;
+    }
+
+    /* The lap animation has no duration — it is driven entirely by scroll. On
+       a browser without scroll-driven animations that reads as a 0s animation
+       with `both` fill, which would snap every panel to its faded end state
+       and leave it there. It has to stay behind the @supports. */
+    @supports (animation-timeline: view()) {
+      @media (prefers-reduced-motion: no-preference) {
+        .k-track {
+          view-timeline: --k-track block;
+        }
+
+        /* `exit` is exactly the window in which the next panel laps this one,
+           so the outgoing panel dims, softens and settles back as it is
+           covered. The final panel is exempt: nothing of consequence laps it,
+           and fading it would leave a washed-out screen above the footer. */
+        .k-track:not(.k-track--final) .k-stack {
+          animation: k-lap linear both;
+          animation-timeline: --k-track;
+          animation-range: exit 0% exit 100%;
+        }
+      }
+    }
+
+    /* A pinned panel stays in view for as long as it is stuck, so a view()
+       timeline never finishes and the content sits half-faded. The slide-over
+       is the transition here; the reveal is only wanted where panels scroll
+       past normally, which is every screen below this breakpoint. */
+    .k-stack .k-reveal,
+    .k-stack .k-reveal-stagger > * {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
   }
 
   @supports (animation-timeline: view()) {

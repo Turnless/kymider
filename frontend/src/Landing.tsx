@@ -17,12 +17,24 @@ export function Landing() {
       <Nav />
       {/* The hero pins; everything after it is opaque and rides over the top. */}
       <Hero />
+      {/* Each panel gets a track: the track is the scroll distance, the panel
+          inside pins to the top while the next one laps it. */}
       <div className="k-over">
-        <Disclosure />
-        <ConsoleShowcase />
-        <HowItWorks />
-        <Honesty />
-        <Closing />
+        <div className="k-track">
+          <Disclosure />
+        </div>
+        <div className="k-track">
+          <ConsoleShowcase />
+        </div>
+        <div className="k-track">
+          <HowItWorks />
+        </div>
+        <div className="k-track">
+          <Honesty />
+        </div>
+        <div className="k-track k-track--final">
+          <Closing />
+        </div>
         <Footer />
       </div>
     </div>
@@ -148,8 +160,8 @@ function Disclosure() {
   const [showLender, setShowLender] = useState(false);
 
   return (
-    <section className="bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28">
-      <div className="k-reveal mx-auto max-w-[1140px]">
+    <section className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-16" style={{ zIndex: 1 }}>
+      <div className="k-reveal mx-auto w-full max-w-[1140px]">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
           <div>
             <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
@@ -241,8 +253,8 @@ function Disclosure() {
  */
 function ConsoleShowcase() {
   return (
-    <section className="bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28">
-      <div className="k-reveal mx-auto max-w-[1140px]">
+    <section className="k-stack bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28 lg:py-16" style={{ zIndex: 2 }}>
+      <div className="k-reveal mx-auto w-full max-w-[1140px]">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
           <div>
             <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
@@ -257,28 +269,26 @@ function ConsoleShowcase() {
           </Link>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-5">
+        {/* One row on large screens: a pinned panel only ever shows a single
+            viewport, so the whole section has to fit inside one. */}
+        <div className="grid gap-4 lg:grid-cols-3">
           <Shot
             src={underwritingShot}
             alt="The lender console showing a network-verified Fail verdict, with cash, debts and income all reading not disclosed"
             title="A verdict, and nothing else"
-            body="The lender sees pass or fail against the terms they set. Every figure behind it reads not disclosed."
-            className="lg:col-span-3"
+            body="Pass or fail against the lender's terms. Every figure behind it reads not disclosed."
           />
           <Shot
             src={factsShot}
             alt="The borrower's private facts screen recomputing net worth and debt-to-income as figures are typed"
             title="Arithmetic that matches the circuit"
             body="Net worth and DTI recompute as you type, cross-multiplied exactly as the contract does."
-            className="lg:col-span-2"
           />
           <Shot
             src={overviewShot}
             alt="The borrower overview listing four lender requests with their attestation results"
             title="Every verdict is the contract's"
-            body="Six SolvencyProof instances and a Registry are deployed into the page at load. Nothing here is stubbed."
-            className="lg:col-span-5"
-            wide
+            body="Six SolvencyProof instances and a Registry deploy into the page at load. Nothing is stubbed."
           />
         </div>
       </div>
@@ -291,27 +301,19 @@ function Shot({
   alt,
   title,
   body,
-  className = '',
-  wide = false,
 }: {
   src: string;
   alt: string;
   title: string;
   body: string;
-  className?: string;
-  wide?: boolean;
 }) {
   return (
-    <figure
-      className={`overflow-hidden rounded-[18px] border border-[rgba(255,247,235,0.1)] bg-[rgba(255,247,235,0.03)] ${className}`}
-    >
+    <figure className="overflow-hidden rounded-[18px] border border-[rgba(255,247,235,0.1)] bg-[rgba(255,247,235,0.03)]">
       <img
         src={src}
         alt={alt}
         loading="lazy"
-        className={`w-full border-b border-[rgba(255,247,235,0.08)] object-cover object-top ${
-          wide ? 'h-[180px] sm:h-[260px]' : 'h-[200px] sm:h-[230px]'
-        }`}
+        className="h-[190px] w-full border-b border-[rgba(255,247,235,0.08)] object-cover object-top sm:h-[210px] lg:h-[168px]"
       />
       <figcaption className="p-5">
         <h3 className="mb-[6px] text-[14px] font-bold">{title}</h3>
@@ -330,8 +332,8 @@ function HowItWorks() {
   ];
 
   return (
-    <section id="how" className="bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28">
-      <div className="k-reveal mx-auto max-w-[1140px]">
+    <section id="how" className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-16" style={{ zIndex: 3 }}>
+      <div className="k-reveal mx-auto w-full max-w-[1140px]">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
           How it works
         </p>
@@ -358,8 +360,8 @@ function HowItWorks() {
 /** Saying plainly what a proof does not establish is worth more than a claim. */
 function Honesty() {
   return (
-    <section id="honesty" className="bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28">
-      <div className="k-reveal mx-auto grid max-w-[1140px] gap-10 lg:grid-cols-2">
+    <section id="honesty" className="k-stack bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28 lg:py-16" style={{ zIndex: 4 }}>
+      <div className="k-reveal mx-auto grid w-full max-w-[1140px] gap-10 lg:grid-cols-2">
         <div>
           <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
             What we don&rsquo;t claim
@@ -387,7 +389,7 @@ function Honesty() {
 
 function Closing() {
   return (
-    <section className="relative overflow-hidden bg-espresso px-5 py-24 text-center text-cream sm:px-8 sm:py-32">
+    <section className="k-stack relative overflow-hidden bg-espresso px-5 py-24 text-center text-cream sm:px-8 sm:py-32 lg:py-16" style={{ zIndex: 5 }}>
       <div
         aria-hidden="true"
         className="pointer-events-none absolute bottom-[-40%] left-1/2 size-[620px] -translate-x-1/2 rounded-full opacity-60"
@@ -397,7 +399,7 @@ function Closing() {
           filter: 'blur(50px)',
         }}
       />
-      <div className="k-reveal relative">
+      <div className="k-reveal relative w-full">
         <h2 className="text-[clamp(2rem,4vw,3.2rem)] font-black leading-[1.05] tracking-[-0.03em]">
           Underwrite the borrower.
           <br />
@@ -422,7 +424,7 @@ function Closing() {
 
 function Footer() {
   return (
-    <footer className="border-t border-[rgba(255,247,235,0.07)] bg-espresso px-5 py-8 text-cream sm:px-8">
+    <footer className="relative z-[6] border-t border-[rgba(255,247,235,0.07)] bg-espresso px-5 py-8 text-cream sm:px-8">
       <div className="mx-auto flex max-w-[1140px] flex-wrap items-center justify-between gap-4 text-[11px] text-[rgba(255,247,235,0.35)]">
         <span className="font-black tracking-[1.6px]">KYMIDER</span>
         <div className="flex gap-6">
