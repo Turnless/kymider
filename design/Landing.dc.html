@@ -1,0 +1,384 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #D46D25; text-decoration: none; }
+    a:hover { color: #E8873F; }
+
+    /* The landing is the console inverted: cream on espresso, rather than
+       espresso on cream. Same two colours, swapped roles. */
+    .k-scroll {
+      width: 1440px; height: 900px; overflow-y: auto; overflow-x: hidden;
+      background: #1B1410; color: #FFF7EB; position: relative;
+    }
+    .k-scroll::-webkit-scrollbar { width: 8px; }
+    .k-scroll::-webkit-scrollbar-track { background: transparent; }
+    .k-scroll::-webkit-scrollbar-thumb { background: rgba(255,247,235,0.14); border-radius: 4px; }
+
+    /* Hero pins; the body of the page slides up over it. */
+    .k-hero { position: sticky; top: 0; height: 900px; overflow: hidden; z-index: 1; }
+    .k-body { position: relative; z-index: 2; background: #1B1410;
+      border-radius: 34px 34px 0 0; box-shadow: 0 -40px 90px rgba(0,0,0,0.55);
+      border-top: 1px solid rgba(255,247,235,0.09); }
+
+    .k-progress { position: sticky; top: 0; height: 2px; z-index: 60; background: rgba(255,247,235,0.07); margin-bottom: -2px; }
+    .k-progress i { display: block; height: 100%; transform-origin: 0 50%; transform: scaleX(0);
+      background: linear-gradient(90deg, #D46D25, #E8A05F); }
+
+    .k-bloom { position: absolute; border-radius: 50%; filter: blur(96px); pointer-events: none; }
+    .k-drift { width: 100%; height: 100%; border-radius: 50%; animation: k-drift 28s ease-in-out infinite; }
+    @keyframes k-drift {
+      0%, 100% { transform: translate3d(-3%, -2%, 0) scale(1); }
+      50%      { transform: translate3d(3%, 2%, 0) scale(1.08); }
+    }
+
+    .k-grain { position: absolute; inset: 0; pointer-events: none; opacity: 0.34; mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E"); }
+
+    @keyframes k-revin  { to { opacity: 1; transform: none; } }
+    @keyframes k-heroout { to { opacity: 0; transform: translateY(-70px) scale(0.965); } }
+    @keyframes k-par     { to { transform: translateY(200px) scale(1.18); } }
+    @keyframes k-progress { to { transform: scaleX(1); } }
+    @keyframes k-rule    { to { transform: scaleX(1); } }
+
+    /* Scroll-driven work is progressive: without support everything is simply
+       in its finished state, never stuck invisible. */
+    @supports (animation-timeline: scroll()) {
+      .k-progress i { animation: k-progress linear both; animation-timeline: scroll(nearest); }
+      .k-heroinner  { animation: k-heroout linear both; animation-timeline: scroll(nearest); animation-range: 40px 780px; }
+      .k-par        { animation: k-par linear both; animation-timeline: scroll(nearest); animation-range: 0px 1900px; }
+    }
+    @supports (animation-timeline: view()) {
+      .k-rev  { opacity: 0; transform: translateY(34px); animation: k-revin linear both;
+                animation-timeline: view(); animation-range: entry 6% cover 32%; }
+      .k-rule { transform: scaleX(0); transform-origin: 0 50%; animation: k-rule linear both;
+                animation-timeline: view(); animation-range: entry 10% cover 40%; }
+    }
+
+    .k-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #D46D25; }
+    .k-h2 { margin: 18px 0 0 0; font-size: 50px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.06; }
+    .k-sec { padding: 116px 64px; }
+  </style>
+</helmet>
+
+<div class="k-scroll">
+
+  <div class="k-progress"><i></i></div>
+
+  <!-- ═══ HERO (pinned) ═══ -->
+  <div class="k-hero">
+    <div class="k-par" style="position: absolute; inset: 0;">
+      <div class="k-bloom" style="width: 900px; height: 900px; top: -330px; left: 43%; background: rgba(212,109,37,0.34);"><div class="k-drift"></div></div>
+      <div class="k-bloom" style="width: 640px; height: 640px; top: 240px; left: -190px; background: rgba(232,160,95,0.10);"><div class="k-drift" style="animation-duration: 36s;"></div></div>
+    </div>
+
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 400px; pointer-events: none;
+      background-image: linear-gradient(rgba(255,247,235,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,247,235,0.05) 1px, transparent 1px);
+      background-size: 72px 72px;
+      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 60%, transparent);
+      mask-image: linear-gradient(to bottom, transparent, #000 60%, transparent);"></div>
+    <div class="k-grain"></div>
+
+    <div style="position: relative; height: 84px; display: flex; align-items: center; justify-content: space-between; padding: 0 64px; border-bottom: 1px solid rgba(255,247,235,0.08);">
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"></path><path d="M9.2 12.2l2 2 3.6-3.9"></path></svg>
+        <span style="font-size: 14px; font-weight: 800; letter-spacing: 0.16em;">KYMIDER</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 34px; font-size: 13px; font-weight: 500; color: rgba(255,247,235,0.58);">
+        <span>How it works</span>
+        <span>For lenders</span>
+        <span>Documentation</span>
+        <span style="display: inline-flex; align-items: center; padding: 9px 18px; border-radius: 12px; border: 1px solid rgba(255,247,235,0.2); color: #FFF7EB; font-weight: 600;">Open console</span>
+      </div>
+    </div>
+
+    <div class="k-heroinner" style="position: relative; padding: 104px 64px 0 64px;">
+      <div style="display: inline-flex; align-items: center; gap: 9px; padding: 7px 15px; border-radius: 100px; border: 1px solid rgba(212,109,37,0.34); background: rgba(212,109,37,0.09); font-size: 11px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; color: {{accent}};">
+        <span style="width: 5px; height: 5px; border-radius: 50%; background: {{accent}}; display: inline-block;"></span>
+        Built on Midnight
+      </div>
+
+      <h1 style="margin: 28px 0 0 0; font-size: 120px; font-weight: 900; letter-spacing: -0.058em; line-height: 0.92;">
+        Prove it.<br>
+        <span style="color: rgba(255,247,235,0.32);">Don't show it.</span>
+      </h1>
+
+      <p style="margin: 32px 0 0 0; max-width: 630px; font-size: 18px; line-height: 1.62; color: rgba(255,247,235,0.6);">
+        Borrowers prove their net worth and debt ratios clear a lender's bar — without handing over a balance, a statement, or a name. The network verifies the proof. Nobody sees the numbers.
+      </p>
+
+      <div style="display: flex; align-items: center; gap: 13px; margin-top: 42px;">
+        <div style="display: inline-flex; align-items: center; gap: 10px; padding: 16px 30px; border-radius: 15px; background: {{accent}}; color: #1B1410; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 0 46px rgba(212,109,37,0.4);">
+          Open the console
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"></path><path d="M12.5 6l6 6-6 6"></path></svg>
+        </div>
+        <div style="display: inline-flex; align-items: center; padding: 16px 26px; border-radius: 15px; border: 1px solid rgba(255,247,235,0.2); font-size: 14px; font-weight: 600; cursor: pointer;">Watch the proof run</div>
+      </div>
+    </div>
+
+    <div style="position: absolute; bottom: 34px; left: 64px; right: 64px; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 30px; font-size: 12px; color: rgba(255,247,235,0.34);">
+        <sc-for list="{{marks}}" as="m" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,247,235,0.32)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"></path></svg>
+            {{ m.label }}
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: center; gap: 9px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,247,235,0.3);">
+        Scroll
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v13"></path><path d="M6 12.5l6 6 6-6"></path></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ BODY (slides over the hero) ═══ -->
+  <div class="k-body">
+
+    <!-- the reveal -->
+    <div class="k-sec">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 40px;">
+        <div class="k-rev">
+          <div class="k-eyebrow">The whole idea</div>
+          <h2 class="k-h2">Same decision.<br>None of the exposure.</h2>
+        </div>
+        <div class="k-rev" style="display: flex; padding: 4px; border-radius: 13px; background: rgba(255,247,235,0.07); flex-shrink: 0;">
+          <sc-for list="{{views}}" as="v" hint-placeholder-count="2">
+            <div onClick="{{ v.pick }}" style="{{ v.style }}">{{ v.label }}</div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div class="k-rule" style="height: 1px; background: linear-gradient(90deg, rgba(212,109,37,0.5), rgba(255,247,235,0.06)); margin-top: 40px;"></div>
+
+      <div class="k-rev" style="margin-top: 36px; border-radius: 22px; border: 1px solid rgba(255,247,235,0.1); background: linear-gradient(180deg, rgba(255,247,235,0.05), rgba(255,247,235,0.015)); padding: 34px 36px;">
+        <div style="font-size: 12px; color: rgba(255,247,235,0.42);">{{ panelCaption }}</div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 24px;">
+          <sc-for list="{{panelRows}}" as="r" hint-placeholder-count="3">
+            <div style="{{ r.cardStyle }}">
+              <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(255,247,235,0.38);">{{ r.label }}</div>
+              <div style="{{ r.valueStyle }}">{{ r.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(255,247,235,0.09);">
+          <span style="{{ panelBadgeStyle }}">{{ panelBadge }}</span>
+          <span style="font-size: 13px; color: rgba(255,247,235,0.55);">{{ panelNote }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- how it works -->
+    <div class="k-sec" style="border-top: 1px solid rgba(255,247,235,0.07);">
+      <div class="k-rev">
+        <div class="k-eyebrow">How it works</div>
+        <h2 class="k-h2">Four steps. One of them<br>leaves your device.</h2>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; margin-top: 52px;">
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+          <div class="k-rev" style="{{ s.cardStyle }}">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="font-size: 12px; font-weight: 700; color: {{accent}}; font-variant-numeric: tabular-nums;">{{ s.n }}</div>
+              <div style="{{ s.chipStyle }}">{{ s.where }}</div>
+            </div>
+            <div style="font-size: 17px; font-weight: 700; letter-spacing: -0.015em; margin-top: 24px;">{{ s.title }}</div>
+            <div style="font-size: 13px; line-height: 1.62; color: rgba(255,247,235,0.5); margin-top: 10px;">{{ s.body }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- honest framing -->
+    <div class="k-sec" style="border-top: 1px solid rgba(255,247,235,0.07); background: #16100C;">
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: center;">
+        <div class="k-rev">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,247,235,0.4);">What we don't claim</div>
+          <h2 class="k-h2" style="font-size: 42px;">Zero-knowledge proves computation, not honesty.</h2>
+        </div>
+        <div class="k-rev" style="font-size: 15px; line-height: 1.78; color: rgba(255,247,235,0.56);">
+          A proof shows the arithmetic was carried out correctly against the committed statement. It does not show the statement was true to begin with — today's figures are self-reported, and we label them that way rather than calling them tamper-proof.
+          <br><br>
+          The fix is provenance, not more cryptography: data providers co-sign facts at the point of ingestion, and the circuit proves the co-signature alongside the arithmetic. That is scheduled work, not a claim about today.
+        </div>
+      </div>
+    </div>
+
+    <!-- channels -->
+    <div class="k-sec" style="border-top: 1px solid rgba(255,247,235,0.07);">
+      <div class="k-rev">
+        <div class="k-eyebrow">One engine, two channels</div>
+        <h2 class="k-h2">Built for the lenders<br>who exist today.</h2>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 52px;">
+        <sc-for list="{{channels}}" as="c" hint-placeholder-count="2">
+          <div class="k-rev" style="border-radius: 22px; border: 1px solid rgba(255,247,235,0.1); background: linear-gradient(180deg, rgba(255,247,235,0.05), rgba(255,247,235,0.013)); padding: 34px;">
+            <div style="font-size: 22px; font-weight: 700; letter-spacing: -0.02em;">{{ c.title }}</div>
+            <div style="font-size: 14px; line-height: 1.7; color: rgba(255,247,235,0.54); margin-top: 12px;">{{ c.body }}</div>
+            <div style="display: flex; flex-direction: column; gap: 11px; margin-top: 24px; padding-top: 22px; border-top: 1px solid rgba(255,247,235,0.09);">
+              <sc-for list="{{c.points}}" as="p" hint-placeholder-count="3">
+                <div style="display: flex; align-items: flex-start; gap: 11px; font-size: 13px; color: rgba(255,247,235,0.6);">
+                  <svg style="flex-shrink: 0; margin-top: 3px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"></path></svg>
+                  {{ p.text }}
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- close -->
+    <div style="position: relative; padding: 128px 64px 100px 64px; border-top: 1px solid rgba(255,247,235,0.07); overflow: hidden;">
+      <div class="k-bloom" style="width: 800px; height: 520px; bottom: -280px; left: 28%; background: rgba(212,109,37,0.22);"><div class="k-drift"></div></div>
+      <div class="k-grain" style="opacity: 0.26;"></div>
+      <div class="k-rev" style="position: relative; text-align: center;">
+        <h2 style="margin: 0; font-size: 62px; font-weight: 900; letter-spacing: -0.048em; line-height: 1.02;">Underwrite the borrower.<br>Not their privacy.</h2>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 13px; margin-top: 40px;">
+          <div style="display: inline-flex; align-items: center; gap: 10px; padding: 16px 30px; border-radius: 15px; background: {{accent}}; color: #1B1410; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 0 46px rgba(212,109,37,0.4);">Open the console</div>
+          <div style="display: inline-flex; align-items: center; padding: 16px 26px; border-radius: 15px; border: 1px solid rgba(255,247,235,0.2); font-size: 14px; font-weight: 600; cursor: pointer;">Read the architecture</div>
+        </div>
+      </div>
+
+      <div style="position: relative; display: flex; align-items: center; justify-content: space-between; margin-top: 96px; padding-top: 28px; border-top: 1px solid rgba(255,247,235,0.07); font-size: 12px; color: rgba(255,247,235,0.32);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,247,235,0.32)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"></path></svg>
+          <span style="font-weight: 700; letter-spacing: 0.14em;">KYMIDER</span>
+        </div>
+        <div style="display: flex; gap: 28px;">
+          <span>Apache-2.0</span>
+          <span>Documentation</span>
+          <span>Source</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#D46D25","options":["#D46D25","#E8873F","#C25A1E","#B8862F"]}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: 'holder' };
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#D46D25';
+    const isHolder = this.state.view === 'holder';
+
+    const held = [
+      { label: 'Cash and equivalents', value: '$1,000,000' },
+      { label: 'Outstanding debts', value: '$300,000' },
+      { label: 'Annual income', value: '$1,000,000' },
+    ];
+    const sent = [
+      { label: 'Cash and equivalents', value: 'not disclosed' },
+      { label: 'Outstanding debts', value: 'not disclosed' },
+      { label: 'Annual income', value: 'not disclosed' },
+    ];
+
+    return {
+      accent,
+
+      marks: [
+        { label: 'Proofs verified by the network at submission' },
+        { label: 'One contract instance per borrower' },
+        { label: 'Apache-2.0, source public' },
+      ],
+
+      views: [
+        { id: 'holder', label: 'What you hold' },
+        { id: 'lender', label: 'What the lender receives' },
+      ].map((v) => ({
+        label: v.label,
+        pick: () => this.setState({ view: v.id }),
+        style:
+          'padding: 9px 18px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; user-select: none; white-space: nowrap; ' +
+          (this.state.view === v.id
+            ? 'background: #FFF7EB; color: #1B1410;'
+            : 'background: transparent; color: rgba(255,247,235,0.55);'),
+      })),
+
+      panelCaption: isHolder
+        ? 'Held on the borrower device. Never transmitted, never written to the ledger.'
+        : 'Delivered to the lender. This is the entire payload.',
+
+      panelRows: (isHolder ? held : sent).map((r) => ({
+        label: r.label,
+        value: r.value,
+        cardStyle:
+          'padding: 22px; border-radius: 16px; ' +
+          (isHolder
+            ? 'background: rgba(255,247,235,0.055); border: 1px solid rgba(255,247,235,0.11);'
+            : 'background: rgba(255,247,235,0.02); border: 1px dashed rgba(255,247,235,0.15);'),
+        valueStyle:
+          'margin-top: 11px; font-variant-numeric: tabular-nums; ' +
+          (isHolder
+            ? 'font-size: 27px; font-weight: 700; letter-spacing: -0.02em; color: #FFF7EB;'
+            : 'font-size: 17px; font-weight: 700; letter-spacing: 0.07em; color: rgba(255,247,235,0.26);'),
+      })),
+
+      panelBadge: isHolder ? 'Private' : 'Pass',
+      panelBadgeStyle:
+        'display: inline-flex; align-items: center; padding: 5px 13px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; ' +
+        (isHolder
+          ? 'background: rgba(255,247,235,0.09); color: rgba(255,247,235,0.6); border: 1px solid rgba(255,247,235,0.15);'
+          : 'background: rgba(94,201,138,0.16); color: #7BD9A5; border: 1px solid rgba(94,201,138,0.3);'),
+      panelNote: isHolder
+        ? 'The statement behind the answer, held locally and committed as a hash.'
+        : 'Net worth ≥ $500,000 and DTI ≤ 40% both hold. Verified by the network before it was recorded.',
+
+      steps: [
+        { n: '01', where: 'Your device', title: 'Commit', body: 'Enter your figures once. Only their hash is written to your contract instance.', local: true },
+        { n: '02', where: 'Public', title: 'Receive a request', body: 'A lender names a threshold and a debt-to-income limit against your instance.', local: false },
+        { n: '03', where: 'Your device', title: 'Prove', body: 'A proof is generated locally against the committed statement. The figures stay put.', local: true },
+        { n: '04', where: 'Network', title: 'Verify', body: 'Midnight checks the proof on submission. A false one never lands.', local: false },
+      ].map((s) => ({
+        ...s,
+        cardStyle:
+          'border-radius: 22px; padding: 30px; border: 1px solid rgba(255,247,235,0.1); ' +
+          (s.local
+            ? 'background: linear-gradient(180deg, rgba(212,109,37,0.11), rgba(212,109,37,0.02));'
+            : 'background: linear-gradient(180deg, rgba(255,247,235,0.05), rgba(255,247,235,0.013));'),
+        chipStyle:
+          'padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; ' +
+          (s.local
+            ? 'background: rgba(212,109,37,0.15); color: ' + accent + '; border: 1px solid rgba(212,109,37,0.3);'
+            : 'background: rgba(255,247,235,0.06); color: rgba(255,247,235,0.44); border: 1px solid rgba(255,247,235,0.13);'),
+      })),
+
+      channels: [
+        {
+          title: 'On-chain lenders',
+          body: 'Protocols read the verdict straight off the ledger and price risk against it, without ever custodying borrower data.',
+          points: [
+            { text: 'Verdict and terms are public; the statement is not' },
+            { text: 'Every privileged action checks the caller explicitly' },
+            { text: 'One loan is one contract instance' },
+          ],
+        },
+        {
+          title: 'Banks and credit unions',
+          body: 'The same proof engine issues signed, expirable attestations that verify offline, so an institution can consume them on existing rails.',
+          points: [
+            { text: 'Signed attestations, verifiable without a node' },
+            { text: 'Auditor views: verified, in good standing, no individual data' },
+            { text: 'Identity and sanctions checks without revealing identity' },
+          ],
+        },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

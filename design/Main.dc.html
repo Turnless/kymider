@@ -1,0 +1,258 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #D46D25; text-decoration: none; }
+    a:hover { color: #A9541B; }
+    .k-num { font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+    .k-lab { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(15,23,42,0.38); }
+    .k-card { background: #FFFFFF; border: 1px solid rgba(15,23,42,0.07); border-radius: 18px; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 980px; display: flex; background: #FFF7EB; color: #0F172A;">
+
+  <!-- ══ rail ══ -->
+  <div style="width: 236px; flex-shrink: 0; background: #1B1410; color: #FFF7EB; display: flex; flex-direction: column; padding: 24px 14px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px;">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"></path><path d="M9.2 12.2l2 2 3.6-3.9"></path></svg>
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.17em;">KYMIDER</span>
+    </div>
+
+    <div style="margin-top: 32px; display: flex; flex-direction: column; gap: 2px;">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+        <div style="{{ n.style }}">
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: {{ n.dot }}; display: inline-block; flex-shrink: 0;"></span>
+          {{ n.label }}
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex-grow: 1;"></div>
+
+    <div style="padding: 0 6px;">
+      <div style="display: flex; padding: 3px; border-radius: 11px; background: rgba(255,247,235,0.07);">
+        <div style="flex-grow: 1; text-align: center; padding: 7px 0; border-radius: 8px; font-size: 11px; font-weight: 700; background: #FFF7EB; color: #1B1410;">Borrower</div>
+        <div style="flex-grow: 1; text-align: center; padding: 7px 0; border-radius: 8px; font-size: 11px; font-weight: 600; color: rgba(255,247,235,0.42);">Lender</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 0 4px; font-size: 11px; color: rgba(255,247,235,0.4);">
+        <span style="width: 5px; height: 5px; border-radius: 50%; background: #5EC98A; display: inline-block;"></span>
+        Local devnet · block 41,208
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ main ══ -->
+  <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+
+    <div style="height: 84px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 36px;">
+      <div style="display: flex; align-items: baseline; gap: 14px;">
+        <h1 style="font-size: 27px; font-weight: 700; letter-spacing: -0.028em; margin: 0;">Overview</h1>
+        <span style="font-size: 12px; color: rgba(15,23,42,0.42); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">0x7f3a94c2…e41d</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div onClick="{{ toggleMask }}" style="{{ maskBtnStyle }}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>
+          {{ maskLabel }}
+        </div>
+        <div style="display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; background: #1B1410; color: #FFF7EB; font-size: 13px; font-weight: 600; border-radius: 13px; cursor: pointer;">Commit new facts</div>
+      </div>
+    </div>
+
+    <div style="flex-grow: 1; padding: 0 36px 32px 36px; display: grid; grid-template-columns: minmax(0, 1.62fr) minmax(0, 1fr); gap: 18px; min-height: 0;">
+
+      <div style="display: flex; flex-direction: column; gap: 18px; min-height: 0;">
+
+        <!-- position: the one dominant element -->
+        <div class="k-card" style="padding: 26px 30px; display: flex; align-items: center; gap: 34px;">
+          <sc-for list="{{position}}" as="p" hint-placeholder-count="3">
+            <div style="{{ p.wrapStyle }}">
+              <div class="k-lab">{{ p.label }}</div>
+              <div class="k-num" style="{{ p.valueStyle }}">{{ p.value }}</div>
+              <div style="font-size: 11px; color: rgba(15,23,42,0.42); margin-top: 3px;">{{ p.sub }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- claims -->
+        <div class="k-card" style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;">
+          <div style="padding: 18px 22px 14px 22px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="font-size: 14px; font-weight: 700; letter-spacing: -0.01em;">Lender requests</div>
+            <div style="font-size: 12px; color: rgba(15,23,42,0.42);">{{ claimCount }}</div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1.2fr 1.5fr 0.7fr; padding: 0 22px 9px 22px; border-bottom: 1px solid rgba(15,23,42,0.06);">
+            <div class="k-lab">Lender</div>
+            <div class="k-lab">Requested terms</div>
+            <div class="k-lab" style="text-align: right;">Attestation</div>
+          </div>
+          <sc-for list="{{claims}}" as="c" hint-placeholder-count="4">
+            <div onClick="{{ c.select }}" style="{{ c.rowStyle }}">
+              <div style="display: flex; align-items: center; gap: 11px;">
+                <div style="{{ c.avatarStyle }}">{{ c.initials }}</div>
+                <div>
+                  <div style="font-size: 13px; font-weight: 600;">{{ c.lender }}</div>
+                  <div style="font-size: 11px; color: rgba(15,23,42,0.4); margin-top: 2px;">{{ c.kind }}</div>
+                </div>
+              </div>
+              <div class="k-num" style="font-size: 12px; color: rgba(15,23,42,0.68); align-self: center;">{{ c.terms }}</div>
+              <div style="text-align: right; align-self: center;"><span style="{{ c.badgeStyle }}">{{ c.status }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- right column -->
+      <div style="display: flex; flex-direction: column; gap: 18px; min-height: 0;">
+
+        <div style="background: #1B1410; border-radius: 18px; padding: 24px;">
+          <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,247,235,0.38);">On-chain record</div>
+          <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 18px;">
+            <sc-for list="{{onchain}}" as="r" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                <span style="font-size: 12px; color: rgba(255,247,235,0.45);">{{ r.label }}</span>
+                <span style="font-size: 12px; font-weight: 500; color: #FFF7EB; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">{{ r.value }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top: 20px; padding-top: 17px; border-top: 1px solid rgba(255,247,235,0.1); font-size: 11px; line-height: 1.6; color: rgba(255,247,235,0.46);">
+            Balances, debts and income stay on this device. Only the commitment hash and the verified result are written to the ledger.
+          </div>
+        </div>
+
+        <div class="k-card" style="padding: 24px; flex-grow: 1; display: flex; flex-direction: column; min-height: 0;">
+          <div class="k-lab">Authorized lenders</div>
+          <div style="display: flex; flex-direction: column; gap: 13px; margin-top: 18px;">
+            <sc-for list="{{lenders}}" as="l" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 11px;">
+                <div style="width: 30px; height: 30px; border-radius: 9px; background: rgba(212,109,37,0.1); color: {{accent}}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0;">{{ l.initials }}</div>
+                <div style="min-width: 0;">
+                  <div style="font-size: 12px; font-weight: 600;">{{ l.name }}</div>
+                  <div style="font-size: 11px; color: rgba(15,23,42,0.38); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">{{ l.key }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex-grow: 1;"></div>
+          <div style="margin-top: 18px; padding: 11px 14px; border: 1px dashed rgba(15,23,42,0.16); border-radius: 13px; font-size: 12px; font-weight: 600; color: rgba(15,23,42,0.48); text-align: center; cursor: pointer;">Authorize a lender</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#D46D25","options":["#D46D25","#B8862F","#1B1410","#2563eb"]},"startMasked":{"editor":"boolean","default":false}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { masked: null, selected: 'harbor' };
+  }
+
+  isMasked() {
+    if (this.state.masked === null) return this.props.startMasked ?? false;
+    return this.state.masked;
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#D46D25';
+    const masked = this.isMasked();
+    const hide = (v) => (masked ? '••••••' : v);
+
+    const navItems = [
+      { label: 'Overview', active: true },
+      { label: 'Private facts', active: false },
+      { label: 'Claims', active: false },
+      { label: 'Lenders', active: false },
+    ];
+
+    const claims = [
+      { id: 'harbor', initials: 'HB', lender: 'Harbor Bank', kind: 'Institutional', terms: 'Net worth ≥ $750,000 · DTI ≤ 35%', status: 'Not proved', tone: 'pending' },
+      { id: 'nova', initials: 'NC', lender: 'Nova Capital', kind: 'On-chain protocol', terms: 'Net worth ≥ $500,000 · DTI ≤ 40%', status: 'Pass', tone: 'pass' },
+      { id: 'meridian', initials: 'MC', lender: 'Meridian Credit Union', kind: 'Institutional', terms: 'Net worth ≥ $250,000 · DTI ≤ 45%', status: 'Pass', tone: 'pass' },
+      { id: 'atlas', initials: 'AL', lender: 'Atlas Lending', kind: 'On-chain protocol', terms: 'Net worth ≥ $900,000 · DTI ≤ 30%', status: 'Fail', tone: 'fail' },
+    ];
+
+    const badge = (tone) => {
+      const map = {
+        pass: 'background: rgba(22,163,74,0.1); color: #16a34a; border: 1px solid rgba(22,163,74,0.2);',
+        fail: 'background: rgba(220,38,38,0.1); color: #dc2626; border: 1px solid rgba(220,38,38,0.2);',
+        pending: 'background: rgba(217,119,6,0.1); color: #d97706; border: 1px solid rgba(217,119,6,0.2);',
+      };
+      return 'display: inline-flex; align-items: center; padding: 4px 11px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; ' + map[tone];
+    };
+
+    return {
+      accent,
+
+      nav: navItems.map((n) => ({
+        label: n.label,
+        dot: n.active ? accent : 'rgba(255,247,235,0.22)',
+        style:
+          'display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 10px; font-size: 13px; cursor: pointer; ' +
+          (n.active
+            ? 'background: rgba(255,247,235,0.08); color: #FFF7EB; font-weight: 600;'
+            : 'color: rgba(255,247,235,0.5); font-weight: 500;'),
+      })),
+
+      maskLabel: masked ? 'Show values' : 'Hide values',
+      maskBtnStyle:
+        'display: inline-flex; align-items: center; gap: 8px; padding: 10px 17px; border-radius: 13px; font-size: 13px; font-weight: 600; cursor: pointer; user-select: none; ' +
+        (masked
+          ? 'background: rgba(212,109,37,0.1); color: ' + accent + '; border: 1px solid rgba(212,109,37,0.28);'
+          : 'background: transparent; color: #0F172A; border: 1px solid rgba(15,23,42,0.12);'),
+      toggleMask: () => this.setState({ masked: !masked }),
+
+      position: [
+        { label: 'Net worth', value: hide('$700,000'), sub: 'Balance less debts', size: 44, grow: true },
+        { label: 'Debt-to-income', value: hide('30.0%'), sub: 'Tightest limit asked: 30%', size: 44, grow: true },
+        { label: 'Attestations', value: '2 / 4', sub: '1 awaiting proof, 1 failed', size: 30, grow: false },
+      ].map((p, i) => ({
+        ...p,
+        wrapStyle:
+          (p.grow ? 'flex-grow: 1; ' : '') +
+          (i > 0 ? 'padding-left: 34px; border-left: 1px solid rgba(15,23,42,0.08);' : ''),
+        valueStyle: 'font-size: ' + p.size + 'px; font-weight: 700; margin-top: 9px;',
+      })),
+
+      claimCount: claims.length + ' requests',
+      claims: claims.map((c) => ({
+        ...c,
+        badgeStyle: badge(c.tone),
+        avatarStyle:
+          'width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; ' +
+          (c.tone === 'pending'
+            ? 'background: rgba(212,109,37,0.12); color: ' + accent + ';'
+            : 'background: rgba(15,23,42,0.05); color: rgba(15,23,42,0.5);'),
+        select: () => this.setState({ selected: c.id }),
+        rowStyle:
+          'display: grid; grid-template-columns: 1.2fr 1.5fr 0.7fr; padding: 14px 22px; cursor: pointer; border-bottom: 1px solid rgba(15,23,42,0.045); ' +
+          (this.state.selected === c.id
+            ? 'background: rgba(212,109,37,0.05); box-shadow: inset 2px 0 0 ' + accent + ';'
+            : 'background: transparent;'),
+      })),
+
+      onchain: [
+        { label: 'Instance', value: '0x7f3a…e41d' },
+        { label: 'Commitment', value: '0x9c4e…07ab' },
+        { label: 'Verifier key', value: '0x21b8…f5d2' },
+      ],
+
+      lenders: [
+        { initials: 'NC', name: 'Nova Capital', key: '0x4d2a…9c1f' },
+        { initials: 'HB', name: 'Harbor Bank', key: '0xb70e…33a5' },
+        { initials: 'MC', name: 'Meridian Credit Union', key: '0x18f6…c204' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

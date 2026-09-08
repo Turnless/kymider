@@ -1,0 +1,254 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #D46D25; text-decoration: none; }
+    a:hover { color: #A9541B; }
+    .k-num { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+    .k-lab { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(15,23,42,0.38); }
+    .k-card { background: #FFFFFF; border: 1px solid rgba(15,23,42,0.07); border-radius: 18px; }
+    @keyframes k-spin { to { transform: rotate(360deg); } }
+    .k-spin { animation: k-spin 0.9s linear infinite; transform-origin: 50% 50%; }
+    @keyframes k-pulse { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+    .k-pulse { animation: k-pulse 2s ease-in-out infinite; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 980px; display: flex; background: #FFF7EB; color: #0F172A;">
+
+  <div style="width: 236px; flex-shrink: 0; background: #1B1410; color: #FFF7EB; display: flex; flex-direction: column; padding: 24px 14px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px;">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"></path><path d="M9.2 12.2l2 2 3.6-3.9"></path></svg>
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.17em;">KYMIDER</span>
+    </div>
+    <div style="margin-top: 32px; display: flex; flex-direction: column; gap: 2px;">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+        <div style="{{ n.style }}">
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: {{ n.dot }}; display: inline-block; flex-shrink: 0;"></span>
+          {{ n.label }}
+        </div>
+      </sc-for>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div style="padding: 0 6px;">
+      <div style="display: flex; padding: 3px; border-radius: 11px; background: rgba(255,247,235,0.07);">
+        <div style="flex-grow: 1; text-align: center; padding: 7px 0; border-radius: 8px; font-size: 11px; font-weight: 700; background: #FFF7EB; color: #1B1410;">Borrower</div>
+        <div style="flex-grow: 1; text-align: center; padding: 7px 0; border-radius: 8px; font-size: 11px; font-weight: 600; color: rgba(255,247,235,0.42);">Lender</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 0 4px; font-size: 11px; color: rgba(255,247,235,0.4);">
+        <span style="width: 5px; height: 5px; border-radius: 50%; background: #5EC98A; display: inline-block;"></span>
+        Local devnet · block 41,208
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+
+    <div style="height: 84px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 36px;">
+      <h1 style="font-size: 27px; font-weight: 700; letter-spacing: -0.028em; margin: 0;">Claims</h1>
+      <div style="display: flex; gap: 3px; padding: 3px; border-radius: 12px; background: rgba(15,23,42,0.055);">
+        <sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
+          <div onClick="{{ f.pick }}" style="{{ f.style }}">{{ f.label }}</div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-grow: 1; padding: 0 36px 32px 36px; display: flex; flex-direction: column; gap: 18px; min-height: 0;">
+
+      <!-- the one that needs action -->
+      <sc-if value="{{ hasPriority }}" hint-placeholder-val="{{ true }}">
+        <div style="background: #1B1410; border-radius: 18px; padding: 28px 30px; display: flex; align-items: center; gap: 32px;">
+          <div style="flex-grow: 1;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="k-pulse" style="width: 6px; height: 6px; border-radius: 50%; background: {{accent}}; display: inline-block;"></span>
+              <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: {{accent}};">Awaiting your proof</span>
+            </div>
+            <div style="font-size: 24px; font-weight: 700; letter-spacing: -0.022em; color: #FFF7EB; margin-top: 13px;">{{ priority.lender }}</div>
+            <div class="k-num" style="font-size: 14px; color: rgba(255,247,235,0.55); margin-top: 7px;">{{ priority.terms }}</div>
+            <div style="font-size: 12px; color: rgba(255,247,235,0.36); margin-top: 12px;">Answering this reveals a pass or fail and the terms above — nothing else.</div>
+          </div>
+          <div onClick="{{ priority.action }}" style="{{ priority.actionStyle }}">
+            <sc-if value="{{ priority.proving }}" hint-placeholder-val="{{ false }}">
+              <svg class="k-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"></path></svg>
+            </sc-if>
+            {{ priority.actionLabel }}
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- the rest -->
+      <div class="k-card" style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;">
+        <div style="padding: 18px 22px 13px 22px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="font-size: 14px; font-weight: 700; letter-spacing: -0.01em;">{{ listTitle }}</div>
+          <div style="font-size: 12px; color: rgba(15,23,42,0.42);">{{ proofSummary }}</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1.15fr 1.5fr 0.65fr 0.6fr; padding: 0 22px 9px 22px; border-bottom: 1px solid rgba(15,23,42,0.06);">
+          <div class="k-lab">Lender</div>
+          <div class="k-lab">Requested terms</div>
+          <div class="k-lab">Attestation</div>
+          <div class="k-lab" style="text-align: right;">Receipt</div>
+        </div>
+
+        <sc-for list="{{rows}}" as="c" hint-placeholder-count="3">
+          <div style="display: grid; grid-template-columns: 1.15fr 1.5fr 0.65fr 0.6fr; padding: 15px 22px; border-bottom: 1px solid rgba(15,23,42,0.045); align-items: center;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <div style="width: 30px; height: 30px; border-radius: 9px; background: rgba(15,23,42,0.05); color: rgba(15,23,42,0.5); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0;">{{ c.initials }}</div>
+              <div>
+                <div style="font-size: 13px; font-weight: 600;">{{ c.lender }}</div>
+                <div style="font-size: 11px; color: rgba(15,23,42,0.4); margin-top: 2px;">{{ c.age }}</div>
+              </div>
+            </div>
+            <div class="k-num" style="font-size: 12px; color: rgba(15,23,42,0.68);">{{ c.terms }}</div>
+            <div><span style="{{ c.badgeStyle }}">{{ c.statusLabel }}</span></div>
+            <div style="text-align: right;">
+              <span style="font-size: 12px; font-weight: 600; color: rgba(15,23,42,0.5); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer;">{{ c.receipt }}</span>
+            </div>
+          </div>
+        </sc-for>
+
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 70px 0; text-align: center;">
+            <div style="font-size: 13px; font-weight: 600; color: rgba(15,23,42,0.48);">Nothing in this view</div>
+            <div style="font-size: 12px; color: rgba(15,23,42,0.32); margin-top: 5px;">Switch the filter to see the rest of your claims</div>
+          </div>
+        </sc-if>
+
+        <div style="flex-grow: 1;"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#D46D25","options":["#D46D25","#B8862F","#1B1410","#2563eb"]}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      filter: 'all',
+      status: { harbor: 'pending', nova: 'pass', meridian: 'pass', atlas: 'fail' },
+      proving: {},
+    };
+  }
+
+  componentWillUnmount() {
+    Object.values(this.timers || {}).forEach((t) => clearTimeout(t));
+  }
+
+  prove(id, outcome) {
+    this.timers = this.timers || {};
+    this.setState({ proving: { ...this.state.proving, [id]: true } });
+    this.timers[id] = setTimeout(() => {
+      this.setState({
+        proving: { ...this.state.proving, [id]: false },
+        status: { ...this.state.status, [id]: outcome },
+      });
+    }, 1500);
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#D46D25';
+
+    const base = [
+      { id: 'harbor', initials: 'HB', lender: 'Harbor Bank', age: 'requested 6 hours ago', terms: 'Net worth ≥ $750,000 · DTI ≤ 35%', outcome: 'fail' },
+      { id: 'nova', initials: 'NC', lender: 'Nova Capital', age: 'requested 2 days ago', terms: 'Net worth ≥ $500,000 · DTI ≤ 40%', outcome: 'pass' },
+      { id: 'meridian', initials: 'MC', lender: 'Meridian Credit Union', age: 'requested 5 days ago', terms: 'Net worth ≥ $250,000 · DTI ≤ 45%', outcome: 'pass' },
+      { id: 'atlas', initials: 'AL', lender: 'Atlas Lending', age: 'requested 9 days ago', terms: 'Net worth ≥ $900,000 · DTI ≤ 30%', outcome: 'fail' },
+    ];
+
+    const badge = (tone) => {
+      const map = {
+        pass: 'background: rgba(22,163,74,0.1); color: #16a34a; border: 1px solid rgba(22,163,74,0.2);',
+        fail: 'background: rgba(220,38,38,0.1); color: #dc2626; border: 1px solid rgba(220,38,38,0.2);',
+        pending: 'background: rgba(217,119,6,0.1); color: #d97706; border: 1px solid rgba(217,119,6,0.2);',
+      };
+      return 'display: inline-flex; align-items: center; padding: 4px 11px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; ' + map[tone];
+    };
+
+    const pendingOne = base.find((c) => this.state.status[c.id] === 'pending');
+    const proving = pendingOne ? !!this.state.proving[pendingOne.id] : false;
+
+    const rest = base.filter((c) => !pendingOne || c.id !== pendingOne.id);
+    const visible = rest.filter((c) => {
+      if (this.state.filter === 'all') return true;
+      return this.state.status[c.id] === this.state.filter;
+    });
+
+    const answered = base.filter((c) => this.state.status[c.id] !== 'pending').length;
+
+    return {
+      accent,
+
+      nav: [
+        { label: 'Overview', active: false },
+        { label: 'Private facts', active: false },
+        { label: 'Claims', active: true },
+        { label: 'Lenders', active: false },
+      ].map((n) => ({
+        label: n.label,
+        dot: n.active ? accent : 'rgba(255,247,235,0.22)',
+        style:
+          'display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 10px; font-size: 13px; cursor: pointer; ' +
+          (n.active
+            ? 'background: rgba(255,247,235,0.08); color: #FFF7EB; font-weight: 600;'
+            : 'color: rgba(255,247,235,0.5); font-weight: 500;'),
+      })),
+
+      filters: [
+        { id: 'all', label: 'All' },
+        { id: 'pass', label: 'Passed' },
+        { id: 'fail', label: 'Failed' },
+      ].map((f) => ({
+        label: f.label,
+        pick: () => this.setState({ filter: f.id }),
+        style:
+          'padding: 7px 15px; border-radius: 9px; font-size: 12px; font-weight: 600; cursor: pointer; user-select: none; ' +
+          (this.state.filter === f.id
+            ? 'background: #FFFFFF; color: #0F172A; box-shadow: 0 1px 2px rgba(0,0,0,0.06);'
+            : 'background: transparent; color: rgba(15,23,42,0.48);'),
+      })),
+
+      hasPriority: !!pendingOne,
+      priority: pendingOne
+        ? {
+            lender: pendingOne.lender,
+            terms: pendingOne.terms,
+            proving,
+            actionLabel: proving ? 'Generating proof' : 'Generate proof',
+            action: proving ? () => {} : () => this.prove(pendingOne.id, pendingOne.outcome),
+            actionStyle:
+              'display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 16px 30px; border-radius: 14px; font-size: 14px; font-weight: 700; white-space: nowrap; flex-shrink: 0; ' +
+              (proving
+                ? 'background: rgba(255,247,235,0.1); color: rgba(255,247,235,0.6); cursor: default;'
+                : 'background: ' + accent + '; color: #1B1410; cursor: pointer; box-shadow: 0 0 34px rgba(212,109,37,0.32);'),
+          }
+        : { lender: '', terms: '', proving: false, actionLabel: '', action: () => {}, actionStyle: '' },
+
+      listTitle: pendingOne ? 'Answered claims' : 'All claims',
+      proofSummary: answered + ' of ' + base.length + ' answered',
+      empty: visible.length === 0,
+
+      rows: visible.map((c) => {
+        const st = this.state.status[c.id];
+        return {
+          ...c,
+          statusLabel: st === 'pass' ? 'Pass' : st === 'fail' ? 'Fail' : 'Not proved',
+          badgeStyle: badge(st),
+          receipt: st === 'pending' ? '—' : '0x' + c.id.slice(0, 4) + '…' + c.initials.toLowerCase(),
+        };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>

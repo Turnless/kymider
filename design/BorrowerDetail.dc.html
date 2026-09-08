@@ -1,0 +1,327 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #D46D25; text-decoration: none; }
+    a:hover { color: #A9541B; }
+    .k-num { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+    .k-lab { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(15,23,42,0.38); }
+    .k-labd { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,247,235,0.38); }
+    .k-card { background: #FFFFFF; border: 1px solid rgba(15,23,42,0.07); border-radius: 18px; }
+    .k-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .k-di { width: 100%; padding: 13px 14px 13px 32px; background: rgba(255,247,235,0.06); border: 1px solid rgba(255,247,235,0.14);
+      border-radius: 13px; font-size: 16px; font-weight: 600; font-family: inherit; color: #FFF7EB;
+      font-variant-numeric: tabular-nums; box-sizing: border-box; outline: none; }
+    .k-di:focus { border-color: #D46D25; box-shadow: 0 0 0 3px rgba(212,109,37,0.18); }
+    @keyframes k-spin { to { transform: rotate(360deg); } }
+    .k-spin { animation: k-spin 0.9s linear infinite; transform-origin: 50% 50%; }
+    @keyframes k-pop { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .k-pop { animation: k-pop 0.45s cubic-bezier(0.16,1,0.3,1) both; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 980px; display: flex; background: #F9F0E0; color: #0F172A;">
+
+  <div style="width: 236px; flex-shrink: 0; background: #1B1410; color: #FFF7EB; display: flex; flex-direction: column; padding: 24px 14px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px;">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"></path><path d="M9.2 12.2l2 2 3.6-3.9"></path></svg>
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.17em;">KYMIDER</span>
+    </div>
+    <div style="margin-top: 32px; display: flex; flex-direction: column; gap: 2px;">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="3">
+        <div style="{{ n.style }}">
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: {{ n.dot }}; display: inline-block; flex-shrink: 0;"></span>
+          {{ n.label }}
+        </div>
+      </sc-for>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div style="padding: 0 6px;">
+      <div style="display: flex; padding: 3px; border-radius: 11px; background: rgba(255,247,235,0.07);">
+        <div style="flex-grow: 1; text-align: center; padding: 7px 0; border-radius: 8px; font-size: 11px; font-weight: 600; color: rgba(255,247,235,0.42);">Borrower</div>
+        <div style="flex-grow: 1; text-align: center; padding: 7px 0; border-radius: 8px; font-size: 11px; font-weight: 700; background: #FFF7EB; color: #1B1410;">Lender</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 0 4px; font-size: 11px; color: rgba(255,247,235,0.4);">
+        <span style="width: 5px; height: 5px; border-radius: 50%; background: #5EC98A; display: inline-block;"></span>
+        Local devnet · block 41,208
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+
+    <div style="height: 84px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 36px;">
+      <div>
+        <div style="font-size: 11px; color: rgba(15,23,42,0.4);">Directory</div>
+        <div style="display: flex; align-items: center; gap: 12px; margin-top: 3px;">
+          <h1 class="k-mono" style="font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin: 0;">0x7f3a94c2…e41d</h1>
+          <span style="display: inline-flex; align-items: center; padding: 4px 11px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; background: rgba(22,163,74,0.1); color: #16a34a; border: 1px solid rgba(22,163,74,0.2);">Active</span>
+        </div>
+      </div>
+      <div style="display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 13px; border: 1px solid rgba(15,23,42,0.12); font-size: 13px; font-weight: 600; cursor: pointer;">Back to directory</div>
+    </div>
+
+    <div style="flex-grow: 1; padding: 0 36px 32px 36px; display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr); gap: 18px; min-height: 0;">
+
+      <!-- what a lender can actually see -->
+      <div style="display: flex; flex-direction: column; gap: 18px; min-height: 0;">
+
+        <div class="k-card" style="padding: 24px;">
+          <div class="k-lab">Public record</div>
+          <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 17px;">
+            <sc-for list="{{record}}" as="r" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px;">
+                <span style="font-size: 12px; color: rgba(15,23,42,0.48);">{{ r.label }}</span>
+                <span style="{{ r.valueStyle }}">{{ r.value }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="k-card" style="padding: 24px; flex-grow: 1; display: flex; flex-direction: column; min-height: 0;">
+          <div class="k-lab">Attestations to other lenders</div>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 17px;">
+            <sc-for list="{{history}}" as="h" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; border-radius: 13px; background: rgba(15,23,42,0.028);">
+                <div>
+                  <div class="k-num" style="font-size: 12px; font-weight: 600;">{{ h.terms }}</div>
+                  <div style="font-size: 11px; color: rgba(15,23,42,0.4); margin-top: 3px;">{{ h.when }}</div>
+                </div>
+                <span style="{{ h.badgeStyle }}">{{ h.verdict }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex-grow: 1;"></div>
+          <div style="margin-top: 17px; padding-top: 15px; border-top: 1px solid rgba(15,23,42,0.07); font-size: 11px; line-height: 1.6; color: rgba(15,23,42,0.44);">
+            Verdicts are public; the figures behind them are not. An unchanged commitment means the same statement still stands behind every one of these.
+          </div>
+        </div>
+      </div>
+
+      <!-- underwriting -->
+      <div style="background: #1B1410; border-radius: 18px; padding: 26px 28px; display: flex; flex-direction: column; color: #FFF7EB; min-height: 0;">
+
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div class="k-labd">Underwriting</div>
+          <div style="display: flex; align-items: center; gap: 7px;">
+            <sc-for list="{{pips}}" as="p" hint-placeholder-count="3">
+              <span style="{{ p.style }}"></span>
+            </sc-for>
+            <span class="k-num" style="font-size: 11px; color: rgba(255,247,235,0.4); margin-left: 5px;">{{ stepLabel }}</span>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px;">
+          <div>
+            <label style="display: block; font-size: 12px; color: rgba(255,247,235,0.5); margin-bottom: 8px;">Minimum net worth</label>
+            <div style="position: relative;">
+              <span style="position: absolute; left: 14px; top: 13px; font-size: 16px; font-weight: 600; color: rgba(255,247,235,0.32);">$</span>
+              <input class="k-di" type="text" value="{{ threshold }}" onChange="{{ onThreshold }}" disabled="{{ locked }}">
+            </div>
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; color: rgba(255,247,235,0.5); margin-bottom: 8px;">Maximum debt-to-income</label>
+            <div style="position: relative;">
+              <span style="position: absolute; left: 14px; top: 13px; font-size: 16px; font-weight: 600; color: rgba(255,247,235,0.32);">%</span>
+              <input class="k-di" type="text" value="{{ maxDti }}" onChange="{{ onMaxDti }}" disabled="{{ locked }}">
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px; font-size: 11px; line-height: 1.6; color: rgba(255,247,235,0.4);">{{ composeNote }}</div>
+
+        <div onClick="{{ primary }}" style="{{ primaryStyle }}">
+          <sc-if value="{{ working }}" hint-placeholder-val="{{ false }}">
+            <svg class="k-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"></path></svg>
+          </sc-if>
+          {{ primaryLabel }}
+        </div>
+
+        <sc-if value="{{ hasVerdict }}" hint-placeholder-val="{{ true }}">
+          <div class="k-pop" style="margin-top: 24px; padding-top: 22px; border-top: 1px solid rgba(255,247,235,0.1);">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+              <div>
+                <div class="k-labd">Network-verified result</div>
+                <div style="font-size: 60px; font-weight: 900; letter-spacing: -0.04em; line-height: 1; margin-top: 10px; color: {{ verdictColor }};">{{ verdictLabel }}</div>
+                <div class="k-num" style="font-size: 13px; color: rgba(255,247,235,0.5); margin-top: 10px;">{{ verdictTerms }}</div>
+              </div>
+              <div style="text-align: right; flex-shrink: 0;">
+                <div style="font-size: 11px; color: rgba(255,247,235,0.32);">Verified at</div>
+                <div class="k-mono" style="font-size: 12px; color: rgba(255,247,235,0.62); margin-top: 4px;">block 41,208</div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px;">
+              <sc-for list="{{hidden}}" as="h" hint-placeholder-count="3">
+                <div style="padding: 13px 14px; border-radius: 13px; background: rgba(255,247,235,0.03); border: 1px dashed rgba(255,247,235,0.15);">
+                  <div style="font-size: 11px; color: rgba(255,247,235,0.38);">{{ h.label }}</div>
+                  <div style="font-size: 14px; font-weight: 700; color: rgba(255,247,235,0.26); margin-top: 5px; letter-spacing: 0.06em;">not disclosed</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <div style="flex-grow: 1;"></div>
+
+        <sc-if value="{{ canDecide }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; gap: 10px; margin-top: 22px;">
+            <div onClick="{{ approve }}" style="flex-grow: 1; display: inline-flex; align-items: center; justify-content: center; padding: 15px 20px; border-radius: 14px; background: {{accent}}; color: #1B1410; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 0 34px rgba(212,109,37,0.3);">Approve application</div>
+            <div onClick="{{ reject }}" style="display: inline-flex; align-items: center; justify-content: center; padding: 15px 24px; border-radius: 14px; border: 1px solid rgba(255,247,235,0.2); color: rgba(255,247,235,0.85); font-size: 14px; font-weight: 600; cursor: pointer;">Decline</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ decided }}" hint-placeholder-val="{{ false }}">
+          <div class="k-pop" style="{{ decisionStyle }}">
+            <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;">{{ decisionLabel }}</div>
+            <div style="font-size: 12px; margin-top: 6px; opacity: 0.72;">Recorded on the borrower instance.</div>
+            <div onClick="{{ reset }}" style="margin-top: 13px; display: inline-flex; padding: 8px 16px; border-radius: 11px; border: 1px solid currentColor; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 0.8;">Run it again</div>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#D46D25","options":["#D46D25","#B8862F","#1B1410","#2563eb"]}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    // stage: compose -> awaiting -> answered -> decided
+    this.state = { stage: 'compose', threshold: '500,000', maxDti: '40', decision: null };
+  }
+
+  componentWillUnmount() { if (this.timer) clearTimeout(this.timer); }
+
+  num(s) {
+    const n = parseFloat(String(s).replace(/[^0-9.]/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+
+  request() {
+    this.setState({ stage: 'awaiting' });
+    this.timer = setTimeout(() => this.setState({ stage: 'answered' }), 1600);
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#D46D25';
+    const stage = this.state.stage;
+    const threshold = this.num(this.state.threshold);
+    const maxDti = this.num(this.state.maxDti);
+
+    // The statement behind this instance: figures the lender never receives.
+    const balance = 1000000, debts = 300000, income = 1000000;
+    const netWorth = balance >= debts ? balance - debts : 0;
+    const pass = income > 0 && netWorth >= threshold && debts * 100 <= maxDti * income;
+
+    const terms = 'Net worth ≥ $' + Math.round(threshold).toLocaleString('en-US') + ' · DTI ≤ ' + maxDti + '%';
+
+    const badge = (tone) => {
+      const map = {
+        pass: 'background: rgba(22,163,74,0.1); color: #16a34a; border: 1px solid rgba(22,163,74,0.2);',
+        fail: 'background: rgba(220,38,38,0.1); color: #dc2626; border: 1px solid rgba(220,38,38,0.2);',
+      };
+      return 'display: inline-flex; align-items: center; padding: 4px 11px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; ' + map[tone];
+    };
+
+    const order = { compose: 0, awaiting: 1, answered: 2, decided: 3 };
+    const steps = { compose: 'Step 1 of 3', awaiting: 'Step 2 of 3', answered: 'Step 3 of 3', decided: 'Complete' };
+
+    return {
+      accent,
+
+      nav: [
+        { label: 'Directory', active: true },
+        { label: 'Portfolio', active: false },
+        { label: 'Claims', active: false },
+      ].map((n) => ({
+        label: n.label,
+        dot: n.active ? accent : 'rgba(255,247,235,0.22)',
+        style:
+          'display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 10px; font-size: 13px; cursor: pointer; ' +
+          (n.active
+            ? 'background: rgba(255,247,235,0.08); color: #FFF7EB; font-weight: 600;'
+            : 'color: rgba(255,247,235,0.5); font-weight: 500;'),
+      })),
+
+      stepLabel: steps[stage],
+      locked: stage !== 'compose',
+
+      pips: [0, 1, 2].map((i) => ({
+        style:
+          'width: 18px; height: 3px; border-radius: 2px; display: inline-block; ' +
+          (order[stage] > i ? 'background: ' + accent + ';' : 'background: rgba(255,247,235,0.16);'),
+      })),
+
+      threshold: this.state.threshold,
+      maxDti: this.state.maxDti,
+      onThreshold: (e) => this.setState({ threshold: e.target.value }),
+      onMaxDti: (e) => this.setState({ maxDti: e.target.value }),
+
+      composeNote:
+        stage === 'compose'
+          ? 'The borrower is asked only whether both conditions hold. Neither figure behind the answer is transmitted.'
+          : stage === 'awaiting'
+          ? 'The borrower is generating a proof on their own device. Nothing is sent until it completes.'
+          : 'The network verified the proof before recording it. This result cannot be produced from figures that do not match the committed statement.',
+
+      working: stage === 'awaiting',
+      primaryLabel:
+        stage === 'compose' ? 'Request claim'
+        : stage === 'awaiting' ? 'Awaiting borrower proof'
+        : stage === 'answered' ? 'Claim answered'
+        : 'Claim closed',
+      primary: stage === 'compose' ? () => this.request() : () => {},
+      primaryStyle:
+        'display: inline-flex; align-items: center; justify-content: center; gap: 9px; width: 100%; margin-top: 20px; padding: 14px 20px; border-radius: 14px; font-size: 13px; font-weight: 600; box-sizing: border-box; ' +
+        (stage === 'compose'
+          ? 'background: #FFF7EB; color: #1B1410; cursor: pointer;'
+          : 'background: rgba(255,247,235,0.08); color: rgba(255,247,235,0.55); cursor: default;'),
+
+      hasVerdict: stage === 'answered' || stage === 'decided',
+      verdictLabel: pass ? 'Pass' : 'Fail',
+      verdictColor: pass ? '#7BD9A5' : '#F09484',
+      verdictTerms: terms,
+      hidden: [{ label: 'Cash and equivalents' }, { label: 'Outstanding debts' }, { label: 'Annual income' }],
+
+      canDecide: stage === 'answered',
+      approve: () => this.setState({ stage: 'decided', decision: 'approved' }),
+      reject: () => this.setState({ stage: 'decided', decision: 'declined' }),
+      reset: () => this.setState({ stage: 'compose', decision: null }),
+
+      decided: stage === 'decided',
+      decisionLabel: this.state.decision === 'approved' ? 'Application approved' : 'Application declined',
+      decisionStyle:
+        'margin-top: 22px; padding: 17px 19px; border-radius: 14px; ' +
+        (this.state.decision === 'approved'
+          ? 'background: rgba(94,201,138,0.14); color: #7BD9A5; border: 1px solid rgba(94,201,138,0.28);'
+          : 'background: rgba(232,112,95,0.14); color: #F09484; border: 1px solid rgba(232,112,95,0.28);'),
+
+      record: [
+        { label: 'Instance', value: '0x7f3a94c2…e41d', valueStyle: 'font-size: 12px; font-weight: 500; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;' },
+        { label: 'Commitment', value: '0x9c4e07ab…21b8', valueStyle: 'font-size: 12px; font-weight: 500; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;' },
+        { label: 'Directory entry', value: 'Matches the instance', valueStyle: 'font-size: 12px; font-weight: 500; color: #16a34a;' },
+        { label: 'Commitment last changed', value: '14:32 UTC today', valueStyle: 'font-size: 12px; font-weight: 500;' },
+      ],
+
+      history: [
+        { terms: 'Net worth ≥ $250,000 · DTI ≤ 45%', when: 'Meridian Credit Union · 5 days ago', verdict: 'Pass', badgeStyle: badge('pass') },
+        { terms: 'Net worth ≥ $900,000 · DTI ≤ 30%', when: 'Atlas Lending · 9 days ago', verdict: 'Fail', badgeStyle: badge('fail') },
+        { terms: 'Net worth ≥ $500,000 · DTI ≤ 40%', when: 'Nova Capital · 2 days ago', verdict: 'Pass', badgeStyle: badge('pass') },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

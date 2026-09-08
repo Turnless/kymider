@@ -1,0 +1,34 @@
+{
+  "artboards": [
+    { "file": "Landing.dc.html", "x": 0, "y": 0, "w": 1440, "h": 900, "title": "Landing — scroll it", "is_interactive": true },
+    { "file": "Main.dc.html", "x": 1560, "y": 0, "w": 1440, "h": 980, "title": "Borrower — overview", "is_interactive": true },
+    { "file": "Facts.dc.html", "x": 3120, "y": 0, "w": 1440, "h": 980, "title": "Borrower — private facts", "is_interactive": true },
+    { "file": "Claims.dc.html", "x": 4680, "y": 0, "w": 1440, "h": 980, "title": "Borrower — claims", "is_interactive": true },
+    { "file": "Registry.dc.html", "x": 1560, "y": 1200, "w": 1440, "h": 980, "title": "Lender — directory", "is_interactive": true },
+    { "file": "BorrowerDetail.dc.html", "x": 3120, "y": 1200, "w": 1440, "h": 980, "title": "Lender — underwriting", "is_interactive": true }
+  ],
+  "annotations": [
+    {
+      "id": "note-landing",
+      "x": 0,
+      "y": -330,
+      "w": 560,
+      "text": "LANDING — scroll inside this frame\nEspresso #1B1410 with cream #FFF7EB type: the console's two colours with their roles swapped, so the two halves read as one product.\nThe hero pins and the page slides up over it. Progress bar, parallax bloom and per-section reveals are all scroll-driven.\nClick the 'What you hold / What the lender receives' toggle — that is the pitch in one gesture."
+    },
+    {
+      "id": "note-console",
+      "x": 1560,
+      "y": -330,
+      "w": 560,
+      "text": "CONSOLE\nThe warm-dark rail is the landing's espresso carried through, so clicking in from the site is a continuation rather than a jump.\nOne dominant element per screen now, instead of four equal cards."
+    },
+    {
+      "id": "note-wired",
+      "x": 1560,
+      "y": 2290,
+      "w": 940,
+      "text": "WHAT'S WIRED\nLanding: scroll it, and flip the disclosure toggle.\nPrivate facts: type any figure — net worth, DTI and every per-lender verdict recompute the way the circuit does, cross-multiplied rather than divided.\nClaims: the unanswered request is promoted out of the list; Generate proof runs it through to a verdict. Filters work.\nDirectory: search and status filter work, empty state included.\nUnderwriting: set terms, request, watch the proof land, then approve or decline."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

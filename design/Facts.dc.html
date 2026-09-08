@@ -1,0 +1,247 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #D46D25; text-decoration: none; }
+    a:hover { color: #A9541B; }
+    .k-num { font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+    .k-lab { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(15,23,42,0.38); }
+    .k-card { background: #FFFFFF; border: 1px solid rgba(15,23,42,0.07); border-radius: 18px; }
+    .k-input { width: 100%; padding: 14px 16px 14px 34px; background: rgba(15,23,42,0.025); border: 1px solid rgba(15,23,42,0.09);
+      border-radius: 13px; font-size: 16px; font-weight: 600; font-family: inherit; color: #0F172A;
+      font-variant-numeric: tabular-nums; box-sizing: border-box; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+    .k-input:focus { border-color: #D46D25; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(212,109,37,0.1); }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 980px; display: flex; background: #FFF7EB; color: #0F172A;">
+
+  <div style="width: 236px; flex-shrink: 0; background: #1B1410; color: #FFF7EB; display: flex; flex-direction: column; padding: 24px 14px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px;">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"></path><path d="M9.2 12.2l2 2 3.6-3.9"></path></svg>
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.17em;">KYMIDER</span>
+    </div>
+    <div style="margin-top: 32px; display: flex; flex-direction: column; gap: 2px;">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+        <div style="{{ n.style }}">
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: {{ n.dot }}; display: inline-block; flex-shrink: 0;"></span>
+          {{ n.label }}
+        </div>
+      </sc-for>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div style="padding: 0 6px;">
+      <div style="display: flex; padding: 3px; border-radius: 11px; background: rgba(255,247,235,0.07);">
+        <div style="flex-grow: 1; text-align: center; padding: 7px 0; border-radius: 8px; font-size: 11px; font-weight: 700; background: #FFF7EB; color: #1B1410;">Borrower</div>
+        <div style="flex-grow: 1; text-align: center; padding: 7px 0; border-radius: 8px; font-size: 11px; font-weight: 600; color: rgba(255,247,235,0.42);">Lender</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 0 4px; font-size: 11px; color: rgba(255,247,235,0.4);">
+        <span style="width: 5px; height: 5px; border-radius: 50%; background: #5EC98A; display: inline-block;"></span>
+        Local devnet · block 41,208
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+
+    <div style="height: 84px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 36px;">
+      <div>
+        <h1 style="font-size: 27px; font-weight: 700; letter-spacing: -0.028em; margin: 0;">Private facts</h1>
+      </div>
+      <div style="display: flex; align-items: center; gap: 9px; padding: 8px 14px; border-radius: 100px; background: rgba(212,109,37,0.08); border: 1px solid rgba(212,109,37,0.22); font-size: 12px; font-weight: 600; color: #A9541B;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.2"></rect><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"></path></svg>
+        Nothing on this screen is transmitted
+      </div>
+    </div>
+
+    <div style="flex-grow: 1; padding: 0 36px 32px 36px; display: grid; grid-template-columns: minmax(0, 0.86fr) minmax(0, 1fr); gap: 18px; min-height: 0;">
+
+      <!-- form -->
+      <div class="k-card" style="padding: 28px; display: flex; flex-direction: column;">
+        <div class="k-lab">Statement</div>
+        <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 22px;">
+          <sc-for list="{{fields}}" as="f" hint-placeholder-count="3">
+            <div>
+              <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">{{ f.label }}</label>
+              <div style="position: relative;">
+                <span style="position: absolute; left: 15px; top: 14px; font-size: 16px; font-weight: 600; color: rgba(15,23,42,0.28);">$</span>
+                <input class="k-input" type="text" value="{{ f.value }}" onChange="{{ f.onChange }}">
+              </div>
+              <div style="font-size: 11px; color: rgba(15,23,42,0.4); margin-top: 7px;">{{ f.hint }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex-grow: 1;"></div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 26px;">
+          <div onClick="{{ commit }}" style="{{ commitStyle }}">{{ commitLabel }}</div>
+          <div onClick="{{ reset }}" style="display: inline-flex; align-items: center; justify-content: center; padding: 14px 22px; border-radius: 13px; border: 1px solid rgba(15,23,42,0.12); font-size: 13px; font-weight: 600; cursor: pointer;">Reset</div>
+        </div>
+      </div>
+
+      <!-- derived: the dominant element -->
+      <div style="display: flex; flex-direction: column; gap: 18px; min-height: 0;">
+
+        <div class="k-card" style="padding: 28px;">
+          <div class="k-lab">Derived on this device</div>
+          <div style="display: flex; align-items: flex-start; gap: 36px; margin-top: 18px;">
+            <div style="flex-grow: 1;">
+              <div style="font-size: 12px; color: rgba(15,23,42,0.48);">Net worth</div>
+              <div class="k-num" style="font-size: 46px; font-weight: 700; margin-top: 6px;">{{ netWorth }}</div>
+            </div>
+            <div style="flex-grow: 1; padding-left: 36px; border-left: 1px solid rgba(15,23,42,0.08);">
+              <div style="font-size: 12px; color: rgba(15,23,42,0.48);">Debt-to-income</div>
+              <div class="k-num" style="font-size: 46px; font-weight: 700; margin-top: 6px; color: {{ dtiTone }};">{{ dti }}</div>
+            </div>
+          </div>
+          <div style="margin-top: 20px; padding-top: 17px; border-top: 1px solid rgba(15,23,42,0.07); font-size: 11px; line-height: 1.6; color: rgba(15,23,42,0.44);">
+            The circuit compares debt-to-income by cross-multiplication, so the ratio is evaluated exactly rather than rounded.
+          </div>
+        </div>
+
+        <div style="background: #1B1410; border-radius: 18px; padding: 26px; flex-grow: 1; display: flex; flex-direction: column; min-height: 0;">
+          <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,247,235,0.38);">Outcome against open claims</div>
+          <div style="display: flex; flex-direction: column; gap: 11px; margin-top: 18px;">
+            <sc-for list="{{previews}}" as="p" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border-radius: 13px; background: rgba(255,247,235,0.05);">
+                <div>
+                  <div style="font-size: 13px; font-weight: 600; color: #FFF7EB;">{{ p.lender }}</div>
+                  <div class="k-num" style="font-size: 11px; color: rgba(255,247,235,0.42); margin-top: 3px;">{{ p.terms }}</div>
+                </div>
+                <span style="{{ p.badgeStyle }}">{{ p.verdict }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex-grow: 1;"></div>
+          <div style="margin-top: 20px; padding-top: 17px; border-top: 1px solid rgba(255,247,235,0.1);">
+            <div style="font-size: 11px; color: rgba(255,247,235,0.4);">Commitment that would be written</div>
+            <div style="font-size: 12px; font-weight: 500; color: #FFF7EB; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; margin-top: 7px; word-break: break-all;">{{ commitment }}</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#D46D25","options":["#D46D25","#B8862F","#1B1410","#2563eb"]}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { balance: '1,000,000', debts: '300,000', income: '1,000,000', committed: false };
+  }
+
+  num(s) {
+    const n = parseFloat(String(s).replace(/[^0-9.]/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+
+  money(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#D46D25';
+    const balance = this.num(this.state.balance);
+    const debts = this.num(this.state.debts);
+    const income = this.num(this.state.income);
+
+    // Mirrors proveSolvency: net worth floors at zero, DTI is cross-multiplied.
+    const netWorth = balance >= debts ? balance - debts : 0;
+    const dtiPct = income > 0 ? (debts * 100) / income : null;
+
+    // Regroup as the borrower types, so a typed figure reads the same as the
+    // seeded one. Digits only; a trailing decimal point is preserved.
+    const set = (key) => (e) => {
+      const raw = String(e.target.value).replace(/[^0-9.]/g, '');
+      const [intPart, ...decRest] = raw.split('.');
+      const grouped = intPart === '' ? '' : Number(intPart).toLocaleString('en-US');
+      const next = decRest.length ? grouped + '.' + decRest.join('') : grouped;
+      this.setState({ [key]: next, committed: false });
+    };
+
+    const badge = (ok) =>
+      'display: inline-flex; align-items: center; padding: 4px 11px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; ' +
+      (ok
+        ? 'background: rgba(94,201,138,0.16); color: #7BD9A5; border: 1px solid rgba(94,201,138,0.3);'
+        : 'background: rgba(232,112,95,0.16); color: #F09484; border: 1px solid rgba(232,112,95,0.3);');
+
+    const claims = [
+      { lender: 'Nova Capital', threshold: 500000, maxDti: 40 },
+      { lender: 'Harbor Bank', threshold: 750000, maxDti: 35 },
+      { lender: 'Meridian Credit Union', threshold: 250000, maxDti: 45 },
+    ];
+
+    return {
+      accent,
+
+      nav: [
+        { label: 'Overview', active: false },
+        { label: 'Private facts', active: true },
+        { label: 'Claims', active: false },
+        { label: 'Lenders', active: false },
+      ].map((n) => ({
+        label: n.label,
+        dot: n.active ? accent : 'rgba(255,247,235,0.22)',
+        style:
+          'display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 10px; font-size: 13px; cursor: pointer; ' +
+          (n.active
+            ? 'background: rgba(255,247,235,0.08); color: #FFF7EB; font-weight: 600;'
+            : 'color: rgba(255,247,235,0.5); font-weight: 500;'),
+      })),
+
+      fields: [
+        { label: 'Cash and equivalents', value: this.state.balance, onChange: set('balance'), hint: 'Deposit accounts, money market, settled positions' },
+        { label: 'Outstanding debts', value: this.state.debts, onChange: set('debts'), hint: 'Principal outstanding across all obligations' },
+        { label: 'Annual income', value: this.state.income, onChange: set('income'), hint: 'Gross, before tax' },
+      ],
+
+      netWorth: this.money(netWorth),
+      dti: dtiPct === null ? 'n/a' : dtiPct.toFixed(1) + '%',
+      dtiTone: dtiPct === null ? '#dc2626' : dtiPct <= 40 ? '#0F172A' : '#d97706',
+
+      previews: claims.map((c) => {
+        const ok = income > 0 && netWorth >= c.threshold && debts * 100 <= c.maxDti * income;
+        return {
+          lender: c.lender,
+          terms: 'Net worth ≥ $' + c.threshold.toLocaleString('en-US') + ' · DTI ≤ ' + c.maxDti + '%',
+          verdict: ok ? 'Pass' : 'Fail',
+          badgeStyle: badge(ok),
+        };
+      }),
+
+      commitment: '0x' + this.hash(balance, debts, income),
+
+      commitLabel: this.state.committed ? 'Committed' : 'Commit facts',
+      commitStyle:
+        'display: inline-flex; align-items: center; justify-content: center; padding: 14px 26px; border-radius: 13px; font-size: 13px; font-weight: 600; cursor: pointer; ' +
+        (this.state.committed
+          ? 'background: rgba(22,163,74,0.1); color: #16a34a; border: 1px solid rgba(22,163,74,0.24);'
+          : 'background: #1B1410; color: #FFF7EB; border: 1px solid #1B1410;'),
+      commit: () => this.setState({ committed: true }),
+      reset: () => this.setState({ balance: '1,000,000', debts: '300,000', income: '1,000,000', committed: false }),
+    };
+  }
+
+  // Stand-in for the on-chain persistentHash so the panel reacts to edits.
+  hash(a, b, c) {
+    let h1 = 0x9c4e07ab;
+    let h2 = 0x21b8f5d2;
+    const mix = (n) => {
+      h1 = (Math.imul(h1 ^ n, 2654435761) >>> 0);
+      h2 = (Math.imul(h2 + n, 1597334677) >>> 0);
+    };
+    mix(a); mix(b); mix(c);
+    const hex = (n) => n.toString(16).padStart(8, '0');
+    return hex(h1) + hex(h2) + hex(h1 ^ h2) + hex((h1 + h2) >>> 0);
+  }
+}
+</script>
+</body>
+</html>
