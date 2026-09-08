@@ -17,8 +17,9 @@ facts being revealed.
   authorize, request claims, generate + submit ZK proofs, decide claims.
 - **Tests**: unit tests for the circuit math, and a two-wallet simulation
   against the local devnet (or a public testnet).
-- **Frontend stubs** (`frontend/borrower`, `frontend/lender`) — Wave 2 scope;
-  the CLI carries the Wave 1 flow.
+- **Web console** (`frontend/`) — a landing page plus the borrower and lender
+  consoles, running the **real compiled contracts in the browser** through
+  `compact-runtime`. See "The web console" below.
 
 ## Architecture (recap)
 
@@ -251,6 +252,39 @@ npm run deploy           # borrower: deploy + register, write .midnight-state.js
 npm run check-balance    # print a wallet's balances
 ```
 
+## The web console
+
+```sh
+cd frontend && npm install && npm run dev   # http://localhost:3000
+```
+
+No Docker, no node and no wallet extension: the console runs the **compiled
+Compact contracts themselves** in the browser. Six `SolvencyProof` instances and
+one `Registry` are deployed into `compact-runtime` at page load (~400 ms), and
+every figure on screen is read back off that ledger — so authorization asserts,
+commitment binding and PASS/FAIL verdicts are the contract's, not the UI's. Ask
+for a claim as the wrong party and the contract refuses, exactly as on-chain.
+
+What it does **not** do yet: generate ZK proofs, submit transactions, or talk to
+a node. Screens depend only on the `KymiderClient` interface in
+`frontend/src/lib/client.ts`; the wallet-backed implementation (Lace through
+`@midnight-ntwrk/dapp-connector-api`, a fetch ZK-config provider and an
+IndexedDB private-state provider) drops in behind that same interface.
+
+Two build details worth knowing:
+
+- `frontend/vite.config.ts` aliases `@compiled` and `@contracts` to the root
+  `compiled/` and `contracts/` directories, and pins `compact-runtime` and
+  `onchain-runtime-v3` to the **root** `node_modules` copies. Without that pin,
+  the compiled contracts resolve one runtime and app code resolves another, and
+  two different wasm runtimes end up in one bundle.
+- `vite-plugin-wasm` is required: the runtime reaches wasm-bindgen's bundler
+  target (a bare `import ... from './*.wasm'`), which Vite cannot load on its
+  own.
+
+Screens beyond the Wave 1 demo path (`AuthorizeLender`, `QRScanner`) are left
+from the earlier scaffold and are not routed.
+
 ## Repository map
 
 ```
@@ -306,10 +340,28 @@ docs/
   or newer. On an older Windows build the devnet cannot run locally at all —
   use CI, which runs the full two-wallet simulation on every push (see
   "Continuous integration"). Proof generation there takes ~5 minutes.
-- **Off-chain proof verification** (`verifyOffChain` in `client/index.ts`)
-  currently checks the on-chain *record* (attestation, commitment ↔ Registry
-  consistency). Wiring full PLONK verification against `verifierKey` is a
-  Wave-1 stretch item; the network already verifies proofs at submission.
+- **`verifierKey` is not a verification key.** The contract stores
+  `persistentHash("kymider:sp:vk:")` — a fixed domain-separation label, the
+  same value on every instance. It cannot verify anything, and nothing reads it
+  as if it could. The web console therefore labels it **“circuit tag”** rather
+  than repeating the field name. Renaming the ledger field needs a `.compact`
+  edit and a recompile, so the name survives for now; the meaning does not.
+- **Off-chain proof verification** (`verifyOffChain` in `client/index.ts`) is a
+  **record check**, not a cryptographic one: it reads the attestation back and
+  confirms the instance commitment matches the Registry entry. Real proof
+  verification would need the real verifier keys under
+  `compiled/solvency-proof/keys/*.verifier`, which is a separate piece of work.
+  The network does verify proofs at submission — that is what makes a false
+  attestation impossible to land — but `verifyOffChain` is not what does it.
+- **Attestations outlive the statement behind them.** The ledger records a
+  verdict per lender, but not which committed statement produced it, so after
+  `updateFacts` an old PASS still sits there looking current. The contract is
+  behaving correctly — the verdict was true of the earlier statement — but a
+  lender reading it fresh could be misled. The web console tracks the
+  commitment each attestation was proved against and marks the divergent ones
+  **superseded** in the directory, on the borrower's claims, and on the
+  lender's verdict panel; the borrower is prompted to prove again. Carrying the
+  commitment into the attestation record on-chain is the durable fix.
 - **Registry does not verify instance ownership.** The Registry cannot check
   who deployed the instance at `instanceAddr` (Midnight has no cross-contract
   reads), and `register` rejects an address that is already indexed. A stranger
