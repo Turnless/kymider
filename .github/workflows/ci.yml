@@ -31,6 +31,9 @@ jobs:
     name: Compile contracts
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Needed by "Sync the tracked contract modules" below.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -89,6 +92,30 @@ jobs:
           echo "Compiled artifacts:"
           du -sh compiled/*
 
+      # The two contract modules are tracked, because a fresh clone has to be
+      # able to build the web console and run the offline contract tests, and
+      # the compiler is a Linux-only binary that most contributors cannot run.
+      # That makes this the only place they can be regenerated — so when a
+      # .compact source changes, push the rebuilt modules back rather than
+      # leaving the repository describing contracts it no longer has. The ZK
+      # keys stay untracked; only these six files move.
+      - name: Sync the tracked contract modules
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          paths="compiled/registry/contract compiled/solvency-proof/contract"
+          if git diff --quiet -- $paths; then
+            echo "Tracked contract modules already match the sources."
+            exit 0
+          fi
+          echo "Contract modules changed; syncing them back to ${GITHUB_REF_NAME}."
+          git diff --stat -- $paths
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $paths
+          git commit -m "CI: sync compiled contract modules to the .compact sources"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
       - uses: actions/upload-artifact@v4
         with:
           name: compiled-contracts
@@ -122,6 +149,35 @@ jobs:
       # Circuit math plus the compiled contracts driven offline through
       # tests/unit/support/simulators.ts - no Docker, no proof server.
       - run: npm run test:unit
+
+  console:
+    name: Build the web console
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # The console imports the compiled contract modules directly and runs
+      # them in the browser, so a contract change can break the build. Nothing
+      # caught that before this job existed.
+      - uses: actions/download-artifact@v4
+        with:
+          name: compiled-contracts
+          path: compiled
+
+      - run: npm ci
+        working-directory: frontend
+
+      # tsc -b then vite build; the wasm runtime has to bundle too.
+      - run: npm run build
+        working-directory: frontend
 
   simulation:
     name: Devnet simulation
