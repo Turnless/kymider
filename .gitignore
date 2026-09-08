@@ -42,3 +42,6 @@ Thumbs.db
 
 # Seeded design-canvas page (2.5 MB; regenerate from design/*.dc.html)
 design/kymider-underwriting-console.html
+
+# Session handoff notes (scratch, not part of the project)
+HANDOFF.md
