@@ -3,7 +3,7 @@
 Privacy-first loan underwriting on Midnight (Compact contracts + MidnightJS
 client + React console). Entered in the Midnight Buildathon on AKINDO.
 
-Current work: Wave 2 on the `wave2` branch. Read `hackathon/HANDOFF.md` first:
+Current work: Wave 2 on the `wave2` branch. Read `hackathon/WAVE2-HANDOFF.md` first:
 it has the deadline, decisions already made, status and next steps.
 
 - Contracts: `contracts/*.compact` (Compact language 0.23, toolchain 0.31.1).
