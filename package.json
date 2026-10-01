@@ -8,9 +8,9 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "build:contracts": "compact compile contracts/solvencyProof.compact compiled/solvency-proof && compact compile contracts/registry.compact compiled/registry",
+    "build:contracts": "compact compile contracts/solvencyProof.compact compiled/solvency-proof && compact compile contracts/registry.compact compiled/registry && compact compile contracts/loan.compact compiled/loan && compact compile contracts/loanDirectory.compact compiled/loan-directory",
     "compile": "npm run build:contracts",
-    "compile:fast": "compact compile --skip-zk contracts/solvencyProof.compact compiled/solvency-proof && compact compile --skip-zk contracts/registry.compact compiled/registry",
+    "compile:fast": "compact compile --skip-zk contracts/solvencyProof.compact compiled/solvency-proof && compact compile --skip-zk contracts/registry.compact compiled/registry && compact compile --skip-zk contracts/loan.compact compiled/loan && compact compile --skip-zk contracts/loanDirectory.compact compiled/loan-directory",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",

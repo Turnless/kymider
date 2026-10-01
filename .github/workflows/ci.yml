@@ -88,31 +88,33 @@ jobs:
       - name: Check the artifacts look complete
         run: |
           set -euo pipefail
-          for d in compiled/solvency-proof compiled/registry; do
+          for d in compiled/solvency-proof compiled/registry compiled/loan compiled/loan-directory; do
             test -f "$d/contract/index.js"  || { echo "::error::missing $d/contract/index.js"; exit 1; }
             test -d "$d/keys"              || { echo "::error::missing $d/keys"; exit 1; }
           done
           echo "Compiled artifacts:"
           du -sh compiled/*
 
-      # The two contract modules are tracked, because a fresh clone has to be
+      # The contract modules are tracked, because a fresh clone has to be
       # able to build the web console and run the offline contract tests, and
       # the compiler is a Linux-only binary that most contributors cannot run.
       # That makes this the only place they can be regenerated — so when a
       # .compact source changes, push the rebuilt modules back rather than
       # leaving the repository describing contracts it no longer has. The ZK
-      # keys stay untracked; only these six files move.
+      # keys stay untracked; only the contract/ directories move.
       - name: Sync the tracked contract modules
         if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
-          paths="compiled/registry/contract compiled/solvency-proof/contract"
-          if git diff --quiet -- $paths; then
+          paths="compiled/registry/contract compiled/solvency-proof/contract compiled/loan/contract compiled/loan-directory/contract"
+          # status, not diff: a newly added contract has no tracked module yet,
+          # and `git diff` does not see untracked files.
+          if [ -z "$(git status --porcelain -- $paths)" ]; then
             echo "Tracked contract modules already match the sources."
             exit 0
           fi
           echo "Contract modules changed; syncing them back to ${GITHUB_REF_NAME}."
-          git diff --stat -- $paths
+          git status --short -- $paths
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add $paths

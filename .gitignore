@@ -13,10 +13,16 @@ compiled/*
 # catches these ever drifting from the .compact sources.
 !compiled/registry/
 !compiled/solvency-proof/
+!compiled/loan/
+!compiled/loan-directory/
 compiled/registry/*
 compiled/solvency-proof/*
+compiled/loan/*
+compiled/loan-directory/*
 !compiled/registry/contract/
 !compiled/solvency-proof/contract/
+!compiled/loan/contract/
+!compiled/loan-directory/contract/
 
 # Runtime/deployment state
 .midnight-state.json

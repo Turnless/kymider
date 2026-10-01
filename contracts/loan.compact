@@ -1,0 +1,240 @@
+pragma language_version 0.23;
+import CompactStandardLibrary;
+
+// Kymider — Loan (per-loan instance, Wave 2).
+//
+// One contract instance per loan (docs/architecture-wave2.md). The borrower
+// deploys it naming one lender; the instance holds that loan only.
+//
+// The product claim is a collateral tier. A borrower who proves solvency
+// against the lender's bar posts 110% collateral; one who does not, or does not
+// try, posts the DeFi-standard 150%. The tier is computed in-circuit from the
+// borrower's private facts, so the lender gets a lower collateral requirement
+// it can rely on without ever seeing the balance, debts or income behind it.
+//
+// Lifecycle:
+//
+//   APPLIED --quote--> (borrower proveTier, may refresh) --underwrite--> ACTIVE
+//   APPLIED --decline--> DECLINED
+//   ACTIVE  --disburse--> balanceOwed set, first installment due
+//   ACTIVE  --repay x N--> REPAID
+//   ACTIVE  --markDefault (after due + grace)--> DEFAULTED
+//
+// Facts: `factsCommitment` is copied from the borrower's SolvencyProof instance
+// at deploy. Midnight has no cross-contract reads, so the lender checks that it
+// matches that instance's public `commitment` before quoting (the console does).
+// From then on the commitment binds every proof made in this instance.
+//
+// Money: balances are figures in contract state. No token moves (Wave 2 is a
+// lifecycle demo; settlement is a later milestone, stated in the README).
+//
+// Time: block time in seconds since the Unix epoch.
+
+export enum LoanStatus { APPLIED, ACTIVE, REPAID, DEFAULTED, DECLINED }
+export enum Tier { NONE, VERIFIED, STANDARD }
+
+export struct LoanTerms {
+  principal: Uint<64>;          // in minor units
+  interestBps: Uint<16>;        // flat interest over the loan, basis points
+  installments: Uint<8>;        // number of equal installments
+  periodSeconds: Uint<32>;      // time between installments
+}
+
+export struct Quote {
+  thresholdNetWorth: Uint<64>;
+  maxDti: Uint<64>;             // percent, as in SolvencyProof
+  expiresAt: Uint<64>;          // a tier proven against this quote lapses here
+}
+
+// --- public ledger state --------------------------------------------------
+export ledger borrower: Bytes<32>;
+export ledger lender: Bytes<32>;
+export ledger terms: LoanTerms;
+export ledger factsCommitment: Bytes<32>;
+export ledger status: LoanStatus;
+
+export ledger quote: Quote;
+export ledger quoted: Boolean;
+export ledger tier: Tier;
+export ledger tierExpiresAt: Uint<64>;
+export ledger collateralRequired: Uint<64>;  // principal * tier ratio
+
+export ledger balanceOwed: Uint<64>;
+export ledger installmentAmount: Uint<64>;
+export ledger nextDueAt: Uint<64>;
+export ledger paymentsMade: Counter;
+export ledger latePayments: Counter;
+export ledger disbursed: Boolean;
+
+// Payment history, committed. Each repayment folds (amount, on-time, nonce)
+// into this chain, with the nonce from the borrower's private state. The chain
+// lets the borrower later open their own history to an auditor (Wave 3) without
+// the instance having stored the openings.
+export ledger historyCommitment: Bytes<32>;
+
+// --- private witnesses ----------------------------------------------------
+witness localSk(): Bytes<32>;
+witness paymentNonce(): Bytes<32>;
+
+// Collateral ratios, basis points of principal.
+pure circuit verifiedRatioBps(): Uint<64> { return 11000; }
+pure circuit standardRatioBps(): Uint<64> { return 15000; }
+// A missed installment can be called a default this long after it fell due.
+pure circuit graceSeconds(): Uint<64> { return 259200; } // 3 days
+
+export pure circuit getDappPubKey(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "kymider:pk:"), sk]);
+}
+
+// Same encoding as SolvencyProof.commitFacts, so the commitment carries over.
+pure circuit commitFacts(balance: Uint<64>, debts: Uint<64>, income: Uint<64>): Bytes<32> {
+  return persistentHash<Vector<3, Uint<64>>>([balance, debts, income]);
+}
+
+// Compact has no division operator. Where a figure is a quotient, the caller
+// supplies it and the circuit checks it is exactly the floor (or ceiling) of
+// the true value by cross-multiplying. principal <= 2^40 (asserted at deploy)
+// keeps every product here inside Uint<64>.
+
+// value == floor(principal * ratioBps / 10000)
+pure circuit isFloorOfBps(value: Uint<64>, principal: Uint<64>, ratioBps: Uint<64>): Boolean {
+  return value * 10000 <= principal * ratioBps && principal * ratioBps < (value + 1) * 10000;
+}
+
+// value == ceil(total / parts)
+pure circuit isCeilOfShare(value: Uint<64>, total: Uint<64>, parts: Uint<64>): Boolean {
+  return value * parts >= total && value * parts < total + parts;
+}
+
+constructor(lenderPk: Bytes<32>, loanTerms: LoanTerms, commitment: Bytes<32>) {
+  const sk = localSk();
+  assert(loanTerms.principal > 0, "principal must be non-zero");
+  assert(loanTerms.principal <= 1099511627776, "principal exceeds supported range");
+  assert(loanTerms.installments > 0, "at least one installment");
+  assert(loanTerms.periodSeconds > 0, "period must be non-zero");
+  assert(loanTerms.interestBps <= 10000, "interest above 100% is not supported");
+  const me = getDappPubKey(sk);
+  assert(me != lenderPk, "borrower and lender must differ");
+
+  borrower = disclose(me);
+  lender = disclose(lenderPk);
+  terms = disclose(loanTerms);
+  factsCommitment = disclose(commitment);
+  status = LoanStatus.APPLIED;
+  quoted = false;
+  tier = Tier.NONE;
+  historyCommitment = persistentHash<Vector<1, Bytes<32>>>([pad(32, "kymider:loan:history:")]);
+}
+
+// --- lender ---------------------------------------------------------------
+
+// Name the bar for the verified tier, and how long a proof against it holds.
+// Quoting again replaces the bar and clears any tier proven against the old one.
+export circuit quoteTerms(thresholdNetWorth: Uint<64>, maxDti: Uint<64>, expiresAt: Uint<64>): [] {
+  assert(getDappPubKey(localSk()) == lender, "only the lender may quote");
+  assert(status == LoanStatus.APPLIED, "loan is no longer open to quotes");
+  assert(maxDti <= 10000, "max DTI limit too high");
+  assert(blockTimeLt(disclose(expiresAt)), "quote would already have expired");
+  quote = disclose(Quote { thresholdNetWorth: thresholdNetWorth, maxDti: maxDti, expiresAt: expiresAt });
+  quoted = true;
+  tier = Tier.NONE;
+  collateralRequired = 0;
+}
+
+// Accept the loan at whatever tier the borrower holds. Underwriting without a
+// live verified tier is allowed — it simply means 150% collateral.
+// `collateral` is the lender's arithmetic. The circuit accepts it only if it is
+// exactly the tier's ratio of the principal, so a verified borrower cannot be
+// quietly asked for more.
+export circuit underwrite(collateral: Uint<64>): [] {
+  assert(getDappPubKey(localSk()) == lender, "only the lender may underwrite");
+  assert(status == LoanStatus.APPLIED, "loan is not awaiting underwriting");
+  const verified = tier == Tier.VERIFIED && blockTimeLt(tierExpiresAt);
+  const ratio = verified ? verifiedRatioBps() : standardRatioBps();
+  assert(isFloorOfBps(disclose(collateral), terms.principal, ratio), "collateral does not match the tier");
+  tier = verified ? Tier.VERIFIED : Tier.STANDARD;
+  collateralRequired = disclose(collateral);
+  status = LoanStatus.ACTIVE;
+}
+
+export circuit decline(): [] {
+  assert(getDappPubKey(localSk()) == lender, "only the lender may decline");
+  assert(status == LoanStatus.APPLIED, "loan is not awaiting underwriting");
+  status = LoanStatus.DECLINED;
+}
+
+// Start the clock. Figures only: balanceOwed = principal + flat interest
+// (floored), split into equal installments (ceiling), the last one smaller.
+export circuit disburse(now: Uint<64>, owed: Uint<64>, installment: Uint<64>): [] {
+  assert(getDappPubKey(localSk()) == lender, "only the lender may disburse");
+  assert(status == LoanStatus.ACTIVE, "loan is not active");
+  assert(!disbursed, "already disbursed");
+  // `now` is the lender's clock, held honest by the network's block time.
+  assert(blockTimeGte(disclose(now)), "start time is in the future");
+  assert(blockTimeLt(disclose(now) + 3600), "start time is stale");
+  assert(isFloorOfBps(disclose(owed), terms.principal, (10000 + terms.interestBps) as Uint<64>),
+    "owed does not match the terms");
+  assert(isCeilOfShare(disclose(installment), disclose(owed), terms.installments),
+    "installment does not match the terms");
+  balanceOwed = disclose(owed);
+  installmentAmount = disclose(installment);
+  nextDueAt = (disclose(now) + terms.periodSeconds) as Uint<64>;
+  disbursed = true;
+}
+
+export circuit markDefault(): [] {
+  assert(getDappPubKey(localSk()) == lender, "only the lender may call a default");
+  assert(status == LoanStatus.ACTIVE, "loan is not active");
+  assert(disbursed, "nothing was disbursed");
+  assert(blockTimeGt((nextDueAt + graceSeconds()) as Uint<64>), "installment is not past its grace period");
+  status = LoanStatus.DEFAULTED;
+}
+
+// --- borrower -------------------------------------------------------------
+
+// Prove the committed facts clear the lender's quote. The verdict lands on the
+// ledger; the facts do not. A FAIL is recorded as STANDARD, which is a usable
+// answer (150% collateral), not a dead end. Re-proving refreshes the expiry.
+export circuit proveTier(balance: Uint<64>, debts: Uint<64>, income: Uint<64>): [] {
+  assert(getDappPubKey(localSk()) == borrower, "only the borrower may prove a tier");
+  assert(status == LoanStatus.APPLIED, "loan is no longer open to proofs");
+  assert(quoted, "the lender has not quoted yet");
+  assert(blockTimeLt(quote.expiresAt), "quote has expired");
+  assert(factsCommitment == commitFacts(balance, debts, income), "facts do not match committed facts");
+  assert(income > 0, "income must be non-zero");
+  // Same predicate as SolvencyProof.proveSolvency, including the insolvency guard.
+  const solvent = balance >= debts;
+  const netWorth = solvent ? balance - debts : 0;
+  const dtiQualified = debts * 100 <= quote.maxDti * income;
+  const qualified = solvent && netWorth >= quote.thresholdNetWorth && dtiQualified;
+  tier = disclose(qualified ? Tier.VERIFIED : Tier.STANDARD);
+  tierExpiresAt = quote.expiresAt;
+}
+
+// Pay one installment, or the remainder if it is smaller. Lateness is decided
+// by block time against the due date, not by the borrower.
+export circuit repay(amount: Uint<64>): [] {
+  assert(getDappPubKey(localSk()) == borrower, "only the borrower may repay");
+  assert(status == LoanStatus.ACTIVE, "loan is not active");
+  assert(disbursed, "nothing was disbursed");
+  const owed = balanceOwed;
+  const due = owed < installmentAmount ? owed : installmentAmount;
+  assert(disclose(amount) == due, "repay exactly the installment due");
+  const onTime = blockTimeLte(nextDueAt);
+  if (!onTime) {
+    latePayments.increment(1);
+  }
+  paymentsMade.increment(1);
+  historyCommitment = disclose(persistentHash<Vector<4, Bytes<32>>>([
+    historyCommitment,
+    persistentHash<Vector<1, Uint<64>>>([amount]),
+    onTime ? pad(32, "kymider:ontime") : pad(32, "kymider:late"),
+    paymentNonce(),
+  ]));
+  const remaining = (owed - disclose(amount)) as Uint<64>;
+  balanceOwed = remaining;
+  nextDueAt = (nextDueAt + terms.periodSeconds) as Uint<64>;
+  if (remaining == 0) {
+    status = LoanStatus.REPAID;
+  }
+}
