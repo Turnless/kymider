@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kymider, Midnight Buildathon Wave 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;700;800&display=swap">
+<style>
+  /* Palette lifted from the product itself: the console's warm cream and the
+     landing page's near-black and amber. The deck should look like the thing
+     it is presenting, not like a separate document. */
+  :root {
+    --ink: #17120E;
+    --ink-2: #221A14;
+    --cream: #FBF6EC;
+    --cream-2: #F1E7D6;
+    --amber: #E08A2B;
+    --amber-soft: #F2B366;
+    --muted: #A08F7D;
+    --line: #35291F;
+    --pass: #4FA97A;
+    --fail: #D9614F;
+    --sans: "Manrope", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--ink);
+    color: var(--cream);
+    font-family: var(--sans);
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .deck { position: relative; width: 100vw; height: 100vh; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: 5vh 5vw;
+  }
+  .slide.on { display: flex; }
+
+  /* ---------- type ---------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: clamp(10px, .92vw, 14px);
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 1.6vh;
+  }
+  h1 {
+    font-size: clamp(40px, 7.4vw, 110px);
+    font-weight: 800;
+    line-height: .95;
+    letter-spacing: -0.035em;
+  }
+  h2 {
+    font-size: clamp(24px, 3.1vw, 50px);
+    font-weight: 800;
+    line-height: 1.06;
+    letter-spacing: -0.025em;
+    max-width: 26ch;
+  }
+  .say {
+    font-size: clamp(14px, 1.32vw, 21px);
+    line-height: 1.5;
+    color: var(--cream-2);
+    max-width: 62ch;
+    margin-top: 1.6vh;
+  }
+  .say .hl { color: var(--amber-soft); font-weight: 700; }
+  .mono { font-family: var(--mono); }
+
+  /* ---------- shot stage ----------
+     The screenshot is the slide. Callouts sit on top in percentage space so
+     they stay pinned to the right pixel at any window size. */
+  .shot-wrap { position: relative; margin-top: 2.4vh; align-self: center; width: 100%; }
+  .shot {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    box-shadow: 0 24px 60px rgba(0,0,0,.55);
+    background: var(--ink-2);
+  }
+  .shot img { display: block; width: 100%; height: auto; }
+
+  /* a ring drawn around a region of the screenshot */
+  .ring {
+    position: absolute;
+    border: 2px solid var(--amber);
+    border-radius: 8px;
+    box-shadow: 0 0 0 3px rgba(224,138,43,.18);
+    pointer-events: none;
+  }
+  .ring.pass { border-color: var(--pass); box-shadow: 0 0 0 3px rgba(79,169,122,.2); }
+  .ring.fail { border-color: var(--fail); box-shadow: 0 0 0 3px rgba(217,97,79,.2); }
+
+  /* Numbered pin on the shot, with the explanation in a legend BELOW the
+     image. Callout boxes laid over a screenshot inevitably cover the very
+     thing they point at, which is worse than no annotation. */
+  .pin {
+    position: absolute;
+    width: clamp(19px, 1.6vw, 26px);
+    height: clamp(19px, 1.6vw, 26px);
+    border-radius: 50%;
+    background: var(--amber);
+    color: #1A1206;
+    font-family: var(--mono);
+    font-size: clamp(10px, .84vw, 13px);
+    font-weight: 600;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 3px 10px rgba(0,0,0,.5);
+    transform: translate(-50%, -50%);
+  }
+  .pin.pass { background: var(--pass); color: #06180F; }
+
+  .legend { display: flex; gap: 2vw; margin-top: 2.2vh; flex-wrap: wrap; }
+  .legend .item { display: grid; grid-template-columns: auto 1fr; gap: .7vw; align-items: start; flex: 1; min-width: 18ch; }
+  .legend .num {
+    width: clamp(17px, 1.4vw, 23px); height: clamp(17px, 1.4vw, 23px);
+    border-radius: 50%; background: var(--amber); color: #1A1206;
+    font-family: var(--mono); font-size: clamp(9px, .78vw, 12px); font-weight: 600;
+    display: grid; place-items: center; margin-top: .15em;
+  }
+  .legend .num.pass { background: var(--pass); color: #06180F; }
+  .legend .txt { font-size: clamp(11.5px, 1.02vw, 16px); line-height: 1.45; color: var(--cream-2); }
+  .legend .txt b { color: var(--cream); font-weight: 700; }
+
+  /* ---------- misc blocks ---------- */
+  .row { display: flex; gap: 2vw; align-items: flex-start; }
+  .col { flex: 1; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6vw; margin-top: 3vh; }
+  .card { border: 1px solid var(--line); background: var(--ink-2); border-radius: 9px; padding: 2.2vh 1.5vw; }
+  .card .k { font-family: var(--mono); font-size: clamp(9px, .82vw, 12px); letter-spacing: .16em; text-transform: uppercase; color: var(--amber); margin-bottom: 1vh; }
+  .card .v { font-size: clamp(13px, 1.2vw, 19px); line-height: 1.4; color: var(--cream-2); }
+  .card .n { font-family: var(--mono); font-size: clamp(26px, 3.4vw, 54px); font-weight: 600; line-height: 1; color: var(--cream); }
+
+  .flow { display: flex; flex-direction: column; gap: 1.3vh; margin-top: 2.4vh; }
+  .step { display: grid; grid-template-columns: 8.5ch 1fr; gap: 1.2vw; align-items: baseline; }
+  .step .n { font-family: var(--mono); font-size: clamp(10px, .88vw, 13px); letter-spacing: .1em; padding: .35em 0; color: var(--muted); }
+  .step.local .n { color: var(--pass); }
+  .step .t { font-size: clamp(13px, 1.28vw, 21px); line-height: 1.4; color: var(--cream-2); }
+  .step .t code { font-family: var(--mono); color: var(--amber-soft); }
+
+  /* ---------- chrome ---------- */
+  .chrome {
+    position: fixed; bottom: 1.8vh; left: 5vw; right: 5vw;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--mono); font-size: clamp(9px, .78vw, 12px);
+    letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
+  }
+  .bar { position: fixed; top: 0; left: 0; height: 2px; background: var(--amber); transition: width .3s ease; z-index: 5; }
+  .hint { position: fixed; bottom: 1.8vh; left: 50%; transform: translateX(-50%); color: var(--line); font-family: var(--mono); font-size: 10.5px; letter-spacing: .16em; }
+
+  @media print {
+    @page { size: 330mm 186mm; margin: 0; }
+    html, body { overflow: visible; height: auto; }
+    .deck { height: auto; }
+    .chrome, .bar, .hint { display: none; }
+    .slide {
+      display: flex !important; position: relative; inset: auto;
+      width: 330mm; height: 186mm;
+      page-break-after: always; break-after: page;
+      background: var(--ink);
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="bar" id="bar"></div>
+<div class="deck" id="deck">
+
+  <!-- 1 · TITLE ......................................................... -->
+  <section class="slide on" style="justify-content:center">
+    <p class="eyebrow">Midnight Buildathon &middot; Wave 1 &middot; Proof-of-Solvency MVP</p>
+    <h1>Kymider</h1>
+    <p class="say" style="font-size:clamp(18px,2.1vw,34px); color:var(--amber-soft); font-weight:700; margin-top:2.4vh; max-width:30ch">
+      Prove it. Don&rsquo;t show it.
+    </p>
+    <p class="say">
+      Privacy-first loan underwriting on Midnight. A borrower proves their net worth
+      and debt ratios clear a lender&rsquo;s bar without handing over a balance, a
+      statement, or a name. The network verifies the proof. Nobody sees the numbers.
+    </p>
+    <div class="cards" style="max-width:64vw">
+      <div class="card"><p class="k">Live console</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">turnless.github.io/kymider</p></div>
+      <div class="card"><p class="k">Repository</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">github.com/Turnless/kymider</p></div>
+      <div class="card"><p class="k">Stack</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">Compact 0.23 &middot; MidnightJS</p></div>
+    </div>
+  </section>
+
+  <!-- 2 · PROBLEM ...................................................... -->
+  <section class="slide">
+    <p class="eyebrow">The problem</p>
+    <h2>Underwriting runs on wholesale disclosure.</h2>
+    <div class="row" style="margin-top:3vh">
+      <div class="col">
+        <p class="say" style="margin:0">
+          The lender needs <span class="hl">one bit</span> of information: does this
+          applicant clear our bar? They receive an entire financial history instead,
+          then have to store it, secure it, and become a breach target for it.
+        </p>
+      </div>
+      <div class="col">
+        <div class="card"><p class="k">The borrower</p><p class="v">Over-discloses permanently, to answer one question once.</p></div>
+        <div class="card" style="margin-top:1.4vh"><p class="k">The lender</p><p class="v">Inherits liability for data it never actually wanted.</p></div>
+        <div class="card" style="margin-top:1.4vh"><p class="k">The declined applicant</p><p class="v">Surrendered everything, and got nothing back.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · LANDING SHOT ................................................. -->
+  <section class="slide">
+    <p class="eyebrow">Screen 1 &middot; the claim</p>
+    <div class="shot-wrap" style="max-width:74vw">
+      <div class="shot">
+        <img src="deck/shots/01-landing.jpg" alt="Kymider landing page reading Prove it. Don't show it.">
+        <div class="ring" style="left:7.5%; top:34%; width:50%; height:36%"></div>
+        <div class="pin" style="left:7.5%; top:34%">1</div>
+      </div>
+      <div class="legend">
+        <div class="item"><span class="num">1</span><span class="txt"><b>The whole product in four words.</b> Borrowers prove their net worth and debt ratios clear a bar. Nobody sees the numbers.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · BORROWER OVERVIEW ............................................ -->
+  <section class="slide">
+    <p class="eyebrow">Screen 2 &middot; the borrower&rsquo;s console</p>
+    <div class="shot-wrap" style="max-width:74vw">
+      <div class="shot">
+        <img src="deck/shots/02-borrower-overview.jpg" alt="Borrower overview showing net worth, DTI, lender requests and the on-chain record.">
+        <!-- their own figures -->
+        <div class="ring" style="left:16%; top:16%; width:33.5%; height:20%"></div>
+        <div class="pin" style="left:16%; top:16%">1</div>
+        <!-- on-chain record panel -->
+        <div class="ring" style="left:71.5%; top:16%; width:25.5%; height:42%"></div>
+        <div class="pin" style="left:71.5%; top:16%">2</div>
+        <!-- attestation column -->
+        <div class="ring pass" style="left:63.5%; top:54%; width:9.5%; height:41%"></div>
+        <div class="pin pass" style="left:63.5%; top:54%">3</div>
+      </div>
+      <div class="legend">
+        <div class="item"><span class="num">1</span><span class="txt"><b>Visible only here.</b> The borrower sees their own figures, on their own device.</span></div>
+        <div class="item"><span class="num">2</span><span class="txt"><b>On chain: a hash, nothing else.</b> Commitment and circuit tag. Balances never written.</span></div>
+        <div class="item"><span class="num pass">3</span><span class="txt"><b>Four lenders, four verdicts.</b> PASS, NOT PROVED, FAIL.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · PRIVATE FACTS ................................................ -->
+  <section class="slide">
+    <p class="eyebrow">Screen 3 &middot; where the figures live</p>
+    <div class="shot-wrap" style="max-width:74vw">
+      <div class="shot">
+        <img src="deck/shots/03-private-facts.jpg" alt="Private facts screen with a badge reading nothing on this screen is transmitted.">
+        <div class="ring" style="left:76.5%; top:4%; width:21%; height:11%"></div>
+        <div class="pin" style="left:76.5%; top:4%">1</div>
+        <div class="ring" style="left:16%; top:20%; width:38%; height:58%"></div>
+        <div class="pin" style="left:16%; top:20%">2</div>
+      </div>
+      <div class="legend">
+        <div class="item"><span class="num">1</span><span class="txt"><b>Stated in the product, not just the pitch.</b> The badge is part of the UI.</span></div>
+        <div class="item"><span class="num">2</span><span class="txt">Cash, debts and income are entered here and stay here. What leaves the device is a commitment: a hash of this statement.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 · FLOW ......................................................... -->
+  <section class="slide">
+    <p class="eyebrow">The flow &middot; four steps, two leave the device</p>
+    <h2>Prove the predicate. Disclose nothing else.</h2>
+    <div class="flow">
+      <div class="step local"><span class="n">LOCAL</span><span class="t"><code>updateFacts</code> &nbsp; The borrower commits a statement. A hash goes on chain; the figures do not.</span></div>
+      <div class="step"><span class="n">CHAIN</span><span class="t"><code>requestClaim</code> &nbsp; An authorized lender names terms: a net-worth floor and a maximum DTI.</span></div>
+      <div class="step local"><span class="n">LOCAL</span><span class="t"><code>proveSolvency</code> &nbsp; The proof is generated on the borrower&rsquo;s own device, against the committed statement.</span></div>
+      <div class="step"><span class="n">CHAIN</span><span class="t"><code>approve</code> / <code>reject</code> &nbsp; Midnight verifies the proof. The contract records a PASS/FAIL attestation.</span></div>
+    </div>
+    <p class="say" style="margin-top:3vh">
+      The circuit <span class="hl">recomputes the commitment in-circuit</span> from the private
+      facts and asserts it matches what is on chain, so a proof built on figures the borrower
+      has since changed cannot pass.
+    </p>
+  </section>
+
+  <!-- 7 · ARCHITECTURE ................................................. -->
+  <section class="slide">
+    <p class="eyebrow">Architecture &middot; Midnight&rsquo;s dual ledger</p>
+    <h2>One borrower, one instance. No contract holds another borrower&rsquo;s secrets.</h2>
+    <div class="cards" style="grid-template-columns:1fr 1fr; margin-top:3.4vh">
+      <div class="card" style="border-color:var(--pass)">
+        <p class="k" style="color:var(--pass)">Private state &middot; per instance</p>
+        <p class="v mono" style="color:var(--cream); font-size:clamp(14px,1.35vw,22px); margin-bottom:1vh">SolvencyProof</p>
+        <p class="v">Each borrower deploys their own instance. Actual figures live in that instance&rsquo;s private state and never leave the device. On chain sits only a commitment.</p>
+      </div>
+      <div class="card">
+        <p class="k">Public ledger &middot; shared</p>
+        <p class="v mono" style="color:var(--cream); font-size:clamp(14px,1.35vw,22px); margin-bottom:1vh">Registry</p>
+        <p class="v">Deliberately public-only. It indexes instances and the commitment each currently stands behind, so lenders can discover borrowers and request claims. Nothing more.</p>
+      </div>
+    </div>
+    <p class="say" style="margin-top:2.6vh">
+      Private state belongs to a single contract instance on Midnight. That constraint set
+      the whole design rather than being worked around.
+    </p>
+  </section>
+
+  <!-- 8 · LENDER DIRECTORY ............................................. -->
+  <section class="slide">
+    <p class="eyebrow">Screen 4 &middot; what the lender can browse</p>
+    <div class="shot-wrap" style="max-width:74vw">
+      <div class="shot">
+        <img src="deck/shots/04-lender-directory.jpg" alt="Lender directory listing instances and commitment hashes with attestation counts.">
+        <div class="ring" style="left:31%; top:27%; width:15%; height:66%"></div>
+        <div class="pin" style="left:31%; top:27%">1</div>
+      </div>
+      <div class="legend">
+        <div class="item"><span class="num">1</span><span class="txt"><b>The entire public surface.</b> Instance ids, commitment hashes, attestation counts, status.</span></div>
+        <div class="item"><span class="num">2</span><span class="txt">No balance. No income. No name. Not hidden behind a permission, simply never written.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 · THE VERDICT · money shot ..................................... -->
+  <section class="slide">
+    <p class="eyebrow">Screen 5 &middot; the verdict</p>
+    <div class="shot-wrap" style="max-width:74vw">
+      <div class="shot">
+        <img src="deck/shots/05-lender-verdict.jpg" alt="Lender view of one borrower: public record, attestations to other lenders, and the underwriting panel.">
+        <div class="ring pass" style="left:47.5%; top:59%; width:9%; height:32%"></div>
+        <div class="pin pass" style="left:47.5%; top:59%">1</div>
+        <div class="ring" style="left:58%; top:38%; width:38%; height:12%"></div>
+        <div class="pin" style="left:58%; top:38%">2</div>
+      </div>
+      <div class="legend">
+        <div class="item"><span class="num pass">1</span><span class="txt"><b>PASS, PASS, FAIL.</b> Verdicts against three lenders&rsquo; terms, and not one figure anywhere on the page.</span></div>
+        <div class="item"><span class="num">2</span><span class="txt"><b>&ldquo;This result cannot be produced from figures that do not match the committed statement.&rdquo;</b></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 · QA .......................................................... -->
+  <section class="slide">
+    <p class="eyebrow">Quality assurance</p>
+    <h2>The toolchain does not run on my machine. So CI became the development loop.</h2>
+    <div class="cards">
+      <div class="card">
+        <p class="n" style="color:var(--pass)">49</p>
+        <p class="k" style="margin-top:1.2vh">Offline contract tests</p>
+        <p class="v">Drive the compiled contracts through simulators. No Docker, no proof server.</p>
+      </div>
+      <div class="card">
+        <p class="n" style="color:var(--amber)">5</p>
+        <p class="k" style="margin-top:1.2vh">CI jobs</p>
+        <p class="v">Compile contracts, typecheck, test, build and publish the console, and stand up a Docker devnet.</p>
+      </div>
+      <div class="card">
+        <p class="n">2</p>
+        <p class="k" style="margin-top:1.2vh">Wallets, real proofs</p>
+        <p class="v">Devnet simulation against node, indexer and proof server, including the negative cases.</p>
+      </div>
+    </div>
+    <p class="say" style="margin-top:3vh">
+      A lender cannot call a borrower-only circuit. A borrower cannot decide their own claim.
+      A proof against a stale commitment fails. Compiled modules are committed back by CI when
+      a <span class="mono">.compact</span> source changes, so the repository never describes
+      contracts it no longer has.
+    </p>
+  </section>
+
+  <!-- 11 · MARKET ...................................................... -->
+  <section class="slide">
+    <p class="eyebrow">Market and adoption</p>
+    <h2>On-chain lenders first. They have the sharpest version of this problem.</h2>
+    <div class="cards" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="card">
+        <p class="k">Wedge &middot; DeFi lending</p>
+        <p class="v">Lending is over-collateralised because a borrower cannot be assessed without identity and disclosure. Kymider supplies the missing primitive, so a protocol can offer a verified-solvency tier at lower collateral. A <b>capital-efficiency</b> argument, not a privacy nicety.</p>
+      </div>
+      <div class="card">
+        <p class="k">Second &middot; regulated lenders</p>
+        <p class="v">Credit unions and mortgage pre-qualification answer one question at volume by collecting everything. Under GDPR and Nigeria&rsquo;s NDPR, minimisation is becoming obligation. <b>You cannot leak what you never held.</b></p>
+      </div>
+      <div class="card">
+        <p class="k">The honest dependency</p>
+        <p class="v">Provenance is a partnership problem, not a cryptography one: it needs an open-banking provider co-signing facts into private state.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 · ROADMAP ..................................................... -->
+  <section class="slide">
+    <p class="eyebrow">Roadmap</p>
+    <h2>What&rsquo;s next</h2>
+    <div class="cards">
+      <div class="card"><p class="k">Wave 2</p><p class="v">Each loan becomes its own contract instance with an on-chain lifecycle: apply, underwrite, disburse, repay, indexed by a public <span class="mono">LoanDirectory</span>.</p></div>
+      <div class="card"><p class="k">Wave 3</p><p class="v">The same proof engine feeding a traditional-bank channel through signed, expirable off-chain attestations, plus KYC/AML hooks.</p></div>
+      <div class="card"><p class="k">Beyond</p><p class="v">Attested data provenance. Real wallet connection via Lace. Testnet deployment.</p></div>
+    </div>
+    <p class="say" style="margin-top:3.4vh">
+      <span class="hl">ZK proves computation, not honesty.</span> The circuit guarantees the
+      arithmetic was performed correctly on the committed figures. It cannot know whether those
+      figures were true. That gap is stated plainly inside the product itself, and closing it
+      needs attested data providers, not more cryptography.
+    </p>
+  </section>
+
+  <!-- 13 · CLOSE ....................................................... -->
+  <section class="slide" style="justify-content:center">
+    <p class="eyebrow">Kymider &middot; Wave 1</p>
+    <h1 style="font-size:clamp(34px,5.6vw,84px)">Prove it.<br><span style="color:var(--amber)">Don&rsquo;t show it.</span></h1>
+    <div class="cards" style="max-width:70vw; margin-top:4.6vh">
+      <div class="card"><p class="k">Try the console</p><p class="v mono" style="font-size:clamp(11px,1.02vw,16px)">turnless.github.io/kymider</p></div>
+      <div class="card"><p class="k">Repository</p><p class="v mono" style="font-size:clamp(11px,1.02vw,16px)">github.com/Turnless/kymider</p></div>
+      <div class="card"><p class="k">Licence</p><p class="v mono" style="font-size:clamp(11px,1.02vw,16px)">Apache-2.0</p></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="chrome">
+  <span>Kymider &middot; Prove it. Don&rsquo;t show it.</span>
+  <span id="count">1 / 13</span>
+</div>
+<div class="hint" id="hint">&larr; &rarr; navigate &middot; F fullscreen &middot; P print to PDF</div>
+
+<script>
+(function () {
+  "use strict";
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var count = document.getElementById('count');
+  var bar = document.getElementById('bar');
+  var hint = document.getElementById('hint');
+  var i = 0;
+
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (s, idx) { s.classList.toggle('on', idx === i); });
+    count.textContent = (i + 1) + ' / ' + slides.length;
+    bar.style.width = (((i + 1) / slides.length) * 100) + 'vw';
+    if (i > 0 && hint) hint.style.display = 'none';
+    try { history.replaceState(null, '', '#' + (i + 1)); } catch (e) {}
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(i + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(i - 1); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (e.key === 'f' || e.key === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+    else if (e.key === 'p' || e.key === 'P') window.print();
+  });
+
+  document.addEventListener('click', function (e) {
+    show(e.clientX > window.innerWidth / 2 ? i + 1 : i - 1);
+  });
+
+  // Deep-linking: /DECK.html#7 opens slide 7, and changing the hash while open
+  // moves to it. Handy for jumping straight to a slide mid-presentation.
+  function fromHash() {
+    var n = parseInt((location.hash || '').replace('#', ''), 10);
+    return Number.isFinite(n) && n > 0 ? n - 1 : 0;
+  }
+  window.addEventListener('hashchange', function () {
+    if (fromHash() !== i) show(fromHash());
+  });
+
+  show(fromHash());
+})();
+</script>
+</body>
+</html>
