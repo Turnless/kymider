@@ -19,6 +19,21 @@ import {
   type ContractAddress,
 } from '@midnight-ntwrk/midnight-js-protocol/compact-runtime';
 import {
+  CompactTypeUnsignedInteger,
+  CompactTypeVector,
+  persistentHash,
+  type MerkleTreePath,
+} from '@midnight-ntwrk/compact-runtime';
+import {
+  LoanContract,
+  LoanDirectoryContract,
+  loanDirectoryLedger,
+  loanDirectoryPureCircuits,
+  loanLedger,
+  type ListingStatus,
+  type LoanDirectoryLedger,
+  type LoanLedger,
+  type LoanTerms,
   RegistryContract,
   SolvencyProofContract,
   registryLedger,
@@ -28,10 +43,16 @@ import {
   type SolvencyLedger,
 } from '../../../contracts/index.js';
 import {
+  createLoanDirectoryPrivateState,
+  createLoanPrivateState,
   createRegistryPrivateState,
   createSolvencyPrivateState,
+  loanDirectoryWitnesses,
+  loanWitnesses,
   registryWitnesses,
   solvencyWitnesses,
+  type LoanDirectoryPrivateState,
+  type LoanPrivateState,
   type RegistryPrivateState,
   type SolvencyPrivateState,
 } from '../../../contracts/witnesses.js';
@@ -202,6 +223,186 @@ export class RegistrySimulator {
 
   suspend(): this {
     this.ctx = this.contract.impureCircuits.suspend(this.ctx).context;
+    return this;
+  }
+}
+
+// --- Wave 2 ---------------------------------------------------------------
+
+// SolvencyProof.commitFacts, computed off-chain. Loan copies this commitment
+// from the borrower's SolvencyProof instance at deploy.
+const u64x3 = new CompactTypeVector(3, new CompactTypeUnsignedInteger((1n << 64n) - 1n, 8));
+export const commitFacts = (facts: FinancialFacts): Uint8Array =>
+  persistentHash(u64x3, [facts.balance, facts.debts, facts.income]);
+
+/** A fixed, recent block time, so the time-dependent cases are reproducible. */
+export const T0 = 1_800_000_000n;
+
+/**
+ * A single Loan instance, driven offline, with a block clock the test owns.
+ *
+ * `createCircuitContext` stamps the block with the wall clock; here every call
+ * runs at `now`, moved with `at` and `advance`, so quote expiry, late
+ * payments and the default grace period can be tested exactly.
+ */
+export class LoanSimulator {
+  readonly address: ContractAddress;
+  private readonly contract: LoanContract<LoanPrivateState>;
+  private ctx: CircuitContext<LoanPrivateState>;
+  now: bigint = T0;
+
+  constructor(
+    borrowerSk: Uint8Array,
+    lenderPk: Uint8Array,
+    terms: LoanTerms,
+    commitment: Uint8Array,
+    historySeed: Uint8Array,
+  ) {
+    this.contract = new LoanContract<LoanPrivateState>(loanWitnesses);
+    const { currentContractState, currentPrivateState } = this.contract.initialState(
+      createConstructorContext(createLoanPrivateState(borrowerSk, historySeed), COIN_PUBLIC_KEY),
+      lenderPk,
+      terms,
+      commitment,
+    );
+    this.address = sampleContractAddress();
+    this.ctx = createCircuitContext(
+      this.address,
+      COIN_PUBLIC_KEY,
+      currentContractState,
+      currentPrivateState,
+    );
+  }
+
+  ledger(): LoanLedger {
+    return loanLedger(this.ctx.currentQueryContext.state);
+  }
+
+  /** Make the next call as the wallet holding `sk`. */
+  as(sk: Uint8Array): this {
+    this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, sk } };
+    return this;
+  }
+
+  at(seconds: bigint): this {
+    this.now = seconds;
+    return this;
+  }
+
+  advance(seconds: bigint): this {
+    return this.at(this.now + seconds);
+  }
+
+  private run(call: (ctx: CircuitContext<LoanPrivateState>) => { context: CircuitContext<LoanPrivateState> }): this {
+    const q = this.ctx.currentQueryContext;
+    q.block = { ...q.block, secondsSinceEpoch: this.now };
+    this.ctx = call(this.ctx).context;
+    return this;
+  }
+
+  quoteTerms(thresholdNetWorth: bigint, maxDti: bigint, expiresAt: bigint): this {
+    return this.run((c) => this.contract.impureCircuits.quoteTerms(c, thresholdNetWorth, maxDti, expiresAt));
+  }
+
+  proveTier(facts: FinancialFacts): this {
+    return this.run((c) =>
+      this.contract.impureCircuits.proveTier(c, facts.balance, facts.debts, facts.income),
+    );
+  }
+
+  underwrite(collateral: bigint): this {
+    return this.run((c) => this.contract.impureCircuits.underwrite(c, collateral));
+  }
+
+  decline(): this {
+    return this.run((c) => this.contract.impureCircuits.decline(c));
+  }
+
+  disburse(start: bigint, owed: bigint, installment: bigint): this {
+    return this.run((c) => this.contract.impureCircuits.disburse(c, start, owed, installment));
+  }
+
+  repay(amount: bigint): this {
+    return this.run((c) => this.contract.impureCircuits.repay(c, amount));
+  }
+
+  markDefault(): this {
+    return this.run((c) => this.contract.impureCircuits.markDefault(c));
+  }
+}
+
+export const repaidLeaf = (borrowerPk: Uint8Array, loanAddr: Uint8Array, lenderPk: Uint8Array): Uint8Array =>
+  loanDirectoryPureCircuits.repaidLeaf(borrowerPk, loanAddr, lenderPk);
+
+/** Stand-in for a Loan instance's 32-byte address, as the directory keys it. */
+export const loanAddr = (fill: number): Uint8Array => new Uint8Array(32).fill(fill);
+
+/** The shared LoanDirectory, driven offline. */
+export class LoanDirectorySimulator {
+  readonly address: ContractAddress;
+  private readonly contract: LoanDirectoryContract<LoanDirectoryPrivateState>;
+  private ctx: CircuitContext<LoanDirectoryPrivateState>;
+
+  constructor(callerSk: Uint8Array) {
+    this.contract = new LoanDirectoryContract<LoanDirectoryPrivateState>(loanDirectoryWitnesses);
+    const { currentContractState, currentPrivateState } = this.contract.initialState(
+      createConstructorContext(createLoanDirectoryPrivateState(callerSk), COIN_PUBLIC_KEY),
+    );
+    this.address = sampleContractAddress();
+    this.ctx = createCircuitContext(
+      this.address,
+      COIN_PUBLIC_KEY,
+      currentContractState,
+      currentPrivateState,
+    );
+  }
+
+  ledger(): LoanDirectoryLedger {
+    return loanDirectoryLedger(this.ctx.currentQueryContext.state);
+  }
+
+  as(sk: Uint8Array): this {
+    this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, sk } };
+    return this;
+  }
+
+  /** The Merkle path a borrower would build for a recorded repayment. */
+  pathFor(leaf: Uint8Array): MerkleTreePath<Uint8Array> {
+    const path = this.ledger().repaid.findPathForLeaf(leaf);
+    if (!path) throw new Error('no such leaf in the directory');
+    return path;
+  }
+
+  list(loan: Uint8Array, lenderPk: Uint8Array, principal: bigint): this {
+    this.ctx = this.contract.impureCircuits.list(this.ctx, loan, lenderPk, principal).context;
+    return this;
+  }
+
+  updateStatus(loan: Uint8Array, status: ListingStatus): this {
+    this.ctx = this.contract.impureCircuits.updateStatus(this.ctx, loan, status).context;
+    return this;
+  }
+
+  recordRepaid(loan: Uint8Array): this {
+    this.ctx = this.contract.impureCircuits.recordRepaid(this.ctx, loan).context;
+    return this;
+  }
+
+  proveTwoRepaid(
+    forLoan: Uint8Array,
+    a: { loan: Uint8Array; lender: Uint8Array; path: MerkleTreePath<Uint8Array> },
+    b: { loan: Uint8Array; lender: Uint8Array; path: MerkleTreePath<Uint8Array> },
+  ): this {
+    this.ctx = this.contract.impureCircuits.proveTwoRepaid(
+      this.ctx,
+      forLoan,
+      a.loan,
+      a.lender,
+      a.path,
+      b.loan,
+      b.lender,
+      b.path,
+    ).context;
     return this;
   }
 }

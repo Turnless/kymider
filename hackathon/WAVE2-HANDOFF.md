@@ -56,8 +56,8 @@ owner). Do not claim they were missing.
 | 3 | Build script, `.gitignore` and CI sync updated for both contracts | Done |
 | 4 | Compile both; commit `compiled/loan*/contract` | Done (2026-10-03, compiled locally) |
 | 5 | Export both from `contracts/index.ts`; witnesses in `contracts/witnesses.ts` (`localSk`, `paymentNonce`) | Done |
-| 6 | Offline tests in `tests/unit/` with simulators (see below) | **Next** |
-| 7 | Client: `client/` lifecycle ops and CLI (`deploy`, `demo`) for loans | To do |
+| 6 | Offline tests in `tests/unit/` with simulators | Done: 47 Loan + 18 LoanDirectory tests |
+| 7 | Client: `client/` lifecycle ops and CLI (`deploy`, `demo`) for loans | **Next** |
 | 8 | Console: borrower loan view (apply, prove tier, repay) and lender view (quote, underwrite, disburse, default, portfolio) | To do |
 | 9 | CI `workflow_dispatch` job: proof server + deploy to Preprod + run the flow, write tx hashes to `PROOF.md` | To do |
 | 10 | Read-only Preprod view in the console (indexer reads of the deployed instances) | To do |
@@ -76,28 +76,27 @@ owner). Do not claim they were missing.
   passed in by the caller and checked with cross-multiplied bounds
   (`isFloorOfBps`, `isCeilOfShare`).
 
-### Tests to write (match the style of `tests/unit/solvencyProof.contract.test.ts`)
+### Offline tests (step 6)
 
-- Happy path: apply → quote → proveTier PASS → underwrite at 110% → disburse
-  → repay ×N → REPAID → recordRepaid.
-- FAIL path: proveTier FAIL → underwrite at 150%.
-- Refusals, each with its error string:
-  - a lender asking a verified borrower for 150% ("collateral does not match the tier");
-  - an expired quote or tier;
-  - a stranger or the lender calling `repay`;
-  - the borrower calling `markDefault`;
-  - a default before the grace period;
-  - a wrong installment amount;
-  - facts that don't match the commitment;
-  - `proveTwoRepaid` with the same loan twice, someone else's leaf, or the application vouching for itself.
-- History chain: rebuild `historyCommitment` in the test from the seed with
-  `loanPaymentNonce(seed, previousHead)` and compare. Uint<64> hashes use
-  `CompactTypeUnsignedInteger(2n ** 64n - 1n, 8)`. A smoke run of the full
-  happy path (quote → proveTier → underwrite 1100 → disburse → repay ×2 →
-  REPAID) already passed this way.
-- Time: `createCircuitContext` stamps the block with the real clock, at
-  `ctx.currentQueryContext.block.secondsSinceEpoch`. The simulator needs a way
-  to set it (for expiry, lateness and the default grace period).
+`tests/unit/loan.contract.test.ts` and `tests/unit/loanDirectory.contract.test.ts`,
+driving the compiled contracts through `LoanSimulator` and
+`LoanDirectorySimulator` in `tests/unit/support/simulators.ts`.
+
+- Time: `createCircuitContext` stamps the block with the wall clock. The Loan
+  simulator owns the clock instead (`at`, `advance`, starting at `T0`) and
+  writes it to `currentQueryContext.block` before every call, so expiry,
+  lateness and the grace period are tested to the second.
+- Covered: the happy path to REPAID (367, 367, 366 on 1,100 owed); 110% for a
+  VERIFIED tier and 150% otherwise (never proved, STANDARD, lapsed tier); the
+  exact-floor collateral check; every refusal the handoff listed; late and
+  on-the-due-date payments; default before, at and after the grace period.
+- The history chain is rebuilt in the test from the seed and the public
+  payments and compared byte for byte, on time and late.
+- Directory: forged paths (a well-formed path to a leaf never written), the
+  wrong lender, someone else's record, the same loan twice, the application
+  vouching for itself, and a path still valid after later inserts change the root.
+- The suites were mutation-checked: altering the collateral, a late flag or
+  the proof count fails 24 tests.
 
 ### Witness design (step 5)
 
