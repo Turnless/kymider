@@ -23,7 +23,7 @@ export const QUOTE = { ...CLAIM, ttlSeconds: 7_200n };
 
 /** Loan A: proves the tier, so 110% collateral. 1,100 owed in two installments. */
 export const TERMS_A: LoanTerms = { principal: 1_000n, interestBps: 1_000n, installments: 2n, periodSeconds: 86_400n };
-/** Loan B: no tier proof, so 150% collateral. 2,100 owed in one installment. */
+/** Loan B: the borrower waives the tier proof, so 150% collateral. 2,100 owed in one installment. */
 export const TERMS_B: LoanTerms = { principal: 2_000n, interestBps: 500n, installments: 1n, periodSeconds: 86_400n };
 /** Loan C: a new application that carries the two-repaid-loans proof. */
 export const TERMS_C: LoanTerms = { principal: 5_000n, interestBps: 800n, installments: 4n, periodSeconds: 86_400n };
@@ -120,7 +120,7 @@ export const STEPS = {
   ),
   underwriteA: step(
     'Lender offers loan A at 110% collateral (1,100)',
-    'The circuit takes only the exact 110% figure while the VERIFIED tier is live; 150% would be 1,500, and the tier cannot be re-quoted away.',
+    'The circuit takes only the exact 110% figure while the VERIFIED tier is live; 150% would be 1,500, and the tier cannot be re-quoted away (both attempts were refused before submission, below).',
     'Why the borrower qualified.',
   ),
   acceptA: step(
@@ -163,14 +163,19 @@ export const STEPS = {
     'Only the named lender could quote.',
     'The lender\'s secret key.',
   ),
+  waiveB: step(
+    'Borrower waives the tier proof on loan B',
+    'The borrower answered the quote without a proof, so the 150% offer is open now rather than when the quote lapses. Until a quote is answered or lapses the circuit refuses a 150% offer.',
+    'Everything about the facts: a waiver answers no question about them.',
+  ),
   underwriteB: step(
-    'Lender offers loan B at 150% collateral (3,000): no tier proof',
-    'Without a live VERIFIED tier the circuit takes only the 150% figure.',
+    'Lender offers loan B at 150% collateral (3,000): proof waived',
+    'Without a live VERIFIED tier, and with the quote answered, the circuit takes only the 150% figure.',
     'Nothing: the borrower chose not to prove.',
   ),
   acceptB: step(
     'Borrower accepts the offer on loan B',
-    'The borrower chose 150% over proving; the loan is ACTIVE only because the borrower accepted.',
+    'The borrower named the 150% figure and accepted it; the loan is ACTIVE only because the borrower accepted.',
     'The borrower\'s secret key.',
   ),
   activateB: step(
@@ -211,6 +216,36 @@ export const STEPS = {
 } satisfies Record<string, StepInfo>;
 
 export type StepKey = keyof typeof STEPS;
+
+// --- the refusals ----------------------------------------------------------------
+
+/**
+ * Calls the run makes on purpose and expects the circuit to refuse. Each runs
+ * the circuit locally, as every call does before a proof is generated; an
+ * assert that fails there stops the call, so nothing is proved or submitted.
+ * The run records the contract's message, and fails if any call goes through
+ * or is refused for another reason.
+ */
+export type RefusalInfo = {
+  label: string;
+  /** The contract's assert message the run must see. */
+  expected: string;
+  /** What the refusal shows. */
+  shows: string;
+};
+
+export const REFUSALS = {
+  overaskA: {
+    label: 'Lender tries to offer loan A at 150% (1,500) while its VERIFIED tier is live',
+    expected: 'collateral does not match the tier',
+    shows: 'A verified borrower can only be offered 110%: the lender cannot even put 150% on the table.',
+  },
+  requoteA: {
+    label: 'Lender tries to re-quote loan A while its VERIFIED tier is live',
+    expected: 'a verified tier is live until it lapses',
+    shows: 'The lender cannot reset the tier by quoting again; loan A keeps quotesIssued = 1.',
+  },
+} satisfies Record<string, RefusalInfo>;
 
 /** Every step, in run order, for the explanation section of PROOF.md. */
 export const STEP_LIST: readonly StepInfo[] = Object.values(STEPS);

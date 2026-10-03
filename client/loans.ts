@@ -57,6 +57,7 @@ import {
   owedFor,
   quoteRefusal,
   tierIsLive,
+  underwriteRefusal,
 } from './proof/loanMath.js';
 import { bytesEqual } from './utils.js';
 import { DEPLOY_CIRCUIT, emitReceipt, type TxSink } from './txlog.js';
@@ -73,11 +74,20 @@ export type Quote = ClaimParams & { ttlSeconds: bigint };
 export type RepaidRecord = { loan: ContractAddress; lenderPk: Uint8Array };
 
 export type ListingRow = {
+  /** The directory key: listingKey(loan, borrower). */
+  key: Uint8Array;
   loan: ContractAddress;
   borrower: Uint8Array;
   lender: Uint8Array;
   principal: bigint;
   status: ListingStatus;
+  /**
+   * Whether the listing's borrower and lender are the Loan instance's own
+   * (set when `listings` is asked to reconcile; undefined otherwise). A
+   * listing that does not match was made by someone other than the loan's
+   * borrower, or names another lender: the directory cannot tell, a reader can.
+   */
+  matchesLoan?: boolean;
 };
 
 export class LoanClient {
@@ -162,9 +172,10 @@ export class LoanClient {
   // --- lender -------------------------------------------------------------
 
   // Name the bar for the 110% tier and how long a proof against it holds
-  // (at least 30 minutes). A loan takes at most quoteLimit() quotes, and a live
-  // VERIFIED tier cannot be re-quoted away. All three are checked here first so
-  // the caller gets the contract's answer without spending a proof on it.
+  // (at least 30 minutes). A loan takes at most quoteLimit() quotes, a live
+  // VERIFIED tier cannot be re-quoted away, and neither can a live quote the
+  // borrower has not answered yet. All are checked here first so the caller
+  // gets the contract's answer without spending a proof on it.
   async quote(loan: ContractAddress, quote: Quote): Promise<bigint> {
     const state = await this.loanState(loan);
     if (state.quotesIssued >= loanPureCircuits.quoteLimit()) {
@@ -180,10 +191,14 @@ export class LoanClient {
 
   // Offer the loan at the tier the borrower holds now, with the exact
   // collateral the circuit will take for it. The loan is OFFERED, not ACTIVE:
-  // it binds once the borrower accepts.
+  // it binds once the borrower accepts. Refused before any quote, and refused
+  // at 150% while the borrower's proof window is open (checked here first).
   async underwrite(loan: ContractAddress): Promise<{ tier: Tier; collateral: bigint }> {
     const state = await this.loanState(loan);
-    const tier = tierIsLive(state, nowSeconds()) ? Tier.VERIFIED : Tier.STANDARD;
+    const now = nowSeconds();
+    const refusal = underwriteRefusal(state, now);
+    if (refusal) throw new Error(refusal);
+    const tier = tierIsLive(state, now) ? Tier.VERIFIED : Tier.STANDARD;
     const collateral = collateralFor(state.terms.principal, tier);
     await this.callLoan(loan, 'underwrite', [collateral]);
     this.logger.info(`Offered ${loan} at ${tierName(tier)}, collateral ${collateral}`);
@@ -235,11 +250,23 @@ export class LoanClient {
     return (await this.loanState(loan)).tier;
   }
 
-  // Make the lender's offer binding. Returns the tier and collateral accepted.
-  async acceptOffer(loan: ContractAddress): Promise<{ tier: Tier; collateral: bigint }> {
+  // Answer the lender's quote without proving: the borrower takes the 150%
+  // route and the lender may offer it at once. Reveals nothing about the facts.
+  async waiveProof(loan: ContractAddress): Promise<void> {
+    const { tierProven, quoted } = await this.loanState(loan);
+    if (!quoted) throw new Error('the lender has not quoted yet');
+    if (tierProven) throw new Error('already proven against this quote');
+    await this.callLoan(loan, 'waiveProof', []);
+  }
+
+  // Make the lender's offer binding. `expectedCollateral` is the figure the
+  // borrower was shown and agrees to; the circuit refuses any other ("offer
+  // changed"), so the transcript names what was accepted.
+  async acceptOffer(loan: ContractAddress, expectedCollateral: bigint): Promise<{ tier: Tier; collateral: bigint }> {
     const state = await this.loanState(loan);
     if (state.status !== LoanStatus.OFFERED) throw new Error('there is no offer to accept');
-    await this.callLoan(loan, 'accept', []);
+    if (state.offeredCollateral !== expectedCollateral) throw new Error('offer changed');
+    await this.callLoan(loan, 'accept', [expectedCollateral]);
     this.logger.info(`Accepted ${loan} at ${tierName(state.offeredTier)}, collateral ${state.offeredCollateral}`);
     return { tier: state.offeredTier, collateral: state.offeredCollateral };
   }
@@ -281,18 +308,28 @@ export class LoanClient {
     ]);
   }
 
+  // The directory key of a loan's real listing: the one under the Loan
+  // instance's own borrower key. A listing of the same address under any
+  // other key is someone else's and is ignored.
+  async listingKeyOf(loan: ContractAddress): Promise<Uint8Array> {
+    const { borrower } = await this.loanState(loan);
+    return loanDirectoryPureCircuits.listingKey(encodeContractAddress(loan), borrower);
+  }
+
+  // Either party moves the loan's real listing (see listingKeyOf). The
+  // directory refuses DEFAULTED: a default is the Loan's own status.
   async updateListingStatus(
     directory: ContractAddress,
     loan: ContractAddress,
     status: ListingStatus,
   ): Promise<void> {
-    await this.callDirectory(directory, 'updateStatus', [encodeContractAddress(loan), status]);
+    await this.callDirectory(directory, 'updateStatus', [await this.listingKeyOf(loan), status]);
   }
 
-  // Lender: record a repaid loan as a private leaf. Refused on-chain unless
-  // the caller is the listing's lender.
+  // Lender: record a repaid loan as a private leaf, on the listing under the
+  // Loan's own borrower. Refused on-chain unless the caller is its lender.
   async recordRepaid(directory: ContractAddress, loan: ContractAddress): Promise<void> {
-    await this.callDirectory(directory, 'recordRepaid', [encodeContractAddress(loan)]);
+    await this.callDirectory(directory, 'recordRepaid', [await this.listingKeyOf(loan)]);
   }
 
   // Borrower: prove two repaid loans for a new application. The loans and
@@ -337,24 +374,47 @@ export class LoanClient {
     return loanDirectoryLedger(state.data);
   }
 
-  async listings(directory: ContractAddress): Promise<ListingRow[]> {
+  // Every listing in the directory. With `reconcile`, each row is checked
+  // against its Loan instance (listingMatchesLoan) and carries `matchesLoan`:
+  // the directory cannot read the Loan, so this is where a squatted or
+  // mislabelled listing is caught.
+  async listings(directory: ContractAddress, opts: { reconcile?: boolean } = {}): Promise<ListingRow[]> {
     const state = await this.directoryState(directory);
     const rows: ListingRow[] = [];
     for (const [key, value] of state.listings) {
       rows.push({
-        loan: decodeContractAddress(key as Uint8Array),
+        key: key as Uint8Array,
+        loan: decodeContractAddress(value.loan),
         borrower: value.borrower,
         lender: value.lender,
         principal: value.principal,
         status: value.status,
       });
     }
+    if (opts.reconcile) {
+      for (const row of rows) row.matchesLoan = await this.listingMatchesLoan(row);
+    }
     return rows;
   }
 
+  // A listing is the loan's own only if its borrower and lender are the Loan
+  // instance's `borrower` and `lender` (and it sits under that borrower's
+  // key). False when they differ or the address holds no Loan.
+  async listingMatchesLoan(row: Pick<ListingRow, 'key' | 'loan' | 'borrower' | 'lender'>): Promise<boolean> {
+    let loan: LoanLedger;
+    try {
+      loan = await this.loanState(row.loan);
+    } catch {
+      return false;
+    }
+    const key = loanDirectoryPureCircuits.listingKey(encodeContractAddress(row.loan), loan.borrower);
+    return bytesEqual(row.borrower, loan.borrower) && bytesEqual(row.lender, loan.lender) && bytesEqual(row.key, key);
+  }
+
+  // The count proven for the loan's real listing (under its own borrower).
   async historyProofCount(directory: ContractAddress, forLoan: ContractAddress): Promise<bigint> {
     const state = await this.directoryState(directory);
-    const key = encodeContractAddress(forLoan);
+    const key = await this.listingKeyOf(forLoan);
     return state.historyProofs.member(key) ? state.historyProofs.lookup(key) : 0n;
   }
 

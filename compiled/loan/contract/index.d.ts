@@ -39,8 +39,10 @@ export type ImpureCircuits<PS> = {
            owed_0: bigint,
            installment_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   markDefault(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
-  accept(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  accept(context: __compactRuntime.CircuitContext<PS>,
+         expectedCollateral_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   declineOffer(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  waiveProof(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,
@@ -60,8 +62,10 @@ export type ProvableCircuits<PS> = {
            owed_0: bigint,
            installment_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   markDefault(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
-  accept(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  accept(context: __compactRuntime.CircuitContext<PS>,
+         expectedCollateral_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   declineOffer(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  waiveProof(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,
@@ -90,8 +94,10 @@ export type Circuits<PS> = {
            owed_0: bigint,
            installment_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   markDefault(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
-  accept(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  accept(context: __compactRuntime.CircuitContext<PS>,
+         expectedCollateral_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   declineOffer(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  waiveProof(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,

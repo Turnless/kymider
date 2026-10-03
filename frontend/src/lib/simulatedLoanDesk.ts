@@ -48,6 +48,8 @@ import {
   loanPureCircuits,
   loanWitnesses,
   owedFor,
+  proofWaived,
+  proofWindowOpen,
   tierIsLive,
   type Listing,
   type LoanDirectoryLedger,
@@ -130,8 +132,10 @@ const attempt = <T>(fn: () => T): T => {
 type DeskLoan = {
   /** Contract address, hex without 0x. */
   address: string;
-  /** The 32 bytes the directory keys the listing on. */
+  /** The address as 32 bytes, as the directory records it in a listing. */
   bytes: Uint8Array;
+  /** The directory key of the borrower's listing: listingKey(bytes, borrower). */
+  listingKey: Uint8Array;
   contract: LoanContract<LoanPrivateState>;
   ctx: CircuitContext<LoanPrivateState>;
   borrowerSk: Uint8Array;
@@ -155,8 +159,13 @@ type DeskLoan = {
 
 /** What screens need from the directory, read once per directory state. */
 type DirectorySnapshot = {
+  /** By listing key hex. */
   listings: Map<string, Listing>;
+  /** Listing keys hex, per loan address hex: every listing of that address, by anyone. */
+  byLoan: Map<string, string[]>;
+  /** Listing keys recorded as repaid. */
   recorded: Set<string>;
+  /** Listing key -> history proof count. */
   proofs: Map<string, bigint>;
 };
 
@@ -187,8 +196,15 @@ class Directory {
   snapshot(): DirectorySnapshot {
     if (this.cache?.ctx === this.ctx) return this.cache.snapshot;
     const led = this.ledger();
+    const listings = new Map([...led.listings].map(([k, v]) => [hex(k), v]));
+    const byLoan = new Map<string, string[]>();
+    for (const [k, v] of listings) {
+      const loan = hex(v.loan);
+      byLoan.set(loan, [...(byLoan.get(loan) ?? []), k]);
+    }
     const snapshot: DirectorySnapshot = {
-      listings: new Map([...led.listings].map(([k, v]) => [hex(k), v])),
+      listings,
+      byLoan,
       recorded: new Set([...led.recordedLoans].map(hex)),
       proofs: new Map([...led.historyProofs].map(([k, v]) => [hex(k), v])),
     };
@@ -352,6 +368,7 @@ export class SimulatedLoanDesk implements LoanDesk {
     const loan: DeskLoan = {
       address,
       bytes,
+      listingKey: loanDirectoryPureCircuits.listingKey(bytes, loanPureCircuits.getDappPubKey(borrowerSk)),
       contract,
       ctx: createCircuitContext(address, COIN_PUBLIC_KEY, currentContractState, currentPrivateState),
       borrowerSk,
@@ -396,15 +413,26 @@ export class SimulatedLoanDesk implements LoanDesk {
     return TIER_NAMES[this.ledgerOf(loan).offeredTier];
   }
 
-  /** The loan's borrower makes the offer binding. */
-  private doAccept(loan: DeskLoan): { tier: TierName; collateral: bigint } {
-    this.run(loan, loan.borrowerSk, (c, ctx) => c.accept(ctx));
+  /**
+   * The loan's borrower makes the offer binding, naming the collateral they
+   * accept (by default the figure on the ledger, as the screen shows it).
+   */
+  private doAccept(
+    loan: DeskLoan,
+    expected: bigint = this.ledgerOf(loan).offeredCollateral,
+  ): { tier: TierName; collateral: bigint } {
+    this.run(loan, loan.borrowerSk, (c, ctx) => c.accept(ctx, expected));
     const led = this.ledgerOf(loan);
     return { tier: TIER_NAMES[led.tier], collateral: led.collateralRequired };
   }
 
   private doDeclineOffer(loan: DeskLoan): void {
     this.run(loan, loan.borrowerSk, (c, ctx) => c.declineOffer(ctx));
+  }
+
+  /** The borrower answers the quote without proving: the 150% route, at once. */
+  private doWaiveProof(loan: DeskLoan): void {
+    this.run(loan, loan.borrowerSk, (c, ctx) => c.waiveProof(ctx));
   }
 
   /**
@@ -418,7 +446,9 @@ export class SimulatedLoanDesk implements LoanDesk {
     const installment = installmentFor(owed, terms.installments);
     const start = this.clock;
     this.run(loan, lenderSk, (c, ctx) => c.disburse(ctx, start, owed, installment));
-    this.directory.call(lenderSk, this.clock, (c, ctx) => c.updateStatus(ctx, loan.bytes, ListingStatus.ACTIVE));
+    this.directory.call(lenderSk, this.clock, (c, ctx) =>
+      c.updateStatus(ctx, loan.listingKey, ListingStatus.ACTIVE),
+    );
   }
 
   private doRepay(loan: DeskLoan): bigint {
@@ -437,20 +467,24 @@ export class SimulatedLoanDesk implements LoanDesk {
     return amount;
   }
 
+  /**
+   * The Loan records the default (after due date + grace). The directory is
+   * not told: it refuses DEFAULTED, and the console reads a default from the
+   * Loan instead.
+   */
   private doMarkDefault(loan: DeskLoan, lenderSk: Uint8Array): void {
     this.run(loan, lenderSk, (c, ctx) => c.markDefault(ctx));
-    this.directory.call(lenderSk, this.clock, (c, ctx) =>
-      c.updateStatus(ctx, loan.bytes, ListingStatus.DEFAULTED),
-    );
   }
 
   private doDecline(loan: DeskLoan, lenderSk: Uint8Array): void {
     this.run(loan, lenderSk, (c, ctx) => c.decline(ctx));
-    this.directory.call(lenderSk, this.clock, (c, ctx) => c.updateStatus(ctx, loan.bytes, ListingStatus.CLOSED));
+    this.directory.call(lenderSk, this.clock, (c, ctx) =>
+      c.updateStatus(ctx, loan.listingKey, ListingStatus.CLOSED),
+    );
   }
 
   private doRecordRepaid(loan: DeskLoan, lenderSk: Uint8Array): void {
-    this.directory.call(lenderSk, this.clock, (c, ctx) => c.recordRepaid(ctx, loan.bytes));
+    this.directory.call(lenderSk, this.clock, (c, ctx) => c.recordRepaid(ctx, loan.listingKey));
   }
 
   // --- the demo world -------------------------------------------------------
@@ -524,8 +558,8 @@ export class SimulatedLoanDesk implements LoanDesk {
       return { sk: o.sk, address: o.address, facts: () => o.opening };
     };
 
-    // REPAID at 150%: never proved a tier. Not yet recorded in the directory,
-    // so the lender console has that action waiting.
+    // REPAID at 150%: the borrower waived the tier proof. Not yet recorded in
+    // the directory, so the lender console has that action waiting.
     {
       const o = other(3);
       at(-75n * DAY);
@@ -538,8 +572,9 @@ export class SimulatedLoanDesk implements LoanDesk {
       at(-74n * DAY);
       this.doQuote(l, me.sk, { thresholdNetWorth: 400_000n, maxDti: 40n, ttlSeconds: 7n * DAY });
       at(-73n * DAY);
+      this.doWaiveProof(l); // chose 150% over proving
       this.doUnderwrite(l, me.sk);
-      this.doAccept(l); // chose 150% over proving
+      this.doAccept(l);
       this.doDisburse(l, me.sk); // due -43, -13 days
       for (const d of [-44n, -14n]) {
         at(d * DAY);
@@ -628,16 +663,24 @@ export class SimulatedLoanDesk implements LoanDesk {
       this.doProveTier(l);
     }
 
-    // APPLIED two hours ago, awaiting a quote.
+    // APPLIED two hours ago, awaiting a quote. Someone else listed the same
+    // address an hour later under their own key, naming another lender: the
+    // directory keeps it in their slot, and the console flags it as not the
+    // loan's parties (see `view`).
     {
       const o = other(0);
       at(-2n * HOUR);
-      this.deploy(o.sk, o.address, o.facts, me.pk, {
+      const l = this.deploy(o.sk, o.address, o.facts, me.pk, {
         principal: 150_000n,
         interestBps: 1_100n,
         installments: 3n,
         periodSeconds: 30n * DAY,
       });
+      at(-1n * HOUR);
+      const squatter = others[3 % others.length];
+      this.directory.call(squatter.sk, this.clock, (c, ctx) =>
+        c.list(ctx, l.bytes, atlas.pk, 150_000n),
+      );
     }
   }
 
@@ -646,10 +689,15 @@ export class SimulatedLoanDesk implements LoanDesk {
   private view(loan: DeskLoan): LoanView {
     const led = this.ledgerOf(loan);
     const dir = this.directory.snapshot();
-    const key = hex(loan.bytes);
+    // The loan's own listing is the one under its borrower's key. Any other
+    // listing of this address was made by someone else: counted, not used.
+    const key = hex(loan.listingKey);
     const listing = dir.listings.get(key);
+    const strayListings = (dir.byLoan.get(hex(loan.bytes)) ?? []).filter((k) => k !== key).length;
     const now = this.clock;
     const status = STATUS_NAMES[led.status];
+    // The directory never records a default; the Loan does (markDefault).
+    const listingFromLoan = listing !== undefined && status === 'DEFAULTED' && listing.status === ListingStatus.ACTIVE;
     const open = status === 'ACTIVE' && led.disbursed;
     const commitment = this.client.instanceCommitment(loan.solvencyInstance);
     const terms: LoanTerms = {
@@ -670,6 +718,8 @@ export class SimulatedLoanDesk implements LoanDesk {
       quotesIssued: Number(led.quotesIssued),
       quoteLimit: QUOTE_LIMIT,
       tierProven: led.tierProven,
+      proofWaived: proofWaived(led),
+      proofWindowOpen: status === 'APPLIED' && proofWindowOpen(led, now),
       tier: TIER_NAMES[led.tier],
       tierExpiresAt: led.tierExpiresAt,
       tierLive: tierIsLive(led, now),
@@ -688,7 +738,12 @@ export class SimulatedLoanDesk implements LoanDesk {
       historyCommitment: hex0x(led.historyCommitment),
       factsBound: commitment !== null && sameBytes(commitment, led.factsCommitment),
       historyProofCount: Number(dir.proofs.get(key) ?? 0n),
-      listing: listing ? LISTING_NAMES[listing.status] : null,
+      listing: listing ? (listingFromLoan ? 'DEFAULTED' : LISTING_NAMES[listing.status]) : null,
+      listingFromLoan,
+      listingMatchesLoan: listing
+        ? sameBytes(listing.borrower, led.borrower) && sameBytes(listing.lender, led.lender)
+        : null,
+      strayListings,
       recorded: dir.recorded.has(key),
       defaultableFrom: open ? defaultableFrom(led) : null,
     };
@@ -735,13 +790,20 @@ export class SimulatedLoanDesk implements LoanDesk {
     return tier;
   }
 
-  async accept(address: string): Promise<{ tier: TierName; collateral: bigint }> {
+  async accept(address: string, expectedCollateral: bigint): Promise<{ tier: TierName; collateral: bigint }> {
     const loan = this.get(address);
     // Under this browser's key: on someone else's loan the contract refuses
-    // ("only the borrower may accept an offer").
-    const result = this.asMyBorrower(loan, () => this.doAccept(loan));
+    // ("only the borrower may accept an offer"). The figure is the one the
+    // screen showed; any other is refused ("offer changed").
+    const result = this.asMyBorrower(loan, () => this.doAccept(loan, expectedCollateral));
     this.changed();
     return result;
+  }
+
+  async waiveProof(address: string): Promise<void> {
+    const loan = this.get(address);
+    this.asMyBorrower(loan, () => this.doWaiveProof(loan));
+    this.changed();
   }
 
   async declineOffer(address: string): Promise<void> {
@@ -785,7 +847,7 @@ export class SimulatedLoanDesk implements LoanDesk {
     const me = this.myPk();
     const records: RepaidRecord[] = [];
     for (const loan of [...this.loans.values()].sort((x, y) => y.seq - x.seq)) {
-      const key = hex(loan.bytes);
+      const key = hex(loanDirectoryPureCircuits.listingKey(loan.bytes, me));
       const listing = dir.listings.get(key);
       if (!listing || !dir.recorded.has(key) || !sameBytes(listing.borrower, me)) continue;
       records.push({ loan: loan.address, lender: this.lenderByPk(listing.lender), principal: listing.principal });

@@ -28,6 +28,9 @@ let desk: SimulatedLoanDesk;
 /** The lender id the console acts as; `apply` must name it for the lender flow. */
 const meId = () => client.me().id;
 
+/** The borrower accepts the figure the screen shows: the offer on the ledger. */
+const acceptShown = (address: string) => desk.accept(address, desk.loan(address)!.offeredCollateral);
+
 const fresh = () => {
   client = new SimulatedKymiderClient();
   desk = new SimulatedLoanDesk(client);
@@ -70,6 +73,12 @@ describe('SimulatedLoanDesk — the seeded world', () => {
 
     const awaitingQuote = others.find((l) => l.status === 'APPLIED' && l.quote === null);
     expect(awaitingQuote).toBeDefined();
+    // Someone else listed the same address under their own key: the console
+    // counts it and ignores it; the loan's own listing names its own parties.
+    expect(awaitingQuote!.strayListings).toBe(1);
+    expect(awaitingQuote!.listingMatchesLoan).toBe(true);
+    expect(awaitingQuote!.listing).toBe('OPEN');
+    expect(others.filter((l) => l !== awaitingQuote).every((l) => l.strayListings === 0)).toBe(true);
     const ready = others.find((l) => l.status === 'APPLIED' && l.quote !== null)!;
     expect(ready.tier).toBe('VERIFIED');
     expect(ready.tierLive).toBe(true);
@@ -89,14 +98,19 @@ describe('SimulatedLoanDesk — the seeded world', () => {
     expect(active.amountDue).toBe(active.installmentAmount);
     expect(active.defaultableFrom).toBe(active.nextDueAt + 3n * DAY + 1n);
 
+    // Repaid at 150%: the borrower waived the proof, then accepted the offer.
     const repaid = others.find((l) => l.status === 'REPAID')!;
     expect(repaid.tier).toBe('STANDARD');
+    expect(repaid.tierProven).toBe(true);
     expect(repaid.collateralRequired).toBe(repaid.collateralIfStandard);
     expect(repaid.recorded).toBe(false);
 
+    // The default is the Loan's: the directory never records one, so the
+    // console reads it from the Loan.
     const defaulted = others.find((l) => l.status === 'DEFAULTED')!;
     expect(defaulted.tier).toBe('STANDARD');
     expect(defaulted.listing).toBe('DEFAULTED');
+    expect(defaulted.listingFromLoan).toBe(true);
     expect(defaulted.paymentsMade).toBe(1n);
 
     // A lender sees nobody's private payment log.
@@ -151,7 +165,10 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
     // Nothing binds until the borrower accepts: the lender cannot disburse.
     await expect(desk.disburse(address)).rejects.toThrow(/^loan is not active$/);
 
-    expect(await desk.accept(address)).toEqual({ tier: 'VERIFIED', collateral: 110_000n });
+    // The borrower names the figure: a stale or edited one is refused.
+    await expect(desk.accept(address, 150_000n)).rejects.toThrow(/^offer changed$/);
+    expect(desk.loan(address)!.status).toBe('OFFERED');
+    expect(await desk.accept(address, 110_000n)).toEqual({ tier: 'VERIFIED', collateral: 110_000n });
     v = desk.loan(address)!;
     expect(v.status).toBe('ACTIVE');
     expect(v.collateralRequired).toBe(110_000n);
@@ -188,7 +205,7 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
     await desk.quote(address, FAILING);
     expect(await desk.proveTier(address)).toBe('STANDARD');
     expect(await desk.underwrite(address)).toEqual({ tier: 'STANDARD', collateral: 150_000n });
-    await desk.accept(address);
+    await acceptShown(address);
     await desk.disburse(address);
     expect((await runToRepaid(address)).status).toBe('REPAID');
   });
@@ -240,7 +257,7 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
     // The exact figure for the tier is taken, as an offer the borrower accepts.
     await desk.underwriteAt(address, 110_000n);
     expect(desk.loan(address)!.status).toBe('OFFERED');
-    await desk.accept(address);
+    await acceptShown(address);
     expect(desk.loan(address)!.status).toBe('ACTIVE');
     expect(desk.loan(address)!.collateralRequired).toBe(110_000n);
   });
@@ -258,18 +275,29 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
     await expect(desk.underwriteAt(address, 150_000n)).rejects.toThrow(/^collateral does not match the tier$/);
   });
 
-  it('the borrower can decline an offer; the lender may offer again', async () => {
+  it('no 150% offer while the borrower can prove; the borrower can decline an offer; the lender may offer again', async () => {
     const address = await desk.apply(meId(), TERMS);
+    // No offer before a quote.
+    await expect(desk.underwrite(address)).rejects.toThrow(/^quote first$/);
     await desk.quote(address, PASSING);
-    // Offered 150% before proving: the borrower declines, proves, and is offered 110%.
-    expect(await desk.underwrite(address)).toEqual({ tier: 'STANDARD', collateral: 150_000n });
+    expect(desk.loan(address)!.proofWindowOpen).toBe(true);
+    // The lender tries to get in ahead of the proof: refused, nothing written.
+    const before = desk.loan(address)!;
+    await expect(desk.underwrite(address)).rejects.toThrow(/^the borrower can prove until the quote lapses$/);
+    await expect(desk.underwriteAt(address, 150_000n)).rejects.toThrow(
+      /^the borrower can prove until the quote lapses$/,
+    );
+    await expect(desk.quote(address, FAILING)).rejects.toThrow(/^the borrower can prove until the quote lapses$/);
+    expect(desk.loan(address)).toEqual(before);
+    expect(await desk.proveTier(address)).toBe('VERIFIED');
+    expect(desk.loan(address)!.proofWindowOpen).toBe(false);
+    expect(await desk.underwrite(address)).toEqual({ tier: 'VERIFIED', collateral: 110_000n });
     await desk.declineOffer(address);
     let v = desk.loan(address)!;
     expect(v.status).toBe('APPLIED');
     expect(v.offeredCollateral).toBe(0n);
-    expect(await desk.proveTier(address)).toBe('VERIFIED');
     expect(await desk.underwrite(address)).toEqual({ tier: 'VERIFIED', collateral: 110_000n });
-    await desk.accept(address);
+    await acceptShown(address);
     v = desk.loan(address)!;
     expect(v.status).toBe('ACTIVE');
     expect(v.collateralRequired).toBe(110_000n);
@@ -277,7 +305,7 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
 
   it("refuses this browser's acceptance on another borrower's offer", async () => {
     const offered = desk.applications().find((l) => l.status === 'OFFERED')!;
-    await expect(desk.accept(offered.address)).rejects.toThrow(/^only the borrower may accept an offer$/);
+    await expect(acceptShown(offered.address)).rejects.toThrow(/^only the borrower may accept an offer$/);
     await expect(desk.declineOffer(offered.address)).rejects.toThrow(/^only the borrower may decline an offer$/);
     expect(desk.loan(offered.address)!.status).toBe('OFFERED');
   });
@@ -297,7 +325,7 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
     await desk.quote(address, PASSING);
     await desk.proveTier(address);
     await desk.underwrite(address);
-    await desk.accept(address);
+    await acceptShown(address);
     await desk.disburse(address);
     expect(desk.loan(address)!.status).toBe('ACTIVE');
     // Harbor's seeded book is not Atlas's.
@@ -321,7 +349,7 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
     await desk.quote(address, PASSING);
     await desk.proveTier(address);
     await desk.underwrite(address);
-    await desk.accept(address);
+    await acceptShown(address);
     await desk.disburse(address);
     const due = desk.loan(address)!.nextDueAt;
     desk.advanceTime(due - desk.now()); // exactly on the due date: on time
@@ -334,11 +362,32 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
     expect(desk.paymentLog(address).map((p) => p.onTime)).toEqual([true, false]);
   });
 
-  it('a default can be called only after the 3-day grace period', async () => {
+  it('a borrower who waives the proof is offered 150% at once, revealing nothing', async () => {
     const address = await desk.apply(meId(), TERMS);
     await desk.quote(address, PASSING);
+    await desk.waiveProof(address);
+    let v = desk.loan(address)!;
+    expect(v).toMatchObject({ tier: 'NONE', tierProven: true, proofWaived: true, proofWindowOpen: false });
+    await expect(desk.proveTier(address)).rejects.toThrow(/^already proven against this quote$/);
+    await expect(desk.waiveProof(address)).rejects.toThrow(/^already proven against this quote$/);
+    expect(await desk.underwrite(address)).toEqual({ tier: 'STANDARD', collateral: 150_000n });
+    expect(await acceptShown(address)).toEqual({ tier: 'STANDARD', collateral: 150_000n });
+    v = desk.loan(address)!;
+    expect(v.status).toBe('ACTIVE');
+  });
+
+  it("refuses this browser's waiver on another borrower's loan", async () => {
+    const ready = desk.applications().find((l) => l.status === 'APPLIED' && l.quote === null)!;
+    await desk.quote(ready.address, PASSING);
+    await expect(desk.waiveProof(ready.address)).rejects.toThrow(/^only the borrower may waive a proof$/);
+  });
+
+  it('a default can be called only after the 3-day grace period, and is read from the Loan', async () => {
+    const address = await desk.apply(meId(), TERMS);
+    await desk.quote(address, PASSING);
+    await desk.waiveProof(address);
     await desk.underwrite(address);
-    await desk.accept(address);
+    await acceptShown(address);
     await desk.disburse(address);
     const from = desk.loan(address)!.defaultableFrom!;
     desk.advanceTime(from - 1n - desk.now());
@@ -347,7 +396,9 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
     await desk.markDefault(address);
     const v = desk.loan(address)!;
     expect(v.status).toBe('DEFAULTED');
+    // The directory still says ACTIVE (it refuses DEFAULTED); the console shows the Loan's default.
     expect(v.listing).toBe('DEFAULTED');
+    expect(v.listingFromLoan).toBe(true);
     expect(v.defaultableFrom).toBeNull();
   });
 
@@ -360,11 +411,13 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
 
   it('the lender may withdraw an offer the borrower has not accepted', async () => {
     const address = await desk.apply(meId(), TERMS);
+    await desk.quote(address, PASSING);
+    await desk.waiveProof(address);
     await desk.underwrite(address);
     await desk.decline(address);
     expect(desk.loan(address)!.status).toBe('DECLINED');
     expect(desk.loan(address)!.listing).toBe('CLOSED');
-    await expect(desk.accept(address)).rejects.toThrow(/^there is no offer to accept$/);
+    await expect(desk.accept(address, 150_000n)).rejects.toThrow(/^there is no offer to accept$/);
   });
 
   it('proves two repaid loans for a new application', async () => {

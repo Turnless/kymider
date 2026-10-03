@@ -408,7 +408,9 @@ function AppsStatusLine({
         <span className="tnum">
           Quote expires in {duration(l.quote!.expiresAt - now)}
           {l.tier === 'NONE' && (
-            <span className="ml-1 text-[rgba(15,23,42,0.45)]">· not proved yet</span>
+            <span className="ml-1 text-[rgba(15,23,42,0.45)]">
+              {l.proofWaived ? '· proof waived' : '· not proved yet'}
+            </span>
           )}
         </span>
       );

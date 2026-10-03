@@ -8,9 +8,12 @@
 //
 //   - decodes each contract's public state with the compiled contracts and
 //     checks the claims PROOF.md makes: attestation PASS and claim APPROVED,
-//     the Registry row, loan A VERIFIED at exactly 110% of principal, loan B
-//     STANDARD at exactly 150%, both REPAID and recorded, loan C carrying a
-//     history proof of 2;
+//     the Registry row, loan A VERIFIED at exactly 110% of principal, loan
+//     A's refused 150% offer and re-quote leaving no trace (one quote issued,
+//     the tier still VERIFIED, the only offer 110%, both refusals recorded),
+//     loan B STANDARD at exactly 150%, each listing under its Loan's own
+//     borrower naming the Loan's own lender, both REPAID and recorded, loan C
+//     carrying a history proof of 2;
 //   - looks up every transaction hash and checks its block.
 //
 // Prints a PASS/FAIL table and exits non-zero on any FAIL.

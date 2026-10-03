@@ -30,9 +30,11 @@ function loanSteps(loan: LoanView, now: bigint): LoanStep[] {
         : 'Verified, lapsed'
       : tier === 'STANDARD'
         ? 'Standard · 150%'
-        : declined
-          ? 'Not proven'
-          : 'Optional · 110% if it passes';
+        : loan.proofWaived
+          ? 'Waived · 150%'
+          : declined
+            ? 'Not proven'
+            : 'Optional · 110% if it passes';
 
   const steps: (Omit<LoanStep, 'state'> & { done: boolean; skip: boolean })[] = [];
   const add = (s: Omit<LoanStep, 'state'>, done: boolean, skip = false) =>
@@ -57,7 +59,7 @@ function loanSteps(loan: LoanView, now: bigint): LoanStep[] {
   add(
     { key: 'tier', label: 'Tier proven', caption: tierCaption },
     tier !== 'NONE' && (tierLive || tier === 'STANDARD' || underwritten),
-    declined && tier === 'NONE',
+    (declined && tier === 'NONE') || (loan.proofWaived && tier === 'NONE'),
   );
   add(
     {

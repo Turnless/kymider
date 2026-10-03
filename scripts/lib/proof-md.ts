@@ -91,8 +91,9 @@ export function renderProofMd({ deployments: d, receipts, claims, explorer }: Pr
     '',
     'A borrower commits their financial facts once, proves solvency to a lender in zero knowledge, and then',
     'borrows **at 110% collateral instead of 150%** because the tier proof (not the facts) reaches the ledger.',
-    'Loan A takes that route; loan B skips the proof and is held to 150%. Both are repaid and recorded, and a',
-    'third application proves "two repaid Kymider loans" without naming them.',
+    'Loan A takes that route, and the lender\'s attempts to offer it 150% or to re-quote it are refused by the',
+    'contract before submission. Loan B waives the proof and is held to 150%. Both are repaid and recorded,',
+    'and a third application proves "two repaid Kymider loans" without naming them.',
     '',
   );
 
@@ -128,6 +129,25 @@ export function renderProofMd({ deployments: d, receipts, claims, explorer }: Pr
       'would be worse than none. Look a hash up on the indexer instead (below).',
       '',
     );
+  }
+
+  if (d.refusals.length > 0) {
+    out.push(
+      `## Refused before submission (${d.refusals.length})`,
+      '',
+      'Calls the run made on purpose, as the lender, that the contract refuses. Each one ran the circuit',
+      'locally, as every call does before a proof is generated, and stopped at the assert below, so there',
+      'is no proof, no transaction and no hash. The ledger shows they changed nothing (see the claims).',
+      '',
+      '| Attempt | Contract | Circuit | Result |',
+      '|---|---|---|---|',
+    );
+    for (const r of d.refusals) {
+      out.push(
+        `| ${cell(r.label)} | ${cell(names.get(r.contract) ?? r.contract)} | ${code(r.circuit)} | refused, not submitted: ${code(r.message)} |`,
+      );
+    }
+    out.push('');
   }
 
   out.push(

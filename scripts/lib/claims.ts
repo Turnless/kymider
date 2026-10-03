@@ -14,6 +14,7 @@ import {
   ListingStatus,
   LoanStatus,
   Tier,
+  loanDirectoryPureCircuits,
   loanPureCircuits,
   type LoanDirectoryLedger,
   type LoanLedger,
@@ -23,7 +24,7 @@ import {
 import { collateralFor } from '../../client/proof/loanMath.js';
 import { bytesEqual, bytesToHex } from '../../client/utils.js';
 import type { Deployments, DeploymentTx } from './deployments.js';
-import { LOAN_SHORT_NAMES } from './flow.js';
+import { LOAN_SHORT_NAMES, REFUSALS } from './flow.js';
 
 export type OnchainStates = {
   solvencyProof: SolvencyLedger | null;
@@ -203,7 +204,33 @@ function loanClaims(d: Deployments, s: OnchainStates): ClaimResult[] {
     );
   }
 
-  // Loan B: the counterfactual. No proof, STANDARD, exactly 150%.
+  // Loan A: the two refused calls (an offer at 150%, a re-quote while VERIFIED)
+  // left no trace. The ledger can show the re-quote did not land (one quote),
+  // and that the only offer made was 110% (the accepted offer is the 110% one,
+  // and quoting again would have reset the tier, which is still VERIFIED).
+  const refusedA = `${name(0)}: the refused 150% offer and re-quote left no trace: 1 quote, offered and accepted at 110%`;
+  const tried = d.refusals.filter((r) => r.contract === d.contracts.loans[0]);
+  if (!a) {
+    out.push(missing(refusedA, '1 quote, 110%', name(0)));
+  } else {
+    const want = collateralFor(a.terms.principal, Tier.VERIFIED);
+    const expected = Object.values(REFUSALS).map((r) => r.expected);
+    const recorded = expected.every((m) => tried.some((r) => r.message === m));
+    out.push(
+      result(
+        refusedA,
+        `quotesIssued 1, tier VERIFIED, ${want} offered; ${expected.length} refusals recorded`,
+        `quotesIssued ${a.quotesIssued}, tier ${tierLabel(a.tier)}, ${a.offeredCollateral} offered; ${tried.length} refusal(s) recorded`,
+        a.quotesIssued === 1n &&
+          a.tier === Tier.VERIFIED &&
+          a.offeredTier === Tier.VERIFIED &&
+          a.offeredCollateral === want &&
+          recorded,
+      ),
+    );
+  }
+
+  // Loan B: the counterfactual. No proof (waived), STANDARD, exactly 150%.
   const tierB = `${name(1)}: tier STANDARD, collateral 150% of principal, accepted by the borrower`;
   if (!b) {
     out.push(missing(tierB, '150%', name(1)));
@@ -245,8 +272,10 @@ function loanClaims(d: Deployments, s: OnchainStates): ClaimResult[] {
   }
 
   // Directory: both recorded as repaid, by their lenders, and C carries "2".
+  // Each loan's listing is the one under the Loan's own borrower key, and must
+  // name the Loan's own borrower and lender (the directory cannot check this).
   const dir = s.loanDirectory;
-  const listed = 'LoanDirectory: loans A, B and C are listed with their lenders';
+  const listed = 'LoanDirectory: loans A, B and C are listed under their own borrowers, naming their lenders';
   const recorded = 'LoanDirectory: loans A and B are recorded as repaid';
   const history = `LoanDirectory: ${name(2)} carries a history proof of 2 repaid loans`;
   if (!dir) {
@@ -258,20 +287,30 @@ function loanClaims(d: Deployments, s: OnchainStates): ClaimResult[] {
     return out;
   }
 
-  const keys = d.contracts.loans.map(addressBytes);
+  const loanStates = [a, b, c];
+  const keys = d.contracts.loans.map((address, i) => {
+    const bytes = addressBytes(address);
+    const loan = loanStates[i] ?? null;
+    return bytes && loan ? loanDirectoryPureCircuits.listingKey(bytes, loan.borrower) : null;
+  });
   const listings = keys.map((k) => (k && dir.listings.member(k) ? dir.listings.lookup(k) : null));
-  const lendersMatch = [a, b, c].map(
-    (l, i) => l !== null && listings[i] !== null && bytesEqual(listings[i]!.lender, l.lender),
+  const partiesMatch = [a, b, c].map(
+    (l, i) =>
+      l !== null &&
+      listings[i] != null &&
+      bytesEqual(listings[i]!.lender, l.lender) &&
+      bytesEqual(listings[i]!.borrower, l.borrower) &&
+      bytesEqual(listings[i]!.loan, addressBytes(d.contracts.loans[i]!) ?? new Uint8Array()),
   );
   out.push(
     result(
       listed,
-      '3 listings, lenders match the loans',
+      '3 listings, borrower and lender match each Loan',
       listings
         .slice(0, 3)
-        .map((l, i) => `${name(i)} ${l ? (lendersMatch[i] ? 'listed' : 'lender differs') : 'not listed'}`)
+        .map((l, i) => `${name(i)} ${l ? (partiesMatch[i] ? 'listed' : 'parties differ') : 'not listed'}`)
         .join('; ') || 'no loans',
-      listings.length === 3 && lendersMatch.every(Boolean),
+      listings.length === 3 && partiesMatch.every(Boolean),
     ),
   );
 

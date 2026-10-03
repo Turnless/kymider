@@ -105,6 +105,9 @@ export const LOAN_STATUS_LABELS: readonly LoanStatusLabel[] = [
   'OFFERED',
 ];
 export const TIER_LABELS: readonly TierLabel[] = ['NONE', 'VERIFIED', 'STANDARD'];
+// DEFAULTED stays in the contract's enum (so CLOSED keeps its number) but the
+// directory no longer sets it: a default is read from the Loan (see
+// reconcileListings).
 export const LISTING_LABELS: readonly ListingLabel[] = [
   'OPEN',
   'ACTIVE',
@@ -154,7 +157,10 @@ export type LoanView = {
   quote: { thresholdNetWorth: bigint; maxDti: bigint; expiresAt: bigint } | null;
   /** Quotes made on the loan (the contract caps them at 3). */
   quotesIssued: bigint;
-  /** A tier was proven against the current quote (one proof per quote). */
+  /**
+   * The current quote is answered: a tier was proven against it (one proof per
+   * quote), or the borrower waived the proof (tierProven with tier NONE).
+   */
   tierProven: boolean;
   /** Binding collateral: set when the borrower accepts the offer. */
   collateralRequired: bigint;
@@ -171,16 +177,29 @@ export type LoanView = {
   historyCommitment: Hex;
 };
 
+export type ListingRowView = {
+  /** The directory key: listingKey(loan, borrower). */
+  key: Hex;
+  loan: Hex;
+  borrower: Hex;
+  lender: Hex;
+  principal: bigint;
+  status: ListingLabel;
+};
+
 export type LoanDirectoryView = {
   kind: 'loanDirectory';
   listingCount: bigint;
-  listings: { loan: Hex; borrower: Hex; lender: Hex; principal: bigint; status: ListingLabel }[];
+  listings: ListingRowView[];
   /** Repaid loans recorded in the Merkle tree (one leaf each). */
   recordedCount: number;
   /** Leaves used in the repaid-records tree. */
   repaidLeaves: bigint;
-  /** New loan → number of prior repaid loans its borrower proved. */
-  historyProofs: { loan: Hex; proven: bigint }[];
+  /**
+   * Application listing → number of prior repaid loans its borrower proved.
+   * `loan` is the listing's loan address (null if the key has no listing).
+   */
+  historyProofs: { key: Hex; loan: Hex | null; proven: bigint }[];
 };
 
 export type ContractView = SolvencyProofView | RegistryView | LoanView | LoanDirectoryView;
@@ -255,23 +274,60 @@ export function loanView(l: LoanLedger): LoanView {
 }
 
 export function loanDirectoryView(l: LoanDirectoryLedger): LoanDirectoryView {
+  const listings = [...l.listings].map(([key, x]) => ({
+    key: bytesToHex(key),
+    loan: bytesToHex(x.loan),
+    borrower: bytesToHex(x.borrower),
+    lender: bytesToHex(x.lender),
+    principal: x.principal,
+    status: label(LISTING_LABELS, x.status, 'listing status'),
+  }));
+  const loanOf = new Map(listings.map((x) => [x.key, x.loan]));
   return {
     kind: 'loanDirectory',
     listingCount: l.listingCount,
-    listings: [...l.listings].map(([loan, x]) => ({
-      loan: bytesToHex(loan),
-      borrower: bytesToHex(x.borrower),
-      lender: bytesToHex(x.lender),
-      principal: x.principal,
-      status: label(LISTING_LABELS, x.status, 'listing status'),
-    })),
+    listings,
     recordedCount: Number(l.recordedLoans.size()),
     repaidLeaves: l.repaid.firstFree(),
-    historyProofs: [...l.historyProofs].map(([loan, proven]) => ({
-      loan: bytesToHex(loan),
+    historyProofs: [...l.historyProofs].map(([key, proven]) => ({
+      key: bytesToHex(key),
+      loan: loanOf.get(bytesToHex(key)) ?? null,
       proven,
     })),
   };
+}
+
+// --- reconciling listings with their Loans ---------------------------------
+
+export type ReconciledListing = ListingRowView & {
+  /**
+   * The listing's borrower and lender are the Loan instance's own: true or
+   * false when the Loan was read, null when it was not. The directory cannot
+   * read the Loan (no cross-contract reads), so anyone can list any address
+   * under their own key; a listing that does not match is not the loan's.
+   */
+  matchesLoan: boolean | null;
+  /**
+   * The status to show: the listing's own, except that a listing whose Loan
+   * reads DEFAULTED shows DEFAULTED. The directory never records a default;
+   * the Loan's markDefault (after due date + grace) is the only source.
+   */
+  shown: ListingLabel;
+  /** `shown` came from the Loan, not the directory. */
+  fromLoan: boolean;
+};
+
+/** Compare each listing with its Loan instance's parties, and take a default from the Loan. */
+export function reconcileListings(
+  dir: Pick<LoanDirectoryView, 'listings'>,
+  loans: ReadonlyMap<Hex, Pick<LoanView, 'borrower' | 'lender' | 'status'>>,
+): ReconciledListing[] {
+  return dir.listings.map((x) => {
+    const loan = loans.get(x.loan);
+    const matchesLoan = loan ? loan.borrower === x.borrower && loan.lender === x.lender : null;
+    const fromLoan = matchesLoan === true && loan?.status === 'DEFAULTED' && x.status === 'ACTIVE';
+    return { ...x, matchesLoan, shown: fromLoan ? 'DEFAULTED' : x.status, fromLoan };
+  });
 }
 
 // --- state hex → view -----------------------------------------------------

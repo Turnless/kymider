@@ -188,11 +188,21 @@ describe('Loan — re-quote cap', () => {
     for (let i = 1n; i <= limit; i++) {
       quote(sim, 100_000n * i);
       expect(sim.ledger().quotesIssued).toBe(i);
+      // Each quote stands until the borrower answers it; a waiver answers
+      // without telling the lender anything.
+      sim.as(BORROWER_SK).waiveProof();
     }
     expect(() => quote(sim, 400_000n)).toThrow(/quote limit reached/);
     // The refused quote changed nothing: the third bar stands.
     expect(sim.ledger().quotesIssued).toBe(limit);
     expect(sim.ledger().quote.thresholdNetWorth).toBe(300_000n);
+  });
+
+  it('a quote the borrower has not answered cannot be replaced, so no quote is spent behind their back', () => {
+    const sim = quote(loanFor(commitFacts(FACTS, TEST_SALT)), 100_000n);
+    expect(() => quote(sim, 200_000n)).toThrow(/the borrower can prove until the quote lapses/);
+    expect(sim.ledger().quotesIssued).toBe(1n);
+    expect(sim.ledger().quote.thresholdNetWorth).toBe(100_000n);
   });
 
   it('refuses a second tier proof against the same quote', () => {
@@ -269,8 +279,11 @@ describe('Loan desk — the cap as the console shows it', () => {
     await expect(desk.quote(address, bar)).rejects.toThrow(/^a verified tier is live until it lapses$/);
     desk.advanceTime(7n * DAY);
     await desk.quote(address, bar);
+    // An unanswered quote stands: the borrower's proof window.
+    await expect(desk.quote(address, bar)).rejects.toThrow(/^the borrower can prove until the quote lapses$/);
+    await desk.waiveProof(address);
     await desk.quote(address, bar);
-    expect(desk.loan(address)).toMatchObject({ quotesIssued: 3, tierProven: false });
+    expect(desk.loan(address)).toMatchObject({ quotesIssued: 3, tierProven: false, proofWindowOpen: true });
     await expect(desk.quote(address, bar)).rejects.toThrow(/^quote limit reached$/);
   });
 

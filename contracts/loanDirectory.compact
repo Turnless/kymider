@@ -5,11 +5,17 @@ import CompactStandardLibrary;
 //
 // Two jobs:
 //
-// 1. A public index of Loan instances, so lenders can find applications. Same
-//    model as Registry: a listing names the borrower and lender, and a lender
-//    must check the Loan instance's own `borrower`/`lender` match the listing
-//    before relying on it (no cross-contract reads on Midnight; the console
-//    does the check).
+// 1. A public index of Loan instances, so lenders can find applications. A
+//    listing is keyed by listingKey(loan address, lister's key), so it lives
+//    in the lister's own slot: anyone can list any address, but only under
+//    their own key, and a stranger's listing of your loan address neither
+//    blocks your listing nor shares its status, records or history proof.
+//    The directory cannot read the Loan instance (no cross-contract reads on
+//    Midnight), so a listing proves only who listed it. Readers reconcile:
+//    LoanClient.listingMatchesLoan and the console compare the listing's
+//    borrower and lender with the Loan's own `borrower`/`lender` and flag a
+//    listing that does not match, and the canonical listing of a loan is the
+//    one under the Loan's own borrower key.
 //
 // 2. A private repayment record. When a loan is repaid, its lender records it
 //    as a leaf in a Merkle tree. Later, a borrower applying for a new loan
@@ -22,21 +28,25 @@ import CompactStandardLibrary;
 // Restricting the proof to a lender allowlist is the Wave 3 fix
 // (docs/architecture-wave3.md, attested provenance).
 
+// DEFAULTED is kept so CLOSED keeps its number, but nothing sets it any more:
+// a default is the Loan's own status (markDefault, after due date + grace),
+// and readers take it from the Loan.
 export enum ListingStatus { OPEN, ACTIVE, REPAID, DEFAULTED, CLOSED }
 
 export struct Listing {
-  borrower: Bytes<32>;
+  loan: Bytes<32>;              // the Loan instance address
+  borrower: Bytes<32>;          // the lister, whose key is in the listing key
   lender: Bytes<32>;
   principal: Uint<64>;
   status: ListingStatus;
 }
 
-export ledger listings: Map<Bytes<32>, Listing>;   // loan instance address -> listing
+export ledger listings: Map<Bytes<32>, Listing>;   // listingKey(loan, borrower) -> listing
 export ledger listingCount: Counter;
 
 export ledger repaid: HistoricMerkleTree<10, Bytes<32>>;
-export ledger recordedLoans: Set<Bytes<32>>;       // one record per loan
-// New loan instance address -> number of prior repaid loans proven for it.
+export ledger recordedLoans: Set<Bytes<32>>;       // listing keys recorded: one record per listing
+// Listing key of a new application -> number of prior repaid loans proven for it.
 export ledger historyProofs: Map<Bytes<32>, Uint<8>>;
 
 witness localSk(): Bytes<32>;
@@ -53,13 +63,20 @@ export pure circuit repaidLeaf(borrowerPk: Bytes<32>, loanAddr: Bytes<32>, lende
   return persistentHash<Vector<4, Bytes<32>>>([pad(32, "kymider:repaid:"), borrowerPk, loanAddr, lenderPk]);
 }
 
+// Where a borrower's listing of a loan lives. Public inputs only.
+export pure circuit listingKey(loanAddr: Bytes<32>, borrowerPk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "kymider:listing:"), loanAddr, borrowerPk]);
+}
+
 // --- index ------------------------------------------------------------------
 
 export circuit list(loanAddr: Bytes<32>, lenderPk: Bytes<32>, principal: Uint<64>): [] {
   const me = getDappPubKey(localSk());
-  assert(!listings.member(disclose(loanAddr)), "loan is already listed");
+  const key = disclose(listingKey(loanAddr, me));
+  assert(!listings.member(key), "loan is already listed");
   assert(me != lenderPk, "borrower and lender must differ");
-  listings.insert(disclose(loanAddr), Listing {
+  listings.insert(key, Listing {
+    loan: disclose(loanAddr),
     borrower: disclose(me),
     lender: disclose(lenderPk),
     principal: disclose(principal),
@@ -69,29 +86,33 @@ export circuit list(loanAddr: Bytes<32>, lenderPk: Bytes<32>, principal: Uint<64
 }
 
 // The parties move the listing along; the Loan instance is the source of truth
-// and the console reconciles the two. Each party may make only its own moves:
+// and readers reconcile the two. Each party may make only its own moves:
 //   borrower: OPEN -> CLOSED (withdraw the application)
-//   lender:   OPEN -> ACTIVE, OPEN -> CLOSED, ACTIVE -> DEFAULTED
+//   lender:   OPEN -> ACTIVE, OPEN -> CLOSED
 // Nobody sets REPAID here: only recordRepaid does, and only from ACTIVE.
+// Nobody sets DEFAULTED: a default is the Loan's markDefault, which checks the
+// due date and grace period; the directory cannot, so it does not try.
+// `listing` is the listing key (listingKey(loan, borrower)).
 // Honest limit: with no cross-contract reads the directory cannot see the Loan
 // itself, so a lender could still mark a loan ACTIVE and record it repaid
 // without disbursing. The Loan instance, which anyone can read, shows that.
-export circuit updateStatus(loanAddr: Bytes<32>, status: ListingStatus): [] {
+export circuit updateStatus(listing: Bytes<32>, status: ListingStatus): [] {
   const me = getDappPubKey(localSk());
-  assert(listings.member(disclose(loanAddr)), "loan is not listed");
-  const l = listings.lookup(disclose(loanAddr));
+  assert(listings.member(disclose(listing)), "loan is not listed");
+  const l = listings.lookup(disclose(listing));
   assert(me == l.borrower || me == l.lender, "only the loan's parties may update it");
   const next = disclose(status);
   assert(next != ListingStatus.REPAID, "a repayment is recorded with recordRepaid, not set");
+  assert(next != ListingStatus.DEFAULTED, "a default is the Loan's own status (markDefault), not set here");
   if (disclose(me == l.borrower)) {
     assert(l.status == ListingStatus.OPEN && next == ListingStatus.CLOSED,
       "the borrower may only withdraw an open listing");
   } else {
-    assert((l.status == ListingStatus.OPEN && (next == ListingStatus.ACTIVE || next == ListingStatus.CLOSED))
-        || (l.status == ListingStatus.ACTIVE && next == ListingStatus.DEFAULTED),
-      "the lender may only move OPEN to ACTIVE or CLOSED, or ACTIVE to DEFAULTED");
+    assert(l.status == ListingStatus.OPEN && (next == ListingStatus.ACTIVE || next == ListingStatus.CLOSED),
+      "the lender may only move an OPEN listing to ACTIVE or CLOSED");
   }
-  listings.insert(disclose(loanAddr), Listing {
+  listings.insert(disclose(listing), Listing {
+    loan: l.loan,
     borrower: l.borrower,
     lender: l.lender,
     principal: l.principal,
@@ -101,16 +122,20 @@ export circuit updateStatus(loanAddr: Bytes<32>, status: ListingStatus): [] {
 
 // --- repayment record ---------------------------------------------------------
 
-export circuit recordRepaid(loanAddr: Bytes<32>): [] {
+// `listing` is the listing key: the lender computes it from the Loan's own
+// borrower key (listingKey(loan, borrower)), so it records the real
+// borrower's listing, not a stranger's listing of the same address.
+export circuit recordRepaid(listing: Bytes<32>): [] {
   const me = getDappPubKey(localSk());
-  assert(listings.member(disclose(loanAddr)), "loan is not listed");
-  const l = listings.lookup(disclose(loanAddr));
+  assert(listings.member(disclose(listing)), "loan is not listed");
+  const l = listings.lookup(disclose(listing));
   assert(me == l.lender, "only the loan's lender may record a repayment");
-  assert(!recordedLoans.member(disclose(loanAddr)), "repayment already recorded");
+  assert(!recordedLoans.member(disclose(listing)), "repayment already recorded");
   assert(l.status == ListingStatus.ACTIVE, "only an active listing can be recorded as repaid");
-  repaid.insert(repaidLeaf(l.borrower, disclose(loanAddr), l.lender));
-  recordedLoans.insert(disclose(loanAddr));
-  listings.insert(disclose(loanAddr), Listing {
+  repaid.insert(repaidLeaf(l.borrower, l.loan, l.lender));
+  recordedLoans.insert(disclose(listing));
+  listings.insert(disclose(listing), Listing {
+    loan: l.loan,
     borrower: l.borrower,
     lender: l.lender,
     principal: l.principal,
@@ -120,21 +145,21 @@ export circuit recordRepaid(loanAddr: Bytes<32>): [] {
 
 // Prove two prior repaid loans for the application `forLoan`. The loan
 // addresses, lenders and Merkle paths are private inputs; only the count is
-// written. The caller must be the borrower named on `forLoan`, so a proof
-// cannot be attached to someone else's application.
+// written, under the caller's own listing of `forLoan`: the proof can only be
+// attached to an application the caller listed, never to someone else's.
 export circuit proveTwoRepaid(
   forLoan: Bytes<32>,
   loanA: Bytes<32>, lenderA: Bytes<32>, pathA: MerkleTreePath<10, Bytes<32>>,
   loanB: Bytes<32>, lenderB: Bytes<32>, pathB: MerkleTreePath<10, Bytes<32>>,
 ): [] {
   const me = getDappPubKey(localSk());
-  assert(listings.member(disclose(forLoan)), "application is not listed");
-  assert(listings.lookup(disclose(forLoan)).borrower == me, "only the applicant may attach a history proof");
+  const key = disclose(listingKey(forLoan, me));
+  assert(listings.member(key), "application is not listed");
   assert(loanA != loanB, "the two loans must differ");
   assert(loanA != forLoan && loanB != forLoan, "a loan cannot vouch for itself");
   assert(pathA.leaf == repaidLeaf(me, loanA, lenderA), "first record is not yours");
   assert(pathB.leaf == repaidLeaf(me, loanB, lenderB), "second record is not yours");
   assert(repaid.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(pathA))), "first record is not in the directory");
   assert(repaid.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(pathB))), "second record is not in the directory");
-  historyProofs.insert(disclose(forLoan), 2);
+  historyProofs.insert(key, 2);
 }

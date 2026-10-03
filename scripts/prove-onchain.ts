@@ -7,8 +7,12 @@
 //
 //   Wave 1  borrower commits facts, authorizes a lender; the lender requests a
 //           claim; the borrower proves solvency in ZK (PASS); the lender approves.
-//   Wave 2  loan A: tier proof, underwritten at 110%, disbursed, repaid, recorded.
-//           loan B: no proof, underwritten at 150%, disbursed, repaid, recorded.
+//   Wave 2  loan A: tier proof; the lender then tries to offer 150% and to
+//           re-quote, and the circuit refuses both before anything is
+//           submitted (recorded with the assert message); offered at 110%,
+//           accepted, disbursed, repaid, recorded.
+//           loan B: the borrower waives the proof; offered at 150%, accepted,
+//           disbursed, repaid, recorded.
 //           loan C: a new application that proves "two repaid loans".
 //
 // Every finalized transaction's public data (tx id, hash, block) is recorded
@@ -48,8 +52,25 @@ import {
   createSolvencyPrivateState,
 } from '../contracts/witnesses.js';
 import { AttestationStatus, ListingStatus, LoanStatus, Tier, type LoanTerms } from '../contracts/index.js';
-import { CLAIM, FACTS, QUOTE, STEPS, TERMS_A, TERMS_B, TERMS_C, type StepInfo } from './lib/flow.js';
-import { buildDeployments, deploymentsPath, writeDeployments } from './lib/deployments.js';
+import {
+  CLAIM,
+  FACTS,
+  QUOTE,
+  REFUSALS,
+  STEPS,
+  TERMS_A,
+  TERMS_B,
+  TERMS_C,
+  type RefusalInfo,
+  type StepInfo,
+} from './lib/flow.js';
+import {
+  buildDeployments,
+  deploymentsPath,
+  writeDeployments,
+  type DeploymentRefusal,
+} from './lib/deployments.js';
+import { collateralFor, nowSeconds } from '../client/proof/loanMath.js';
 import { renderProofMd, explorerTemplate } from './lib/proof-md.js';
 import { allPass, renderClaimTable, summarizeTransactions } from './lib/claims.js';
 import { verifyDeployments } from './lib/onchain.js';
@@ -158,6 +179,50 @@ const step = <T>(s: StepInfo, fn: () => Promise<T>): Promise<T> => {
   return log.step(s.label, fn);
 };
 
+// Calls the circuit must refuse. The circuit runs locally before any proof is
+// generated, so a failed assert stops the call there: no proof, no
+// transaction. Record the contract's message; fail the run if the call goes
+// through, is refused for another reason, or a receipt appears.
+const refusals: DeploymentRefusal[] = [];
+// midnight-js wraps the runtime's "failed assert: <message>" (as the message of
+// a scoped-transaction error, with the original as its cause), so search the
+// whole cause chain.
+const assertText = (err: unknown): string => {
+  const messages: string[] = [];
+  for (let e: unknown = err, depth = 0; e != null && depth < 8; depth++) {
+    messages.push(e instanceof Error ? e.message : String(e));
+    e = e instanceof Error ? e.cause : undefined;
+  }
+  for (const text of messages) {
+    const m = /failed assert:\s*([^\n]*)/.exec(text);
+    if (m) return m[1]!.trim();
+  }
+  return messages.join(' <- ');
+};
+const mustRefuse = async (
+  info: RefusalInfo,
+  contract: ContractAddress,
+  circuit: string,
+  call: () => Promise<unknown>,
+): Promise<void> => {
+  console.log(`\n--- ${info.label} (the contract must refuse)`);
+  const before = log.receipts.length;
+  let message: string | null = null;
+  try {
+    await call();
+  } catch (err) {
+    message = assertText(err);
+  }
+  check(log.receipts.length === before, `${info.label}: a transaction was submitted`);
+  check(message !== null, `${info.label}: the call went through; the contract should have refused it`);
+  check(
+    message!.includes(info.expected),
+    `${info.label}: refused with "${message}", expected "${info.expected}"`,
+  );
+  refusals.push({ label: info.label, contract, circuit, message: info.expected });
+  show('Refused, not submitted', info.expected);
+};
+
 let exitCode = 0;
 try {
   // --- Wave 1: proof of solvency -------------------------------------------------
@@ -242,22 +307,37 @@ try {
   await step(STEPS.quoteA, () => lenderLoans.quote(loanA, QUOTE));
   const tierA = await step(STEPS.proveTierA, () => borrowerLoans.proveTier(loanA, FACTS));
   check(tierA === Tier.VERIFIED, `loan A tier is ${tierName(tierA)}, expected VERIFIED`);
+  // The headline, on chain: with the tier live, the lender can neither put
+  // 150% on the table nor re-quote the tier away. Raw circuit calls, so the
+  // contract (not the client's pre-checks) is what refuses.
+  await mustRefuse(REFUSALS.overaskA, loanA, 'underwrite', () =>
+    lenderLoans.callLoan(loanA, 'underwrite', [collateralFor(TERMS_A.principal, Tier.STANDARD)]),
+  );
+  await mustRefuse(REFUSALS.requoteA, loanA, 'quoteTerms', () =>
+    lenderLoans.callLoan(loanA, 'quoteTerms', [
+      QUOTE.thresholdNetWorth,
+      QUOTE.maxDti,
+      nowSeconds() + QUOTE.ttlSeconds,
+    ]),
+  );
   const underA = await step(STEPS.underwriteA, () => lenderLoans.underwrite(loanA));
   check(underA.tier === Tier.VERIFIED, `loan A offered at ${tierName(underA.tier)}`);
   show('Loan A collateral offered', `${underA.collateral} on ${TERMS_A.principal} (110%)`);
-  await step(STEPS.acceptA, () => borrowerLoans.acceptOffer(loanA));
+  await step(STEPS.acceptA, () => borrowerLoans.acceptOffer(loanA, underA.collateral));
   await activate(loanA, STEPS.activateA, lenderASk);
   await step(STEPS.disburseA, () => lenderLoans.disburse(loanA));
   await repayAll(loanA, STEPS.repayA, TERMS_A.installments);
   await record(loanA, STEPS.recordA, lenderASk);
 
-  // Loan B: no tier proof, so 150%. A second lender.
+  // Loan B: the borrower waives the tier proof, so 150%. A second lender.
+  // Without the waiver the 150% offer would be refused until the quote lapses.
   const loanB = await openLoan(STEPS.deployLoanB, STEPS.listB, lenderBSk, TERMS_B);
   await step(STEPS.quoteB, () => lenderLoans.quote(loanB, QUOTE));
+  await step(STEPS.waiveB, () => borrowerLoans.waiveProof(loanB));
   const underB = await step(STEPS.underwriteB, () => lenderLoans.underwrite(loanB));
   check(underB.tier === Tier.STANDARD, `loan B offered at ${tierName(underB.tier)}`);
   show('Loan B collateral offered', `${underB.collateral} on ${TERMS_B.principal} (150%)`);
-  await step(STEPS.acceptB, () => borrowerLoans.acceptOffer(loanB));
+  await step(STEPS.acceptB, () => borrowerLoans.acceptOffer(loanB, underB.collateral));
   await activate(loanB, STEPS.activateB, lenderBSk);
   await step(STEPS.disburseB, () => lenderLoans.disburse(loanB));
   await repayAll(loanB, STEPS.repayB, TERMS_B.installments);
@@ -287,6 +367,7 @@ try {
     generatedAt: new Date(),
     contracts: { solvencyProof: solvency, registry, loanDirectory: directory, loans: [loanA, loanB, loanC] },
     receipts: log.receipts,
+    refusals,
   });
   writeDeployments(deploymentsFile, deployments);
 
@@ -306,6 +387,7 @@ try {
     'utf8',
   );
   show('Transactions recorded', log.receipts.length);
+  show('Refusals recorded (not submitted)', refusals.length);
   show('Wrote', path.relative(process.cwd(), proofFile));
   show('Wrote', path.relative(process.cwd(), deploymentsFile));
 
