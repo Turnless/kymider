@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "e2e": "playwright test --project=desktop --project=phone",
-    "shots": "playwright test --project=shots"
+    "shots": "playwright test --project=shots",
+    "deck:pdf": "node e2e/deck-pdf.mjs"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "^0.16.0",

@@ -52,17 +52,51 @@ export const tierIsLive = (state: Pick<LoanLedger, 'tier' | 'tierExpiresAt'>, no
   state.tier === Tier.VERIFIED && now < state.tierExpiresAt;
 
 /**
+ * Whether the borrower's proof window is open at `now`: a quote is live and
+ * the borrower has not answered it (no tier proof, no waiver). While it is,
+ * the contract refuses both a 150% offer and a new quote.
+ */
+export const proofWindowOpen = (
+  state: Pick<LoanLedger, 'quoted' | 'tierProven' | 'quote'>,
+  now: bigint,
+): boolean => state.quoted && !state.tierProven && now < state.quote.expiresAt;
+
+/** The borrower answered the current quote by waiving the proof (Loan.waiveProof). */
+export const proofWaived = (state: Pick<LoanLedger, 'quoted' | 'tierProven' | 'tier'>): boolean =>
+  state.quoted && state.tierProven && state.tier === Tier.NONE;
+
+/** The contract's words when the lender acts inside the borrower's proof window. */
+export const PROOF_WINDOW_REFUSAL = 'the borrower can prove until the quote lapses';
+/** The contract's words for an offer before any quote. */
+export const QUOTE_FIRST_REFUSAL = 'quote first';
+
+/**
  * Why a lender may not quote this loan now, in the contract's own words, or
  * null if quoteTerms would go through on these grounds (the cap is checked
  * separately). `expiresAt` is the quote's proposed expiry.
  */
 export const quoteRefusal = (
-  state: Pick<LoanLedger, 'tier' | 'tierExpiresAt'>,
+  state: Pick<LoanLedger, 'tier' | 'tierExpiresAt' | 'quoted' | 'tierProven' | 'quote'>,
   expiresAt: bigint,
   now: bigint,
 ): string | null => {
   if (tierIsLive(state, now)) return 'a verified tier is live until it lapses';
+  if (proofWindowOpen(state, now)) return PROOF_WINDOW_REFUSAL;
   if (expiresAt < now + MIN_QUOTE_SECONDS) return 'quote must hold at least 30 minutes';
+  return null;
+};
+
+/**
+ * Why a lender may not offer this loan now, in the contract's own words, or
+ * null if underwrite at the tier's figure would go through (status and caller
+ * are checked separately).
+ */
+export const underwriteRefusal = (
+  state: Pick<LoanLedger, 'tier' | 'tierExpiresAt' | 'quoted' | 'tierProven' | 'quote'>,
+  now: bigint,
+): string | null => {
+  if (!state.quoted) return QUOTE_FIRST_REFUSAL;
+  if (!tierIsLive(state, now) && proofWindowOpen(state, now)) return PROOF_WINDOW_REFUSAL;
   return null;
 };
 

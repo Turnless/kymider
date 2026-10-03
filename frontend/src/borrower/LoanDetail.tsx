@@ -125,12 +125,19 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
       maxDti: q.maxDti,
     });
     const proven = loan.tier !== 'NONE';
+    const waived = loan.proofWaived;
     const wouldBe: TierName = preview === 'PASS' ? 'VERIFIED' : 'STANDARD';
 
     return (
       <Panel
         kicker="Your step · Prove tier"
-        title={proven ? `Tier recorded. Waiting for ${lender} to make an offer` : `Clear ${lender}'s bar for 110% collateral`}
+        title={
+          proven
+            ? `Tier recorded. Waiting for ${lender} to make an offer`
+            : waived
+              ? `Proof waived. Waiting for ${lender} to offer 150%`
+              : `Clear ${lender}'s bar for 110% collateral`
+        }
       >
         <div className="rounded-[13px] bg-[rgba(255,247,235,0.05)] px-4 py-3">
           <p className="label-dark mb-1">
@@ -168,6 +175,18 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
             While it is live the lender cannot quote it away, and can only offer you 110%.
           </p>
         )}
+        {loan.proofWindowOpen && (
+          <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.45)]">
+            Your proof window is open until the quote lapses: until you prove or waive, the lender
+            can neither offer 150% nor quote again.
+          </p>
+        )}
+        {waived && (
+          <p className="mt-3 text-[12px] leading-[1.5] text-[rgba(255,247,235,0.6)]">
+            You answered this quote without a proof: the lender learned nothing about your facts and
+            may now offer 150%. Nothing binds until you accept that offer.
+          </p>
+        )}
 
         <p className="mt-4 flex items-start gap-2 text-[12px] font-semibold leading-[1.5] text-cream">
           <LockIcon />
@@ -186,30 +205,50 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
           </p>
         )}
 
-        <button
-          type="button"
-          className="btn btn-accent mt-5 w-full py-[13px] sm:w-auto sm:px-[30px]"
-          style={{ boxShadow: '0 0 34px rgba(212,109,37,0.28)' }}
-          onClick={() => act.run('prove', () => desk.proveTier(loan.address))}
-          disabled={act.busy !== null}
-        >
-          {act.busy === 'prove' ? (
-            <>
-              <LoanSpinner /> Generating proof
-            </>
-          ) : proven ? (
-            'Prove again'
-          ) : (
-            'Prove tier'
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <button
+            type="button"
+            className="btn btn-accent w-full py-[13px] sm:w-auto sm:px-[30px]"
+            style={{ boxShadow: '0 0 34px rgba(212,109,37,0.28)' }}
+            onClick={() => act.run('prove', () => desk.proveTier(loan.address))}
+            disabled={act.busy !== null}
+          >
+            {act.busy === 'prove' ? (
+              <>
+                <LoanSpinner /> Generating proof
+              </>
+            ) : proven || waived ? (
+              'Prove again'
+            ) : (
+              'Prove tier'
+            )}
+          </button>
+          {!loan.tierProven && !expired && (
+            <button
+              type="button"
+              className="btn w-full py-[13px] sm:w-auto sm:px-[24px]"
+              style={{ background: 'rgba(255,247,235,0.1)', color: 'var(--color-cream)' }}
+              title="Answer the quote without a proof: the lender learns nothing about your facts and may offer 150% at once"
+              onClick={() => act.run('waive', () => desk.waiveProof(loan.address))}
+              disabled={act.busy !== null}
+            >
+              {act.busy === 'waive' ? (
+                <>
+                  <LoanSpinner /> Waiving
+                </>
+              ) : (
+                "Don't prove; accept 150% terms"
+              )}
+            </button>
           )}
-        </button>
+        </div>
         {loan.tierProven && (
           <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.45)]">
             One proof per quote: the contract refuses another until the lender quotes again, so a
             lender learns at most {loan.quoteLimit} answers about your facts on this loan.
           </p>
         )}
-        <LoanRefusal message={act.refusalFor('prove')} onDismiss={act.clear} dark />
+        <LoanRefusal message={act.refusalFor('prove') ?? act.refusalFor('waive')} onDismiss={act.clear} dark />
       </Panel>
     );
   }
@@ -337,9 +376,15 @@ function OfferStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act }
   const lender = loan.lender.name;
   const verified = loan.offeredTier === 'VERIFIED';
   const ratio = verified ? '110%' : '150%';
-  // Offered 150% while a proof could still buy 110%: say so before the borrower accepts.
+  // A 150% offer exists only after the quote was answered or lapsed: say why.
   const quoteLive = loan.quote !== null && now < loan.quote.expiresAt;
-  const couldProve = !verified && quoteLive && !loan.tierProven;
+  const why = verified
+    ? null
+    : loan.proofWaived
+      ? ' You waived the proof on this quote.'
+      : loan.tier === 'STANDARD' && quoteLive
+        ? ' Your proof did not clear the bar.'
+        : ' The quote lapsed without a live verified tier; declining lets the lender quote again, within the cap.';
   return (
     <Panel kicker="Your step · Accept or decline" title={`${lender} offers ${money(loan.offeredCollateral)} collateral (${ratio})`}>
       <div className="rounded-[13px] bg-[rgba(255,247,235,0.05)] px-4 py-3">
@@ -362,8 +407,7 @@ function OfferStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act }
       <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.45)]">
         Accepting makes the loan active at this collateral, and {lender} can then disburse.
         Declining clears the offer and reopens the application.
-        {couldProve &&
-          ' The quote is still live and you have not proved against it: decline, prove your tier, and a passing proof leaves 110% as the only figure the lender can offer.'}
+        {why}
       </p>
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -371,7 +415,8 @@ function OfferStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act }
           type="button"
           className="btn btn-accent w-full py-[13px] sm:w-auto sm:px-[30px]"
           style={{ boxShadow: '0 0 34px rgba(212,109,37,0.28)' }}
-          onClick={() => act.run('accept', () => desk.accept(loan.address))}
+          title={`Accept exactly ${money(loan.offeredCollateral)} collateral; the contract refuses if the offer changed`}
+          onClick={() => act.run('accept', () => desk.accept(loan.address, loan.offeredCollateral))}
           disabled={act.busy !== null}
         >
           {act.busy === 'accept' ? (

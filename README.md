@@ -23,7 +23,7 @@ never enter a transaction.
 
 | Live console | Video | Deck | On-chain proof | Tests | What is simulated |
 |---|---|---|---|---|---|
-| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | [{{VIDEO_URL}}]({{VIDEO_URL}}) | [DECK.html](./hackathon/wave2/DECK.html) · [PDF]({{DECK_PDF_URL}}) | Devnet in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 307 offline, 46 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
+| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | Narrated video: being recorded, link added before Oct 17 | [Slides](https://turnless.github.io/kymider/deck/) · [PDF](./hackathon/wave2/DECK.pdf) | Devnet: 31 tx, 45/45 read-back checks on commit `b815b26` ([DEVNET-PROOF.md](./DEVNET-PROOF.md)), re-run in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 339 offline, 48 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
 
 ---
 
@@ -47,6 +47,9 @@ contract's own `assert` message, raised by the compiled `Loan` and
 3. **Quote.** Switch to **Lender** (role switch: bottom-left on desktop,
    top-right on a phone) → **Applications** → the loan → **Send quote**
    (net worth ≥ $500,000, DTI ≤ 40%, valid 72 h). The page shows "Quote 1 of 3".
+   Optional: click **Offer 150% before they prove · 15,000**. The contract
+   refuses with `the borrower can prove until the quote lapses`; a quote stands
+   until the borrower proves, waives or lets it lapse.
 4. **Prove the tier.** Switch to **Borrower** → **Loans** → the loan →
    **Prove tier**. The `proveTier` circuit checks your facts against the
    on-ledger commitment and the quote, and writes one value: here
@@ -97,17 +100,29 @@ This exact path runs in CI as a Playwright test at desktop and phone width
 
 Before resubmitting we had the `wave2` branch reviewed the way a judge would:
 clone, build, follow this README literally, then try to break the headline
-claim. Four findings changed the code. Each one is listed with what was
-measured and what changed.
+claim. Two rounds of review produced eight findings that changed the code.
+Each one is listed with what was measured and what changed.
+
+**First review.** Four findings.
 
 | Finding | What was measured | Change | Status |
 |---|---|---|---|
 | **The 150% bypass.** The contract refused 150% for a verified borrower, but the lender could clear the tier first | In the console as it then shipped: after **Verified · 110%**, the lender clicked **Replace quote**, then **Underwrite at 150% · 15,000**, and the contract accepted it. `quoteTerms` reset the tier to `NONE`. Two more paths, confirmed against the compiled `Loan`: a quote expiring 2 s later let the tier lapse, and the lender could underwrite at 150% before the borrower proved anything. The loan went `ACTIVE` with no borrower action | `underwrite` now records an offer (status `OFFERED`) at exactly the tier's collateral. The borrower's `accept` makes it `ACTIVE`; `declineOffer` returns it to `APPLIED`. `quoteTerms` is refused while a `VERIFIED` tier is live (`a verified tier is live until it lapses`) and needs a quote of at least 30 minutes (`quote must hold at least 30 minutes`). Tests: `Loan — a lender cannot impose 150% on a verified borrower` and `Loan — borrower consent` in [`loan.contract.test.ts`](./tests/unit/loan.contract.test.ts) | Done |
 | **Unsalted facts commitment** | `persistentHash([balance, debts, income])` was public. A dictionary search recovered the demo facts after 3,973 hashes in 0.15 s (multiples of 100,000 up to 2,000,000), 193,826 hashes in 4.28 s (multiples of 50,000 up to 5,000,000) and 3,999,730 hashes in 84 s (multiples of 10,000 up to 2,000,000), on one core | `persistentHash([pad(32, "kymider:facts:v2"), H(balance, debts, income), salt])`, with a 32-byte salt that stays in private state | Done ([privacy hardening](#privacy-hardening-in-wave-2)) |
 | **Seed prefix in a log line** | The wallet logged the first 8 characters of the master seed. Actions logs on a public repository are public | The line no longer logs any part of the seed (`2bee4e6`). The Preprod job had not run yet, so only devnet wallets had reached a log | Done |
-| **Forgeable listings** | `LoanDirectory.updateStatus` let either party set any status, so a borrower could mark their own listing `REPAID`. `recordRepaid` did not check the listing's status | `REPAID` only through the lender's `recordRepaid` on an `ACTIVE` listing (`only an active listing can be recorded as repaid`); `updateStatus` refuses `REPAID` (`a repayment is recorded with recordRepaid, not set`); the borrower can only withdraw an `OPEN` listing. Tests in [`loanDirectory.contract.test.ts`](./tests/unit/loanDirectory.contract.test.ts): `nobody sets REPAID by hand: not the borrower, not the lender`, `the borrower may withdraw an open listing, and do nothing else`, `refuses a record for a listing that is not ACTIVE: never activated, closed or defaulted` | Done |
+| **Forgeable listings** | `LoanDirectory.updateStatus` let either party set any status, so a borrower could mark their own listing `REPAID`. `recordRepaid` did not check the listing's status | `REPAID` only through the lender's `recordRepaid` on an `ACTIVE` listing (`only an active listing can be recorded as repaid`); `updateStatus` refuses `REPAID` (`a repayment is recorded with recordRepaid, not set`); the borrower can only withdraw an `OPEN` listing. Tests in [`loanDirectory.contract.test.ts`](./tests/unit/loanDirectory.contract.test.ts): `nobody sets REPAID by hand: not the borrower, not the lender`, `the borrower may withdraw an open listing, and do nothing else`, `refuses a record for a listing that is not ACTIVE: never activated, or closed` | Done |
 
-The review also found stale claims in this README and the submission
+**Second review** (of the contracts after the first round's fixes). Four
+findings changed the code, all in commit `bce4745`.
+
+| Finding | What was measured | Change | Status |
+|---|---|---|---|
+| **N1. Proof starvation.** The lender could not impose 150% on a verified borrower, but could keep the borrower from ever becoming verified | Against the compiled `Loan`: `underwrite` at 150% was accepted while the quote was live and unanswered, and a `proveTier` is refused while an offer stands. The lender could also re-quote while the tier was `NONE` (each re-quote resets the proof), and offer with no quote at all. A borrower could decline every 150% offer, but not prove | A quote stands until the borrower answers it or it lapses. `underwrite` refuses 150% in that window and `quoteTerms` refuses a re-quote (`the borrower can prove until the quote lapses`); `underwrite` refuses an offer before any quote (`quote first`). New borrower circuit `waiveProof` answers the quote without a proof (`only the borrower may waive a proof`), so a borrower who wants 150% gets the offer at once. Tests in `Loan — the borrower's proof window`: `refuses 150% while the quote is live and unanswered, to its last second`, `refuses a re-quote while the quote is live and unanswered, without spending the cap`, `the judge's starvation sequence (E) now ends in 110%: neither a front-run nor a re-quote lands`; `Loan — waiving the proof (the 150% route, at once)` | Done |
+| **N2. Listing squat.** A listing was keyed by the loan address alone | A stranger who listed someone else's `Loan` address first, naming a lender key they also held, took the slot: the real borrower's `list` was refused (`loan is already listed`), and the stranger's lender could mark it `ACTIVE` and record it repaid | Listings are keyed by `listingKey(loan, borrower) = persistentHash([pad(32, "kymider:listing:"), loan, borrower])`, an exported pure helper; `updateStatus` and `recordRepaid` take that key. A stranger's listing sits in the stranger's slot. Readers (the console, `LoanClient.listingMatchesLoan`, `verify:onchain`) check each listing's borrower and lender against the `Loan`'s own. Tests in `LoanDirectory — a squatted listing (judge N2)`: `does not block the real borrower: their listing has its own slot`, `the squatter's lender cannot move or record the real listing` | Done |
+| **N3. `DEFAULTED` at will.** The directory let the lender move any `ACTIVE` listing to `DEFAULTED` | `updateStatus` allowed `ACTIVE → DEFAULTED` with no due date or grace period, which the directory cannot read | `updateStatus` refuses `DEFAULTED` (`a default is the Loan's own status (markDefault), not set here`); the lender may only move an `OPEN` listing to `ACTIVE` or `CLOSED`. A default is read from the `Loan`, whose `markDefault` checks due date + 3 days; the console shows "defaulted (from the Loan)". Test: `nobody marks a listing DEFAULTED: a default is the Loan's own status` | Done |
+| **N5. Implicit consent.** `accept()` took no argument | The borrower's transaction did not name the figure it agreed to: it accepted whatever offer stood when it landed | `accept(expectedCollateral)` refuses any other figure (`offer changed`), so the transcript records the collateral the borrower consented to. Tests: `the borrower names the figure they accept; any other is refused ("offer changed")`, `a consent given for one offer does not carry to the next: decline 150%, the lender re-offers, the old figure is refused` | Done |
+
+The first review also found stale claims in this README and the submission
 materials, and this revision corrects them: test counts, "the lender learns
 one bit" (it is up to 3 answers per loan), an unsalted hash in the diagram, an
 unbacked mutation-testing figure, and the auditor described as revealing
@@ -122,17 +137,17 @@ change.
 
 Wave 1 shipped a solvency proof (`SolvencyProof` + `Registry`). Wave 2 turns it
 into a loan with an enforced price. All of the following was built between
-Sep 27 and Oct 17, 2026, on the [`wave2`](https://github.com/Turnless/kymider/tree/wave2) branch.
+Sep 27 and Oct 17, 2026, on the `wave2` branch, now merged to [`main`](https://github.com/Turnless/kymider/tree/main).
 
 | | Wave 1 | Wave 2 |
 |---|---|---|
-| Contracts | 2 (`SolvencyProof`, `Registry`), 9 circuits | 4: + [`Loan`](./contracts/loan.compact) (9 circuits) and [`LoanDirectory`](./contracts/loanDirectory.compact) (4 circuits); 22 circuits in total, plus exported pure helpers |
+| Contracts | 2 (`SolvencyProof`, `Registry`), 9 circuits | 4: + [`Loan`](./contracts/loan.compact) (10 circuits) and [`LoanDirectory`](./contracts/loanDirectory.compact) (4 circuits); 23 circuits in total, plus 8 exported pure helpers |
 | What a proof buys | A PASS/FAIL attestation | A collateral ratio: 110% vs 150%, enforced in-circuit with an exact-floor check, binding only on the borrower's acceptance |
-| Lifecycle | Claim → verdict | Apply → quote → prove tier → lender offers → borrower accepts → disburse → repay / default |
+| Lifecycle | Claim → verdict | Apply → quote → prove tier (or waive the proof) → lender offers → borrower accepts the named figure → disburse → repay / default |
 | Time | None | Block time: quote expiry, a minimum quote life, due dates, late flags, a 3-day grace period before default |
 | History | None | Payment-history hash chain per loan; two-repaid-loans proof over a `HistoricMerkleTree` |
-| Offline tests | 49 | 307 in 12 files |
-| Browser tests | None | 46 Playwright tests at 1440 and 390 px, in CI |
+| Offline tests | 54 in 3 files (`main` at Wave 1, `fde02de`) | 339 in 12 files |
+| Browser tests | None | 48 Playwright tests (24 at 1440 px, 24 at 390 px), in CI |
 | Devnet simulation | 11 cases, 2 wallets | 18 cases (+7 Wave 2 lifecycle), run in CI on every push |
 | Client | `KymiderClient` | + [`LoanClient`](./client/loans.ts), `npm run loan:deploy`, `npm run loan:demo`, `prove:onchain` / `verify:onchain` |
 | Console | Solvency screens | + loan screens for borrower and lender, portfolio, auditor preview, Live chain view |
@@ -179,34 +194,46 @@ sequenceDiagram
 
     B->>SP: updateFacts → commitment = persistentHash([pad("kymider:facts:v2"), H(balance, debts, income), salt])
     B->>L: deploy(lender, terms, commitment)
-    B->>D: list(loan, lender, principal)
-    K->>L: quoteTerms(netWorthFloor, maxDti, expiresAt)<br/>at most 3, none while VERIFIED is live, at least 30 min
+    B->>D: list(loan, lender, principal) → listings[listingKey(loan, borrower)]
+    K->>L: quoteTerms(netWorthFloor, maxDti, expiresAt)<br/>at most 3, at least 30 min; none while VERIFIED is live<br/>or while the last quote is live and unanswered
     Note over B: facts and salt stay in private state
-    B->>L: proveTier(facts as private inputs)
-    L-->>L: assert commitment matches<br/>tier = VERIFIED or STANDARD (disclosed)
-    K->>L: underwrite(collateral) = an offer
+    alt prove
+        B->>L: proveTier(facts as private inputs)
+        L-->>L: assert commitment matches<br/>tier = VERIFIED or STANDARD (disclosed)
+    else waive
+        B->>L: waiveProof() → quote answered, nothing revealed
+    end
+    K->>L: underwrite(collateral) = an offer<br/>(no 150% while the quote is live and unanswered)
     L-->>L: assert collateral == floor(principal × 110% or 150%)
-    B->>L: accept → ACTIVE (or declineOffer → APPLIED)
+    B->>L: accept(expectedCollateral) → ACTIVE (or declineOffer → APPLIED)
     K->>L: disburse(now, owed, installment)
     loop each installment
         B->>L: repay(amount) → historyCommitment = hash(prev, amount, onTime, nonce)
     end
-    K->>D: recordRepaid(loan) on an ACTIVE listing → leaf in HistoricMerkleTree
-    B->>D: proveTwoRepaid(newLoan, private paths) → historyProofs[newLoan] = 2
+    Note over L: or markDefault after due + 3 days → DEFAULTED (on the Loan)
+    K->>D: recordRepaid(listingKey(loan, borrower)) on an ACTIVE listing → leaf in HistoricMerkleTree
+    B->>D: proveTwoRepaid(newLoan, private paths) → historyProofs[listingKey(newLoan, borrower)] = 2
 ```
 
 The full state machine is in [`contracts/loan.compact`](./contracts/loan.compact)
 (header comment) and [`docs/architecture-wave2.md`](./docs/architecture-wave2.md).
 
-### Why the borrower accepts
+### Why the borrower accepts, and the proof window
 
 The tier fixes the only collateral figure the lender can offer, but a figure
-the lender proposes is not yet a loan. Until the borrower accepts, the lender
-can at worst make an offer the borrower declines: a 150% offer before the
-borrower has proven a tier, or after a tier has lapsed. Combined with no
-re-quote while a verified tier is live and a 30-minute minimum quote life, the
-lender has no sequence of calls that turns a verified borrower's loan into an
-active 150% loan.
+the lender proposes is not yet a loan. The borrower makes it binding with
+`accept(expectedCollateral)`, naming the figure; any other is refused
+(`offer changed`).
+
+A quote is a question to the borrower, and it stands until the borrower answers
+it or it lapses (at least 30 minutes). While it is live and unanswered the
+lender can neither offer 150% nor re-quote (`the borrower can prove until the
+quote lapses`), and there is no offer before the first quote (`quote first`).
+The borrower answers with `proveTier` (VERIFIED or STANDARD) or with
+`waiveProof`, which reveals nothing about the facts and opens the 150% offer at
+once. While a VERIFIED tier is live the lender cannot re-quote it away, and the
+only figure it can offer is 110%. Once that tier lapses with its quote, the
+lender may offer 150%; that offer binds only if the borrower accepts it.
 
 ### Why one `Loan` instance per loan
 
@@ -247,7 +274,7 @@ increments the counter before the witness runs.
 |---|---|---|
 | Witnesses | `localSk`, `factsSalt`, `paymentNonce` in [`loan.compact`](./contracts/loan.compact); implementations in [`witnesses.ts`](./contracts/witnesses.ts) | The caller's secret key, the facts salt and the derived payment nonce enter circuits from private state |
 | `disclose()` | Every ledger write of a caller-supplied value, e.g. `tier = disclose(qualified ? VERIFIED : STANDARD)` | Makes each disclosure explicit; the compiler rejects an undisclosed private value reaching the ledger |
-| `persistentHash` commitments | `commitFacts` (salted), `getDappPubKey`, the history chain, `repaidLeaf` | Binds proofs to committed facts; derives identities; commits payment history |
+| `persistentHash` commitments | `commitFacts` (salted), `getDappPubKey`, the history chain, `repaidLeaf`, `listingKey` | Binds proofs to committed facts; derives identities; commits payment history; gives each borrower's listing its own slot |
 | `HistoricMerkleTree` + `checkRoot` | `LoanDirectory.repaid`, `proveTwoRepaid` | Proves membership of two repaid-loan leaves against any past root, so later inserts do not invalidate a path |
 | Block time | `blockTimeLt/Lte/Gt/Gte` in `quoteTerms`, `underwrite`, `disburse`, `repay`, `markDefault` | Quote expiry and minimum quote life, tier expiry, on-time vs late, the grace period, a disburse start no more than 1 hour old |
 | `Counter` | `paymentsMade`, `latePayments`, `quotesIssued`, `listingCount` | Public counts the lender can rely on |
@@ -286,7 +313,7 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 
 ### Engineering & Implementation (40%)
 
-- **Compact contracts that compile:** 4 contracts, 22 circuits plus
+- **Compact contracts that compile:** 4 contracts, 23 circuits plus 8
   exported pure helpers, Compact language 0.23 / toolchain 0.31.1, compiled by
   the `contracts` job in [CI](./.github/workflows/ci.yml) on every push;
   compiled modules are tracked in [`compiled/*/contract/`](./compiled/).
@@ -295,7 +322,8 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
   [`client/loans.ts`](./client/loans.ts).
 - **Dual-ledger model:** [table above](#the-dual-ledger-what-is-private-what-is-public).
 - **Refusals as the product:** the exact-floor collateral check, no re-quote
-  while a verified tier is live, borrower acceptance, block-time lateness, a
+  while a verified tier is live, no 150% offer or re-quote while the borrower
+  can still prove, acceptance that names the figure, block-time lateness, a
   grace period enforced to the second, forged Merkle paths rejected by
   `checkRoot`.
 - **Repository and attribution:** Apache-2.0, `midnightntwrk` topic, wallet and
@@ -304,12 +332,12 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 
 ### Quality Assurance & Reliability (15%)
 
-- **307 offline tests** in 12 files that drive the
+- **339 offline tests** in 12 files that drive the
   compiled contracts through simulators ([`tests/unit/`](./tests/unit/)),
   including every refusal, time edge cases to the second, and a byte-for-byte
   rebuild of the history chain from the seed.
-- **46 Playwright tests** on the production console build, at 1440
-  and 390 px: this README's fast path end to end, each refusal, and every route
+- **48 Playwright tests** on the production console build, 24 at 1440
+  and 24 at 390 px: this README's fast path end to end, each refusal, and every route
   ([`frontend/e2e/`](./frontend/e2e/)).
 - **18 devnet cases** with real ZK proofs, two wallets, Midnight node + indexer
   + proof server in Docker, on every push
@@ -337,9 +365,11 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 
 ### Communication (10%)
 
-- Narrated video, about 2:50: [{{VIDEO_URL}}]({{VIDEO_URL}}).
+- Narrated video, about 2:50: being recorded, link added before Oct 17.
   Script: [`hackathon/wave2/VIDEO-SCRIPT.md`](./hackathon/wave2/VIDEO-SCRIPT.md).
-- Deck: [`hackathon/wave2/DECK.html`](./hackathon/wave2/DECK.html).
+- Deck: [slides on Pages](https://turnless.github.io/kymider/deck/) and
+  [PDF, 12 pages](./hackathon/wave2/DECK.pdf); source
+  [`hackathon/wave2/DECK.html`](./hackathon/wave2/DECK.html).
 
 ### Business Development & Viability (5%)
 
@@ -373,13 +403,20 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
   (the full flow, every transaction recorded) and `npm run verify:onchain`
   (re-reads each claim and transaction through the indexer). The record is
   uploaded as the `proof-local` artifact of that run.
-- **On the final contracts:** [run 38](https://github.com/Turnless/kymider/actions/runs/37098203726)
+- **Recorded run:** [run 38](https://github.com/Turnless/kymider/actions/runs/37098203726)
   (commit `b815b26`: salted commitment, quote cap, consent step, listing
   lockdown) proved the full flow in **31 transactions** and `verify:onchain`
   passed **45 of 45 checks**: Loan A offered and accepted at 110% (1,100 on
   1,000), Loan B at 150% (3,000 on 2,000), both repaid and recorded, Loan C
   carrying a two-loan history proof. Every address and transaction hash is in
   [DEVNET-PROOF.md](./DEVNET-PROOF.md), labelled as a local devnet.
+- **Since that run** (commit `bce4745`: proof window, `waiveProof`,
+  `accept(expectedCollateral)`, listing keys), the flow adds a waiver
+  transaction on Loan B and two attempts on verified Loan A that the circuit
+  refuses before submission (a raw 150% offer, `collateral does not match the
+  tier`; a re-quote, `a verified tier is live until it lapses`), recorded in
+  each CI run's `proof-local` artifact. DEVNET-PROOF.md will be updated from
+  the first green run on these contracts.
 - **Preprod: pending the owner's wallet.** [`preprod.yml`](./.github/workflows/preprod.yml)
   runs the same proof on Preprod when dispatched with a funded wallet secret
   and commits `PROOF.md` and `frontend/public/deployments/preprod.json`.
@@ -394,7 +431,10 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 | Lender asks a verified borrower for 150% | `underwrite` accepts only `floor(principal × ratio)` for the live tier | `Loan — underwriting` tests; e2e `fast-path.spec.ts` |
 | Lender re-quotes to wipe a `VERIFIED` tier, then asks 150% | `quoteTerms` is refused while a `VERIFIED` tier is live: `a verified tier is live until it lapses` | `a live VERIFIED tier cannot be re-quoted away, up to its last second`; `re-quoting after a VERIFIED proof is refused, so the tier stands and 150% is refused` |
 | Lender quotes with a 2-second expiry so the tier lapses before underwriting | A quote must stand for at least 30 minutes: `quote must hold at least 30 minutes` | `refuses a quote that holds less than 30 minutes, to the second`; `a quote short enough to lapse before underwriting is refused` |
-| Lender underwrites at 150% before the borrower proves | `underwrite` only records an offer; the loan is `ACTIVE` only after the borrower's `accept`, and `declineOffer` refuses it | `a 150% offer before the borrower can prove binds no one: decline, prove, be offered 110%`; `refuses a disbursement before the borrower accepts`; e2e `refusals.spec.ts` |
+| Lender offers 150% before the borrower can prove (front-running the proof) | While the quote is live and unanswered, `underwrite` refuses 150%: `the borrower can prove until the quote lapses`; before any quote, `quote first` | `refuses 150% while the quote is live and unanswered, to its last second`; `a 150% offer before the borrower can prove is refused: the proof lands, and 110% is the only offer`; `refuses any offer before a quote ("quote first")`; e2e `the lender cannot offer 150% during the borrower's proof window` |
+| Lender re-quotes while the borrower has not answered, to keep them from ever proving | `quoteTerms` is refused in the same window, and the refused call spends no quote | `refuses a re-quote while the quote is live and unanswered, without spending the cap`; `the judge's starvation sequence (E) now ends in 110%: neither a front-run nor a re-quote lands` |
+| Someone else waives the borrower's proof to open the 150% offer | `waiveProof` checks the caller against `borrower`: `only the borrower may waive a proof`; once per quote, and a waived quote cannot then be proven | `is the borrower's alone`; `needs a quote, once per quote, and only while the application is open`; `a waived quote cannot then be proven: one answer per quote` |
+| Borrower's acceptance applied to a figure they did not see | `accept(expectedCollateral)` refuses any figure but the standing offer: `offer changed`; the loan is `ACTIVE` only after it, and `declineOffer` refuses the offer | `the borrower names the figure they accept; any other is refused ("offer changed")`; `a consent given for one offer does not carry to the next: decline 150%, the lender re-offers, the old figure is refused`; `refuses a disbursement before the borrower accepts` |
 | Borrower proves with figures other than the committed ones | `proveTier` recomputes the salted commitment in-circuit | `refuses facts that do not match the commitment` |
 | Dictionary attack on the public facts commitment | 32-byte salt in private state ([details](#privacy-hardening-in-wave-2)) | `privacy.contract.test.ts` |
 | Lender narrows net worth by re-quoting | At most 3 quotes per loan, one proof per quote | `Loan — re-quote cap` tests |
@@ -404,15 +444,18 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 | Lender back- or forward-dates disbursement | Start must satisfy `now ≤ block time < now + 1 h` | `refuses a start time in the future or more than an hour old` |
 | Anyone acts in another's role | Every circuit checks `getDappPubKey(localSk())` against `borrower` or `lender` | auth-negative tests in every `describe` block |
 | Leaking the facts through control flow | `proveTier` reads the quote before the private predicate (a ledger read inside a short-circuit `&&` would leak) | [`loan.compact`](./contracts/loan.compact) comment; caught by the compiler |
-| Borrower marks their own listing `REPAID` | `REPAID` only through the lender's `recordRepaid` on an `ACTIVE` listing; the borrower can only withdraw an `OPEN` listing | `nobody sets REPAID by hand: not the borrower, not the lender`; `the borrower may withdraw an open listing, and do nothing else`; `refuses a record for a listing that is not ACTIVE: never activated, closed or defaulted` |
+| Borrower marks their own listing `REPAID` | `REPAID` only through the lender's `recordRepaid` on an `ACTIVE` listing; the borrower can only withdraw an `OPEN` listing | `nobody sets REPAID by hand: not the borrower, not the lender`; `the borrower may withdraw an open listing, and do nothing else`; `refuses a record for a listing that is not ACTIVE: never activated, or closed` |
+| A stranger lists your `Loan` address first (listing squat) | Listings are keyed by `listingKey(loan, borrower)`: the stranger's listing sits under the stranger's key, and neither blocks nor touches yours. Readers check each listing's borrower and lender against the `Loan`'s own | `LoanDirectory — a squatted listing (judge N2)`: `does not block the real borrower: their listing has its own slot`, `the squatter's record neither occupies nor marks the real listing`, `the squatter's lender cannot move or record the real listing` |
+| Lender marks a current borrower's listing `DEFAULTED` | `updateStatus` refuses `DEFAULTED`: `a default is the Loan's own status (markDefault), not set here`. Readers take a default from the `Loan`, where `markDefault` needs due date + 3 days | `nobody marks a listing DEFAULTED: a default is the Loan's own status`; console: "defaulted (from the Loan)" |
 | Forged or borrowed repayment record | Leaf includes the borrower's key; `checkRoot` against the directory's root history; distinct loans; not the application itself | `LoanDirectory` tests (forged path, someone else's record, same loan twice, self-vouching) |
 | Facts commitment from a different `SolvencyProof` | No cross-contract reads on Midnight; the lender checks `factsMatchSolvencyProof` before quoting | [`client/loans.ts`](./client/loans.ts) |
 | Wallet seed in public CI logs | No part of a seed is logged | commit `2bee4e6` |
 
 **Not defended (see [honest limits](#honest-limits)):** false facts,
-self-lending to mint repayment records, a lender recording an `ACTIVE` loan as
-repaid early, linkability of a borrower's key across listings, and public
-payment amounts.
+self-lending to mint repayment records (including a stranger who lists your
+loan address with a lender key they hold: the leaf names the stranger), a
+lender marking a listing `ACTIVE` and recording a loan it never disbursed,
+linkability of a borrower's key across listings, and public payment amounts.
 
 ### Privacy hardening in Wave 2
 
@@ -431,7 +474,8 @@ binding check (`factsMatchSolvencyProof`) still compares two public hashes.
 Each new loan opened against the same commitment allows up to 3 more answers.
 The console shows the borrower whether the facts clear a bar before proving
 ("Preview on this device"), so the borrower can decline to prove; a failed
-proof publishes `STANDARD`.
+proof publishes `STANDARD`, and `waiveProof` answers the quote without
+publishing any answer about the facts.
 
 Not capped: Wave 1 `SolvencyProof` claims. A lender can re-request after each
 decision, and every round needs a new proof from the borrower; the Wave 1
@@ -456,14 +500,14 @@ a real selective disclosure; that needs token settlement and is not built.
 ## Tests and scripts
 
 Totals are from `npm run test:unit` and `cd frontend && npm run e2e` on this
-branch: 307 offline tests in 12 files, and
-46 browser tests. Per-file counts: `npx vitest run tests/unit --reporter=verbose`.
+branch: 339 offline tests in 12 files, and
+48 browser tests (24 per width). Per-file counts: `npx vitest run tests/unit --reporter=verbose`.
 
 | Suite | Drives |
 |---|---|
-| [`loan.contract.test.ts`](./tests/unit/loan.contract.test.ts) | Compiled `Loan`, own block clock: quotes, tiers, offers, acceptance, repayment, default |
+| [`loan.contract.test.ts`](./tests/unit/loan.contract.test.ts) | Compiled `Loan`, own block clock: quotes, the proof window, tiers, waivers, offers, acceptance, repayment, default |
 | [`privacy.contract.test.ts`](./tests/unit/privacy.contract.test.ts) | Salted commitment, re-quote cap, the dictionary search with and without the salt |
-| [`loanDirectory.contract.test.ts`](./tests/unit/loanDirectory.contract.test.ts) | Compiled `LoanDirectory`: listings, status rules, records, `proveTwoRepaid` |
+| [`loanDirectory.contract.test.ts`](./tests/unit/loanDirectory.contract.test.ts) | Compiled `LoanDirectory`: listing keys, status rules, a squatted listing, records, `proveTwoRepaid` |
 | [`loanMath.unit.test.ts`](./tests/unit/loanMath.unit.test.ts) | Client arithmetic vs compiled `Loan`, principal 1 to 2^40 |
 | [`audit.unit.test.ts`](./tests/unit/audit.unit.test.ts) | The auditor's off-chain chain rebuild, honest and tampered |
 | [`simulatedLoanDesk.unit.test.ts`](./tests/unit/simulatedLoanDesk.unit.test.ts) | The console's loan desk on the real contracts |
@@ -485,9 +529,9 @@ Preprod when dispatched with a funded wallet secret.
 
 | Command | What it does |
 |---|---|
-| `npm run test:unit` | 307 offline tests, no Docker |
+| `npm run test:unit` | 339 offline tests, no Docker |
 | `npm run typecheck` | `tsc --noEmit` |
-| `cd frontend && npm run e2e` | 46 Playwright tests on the production build |
+| `cd frontend && npm run e2e` | 48 Playwright tests on the production build |
 | `npm run build:contracts` | Compile all 4 contracts (Linux-only compiler) |
 | `npm run compile:fast` | Same, skipping ZK key generation |
 | `npm run env:up` / `env:down` | Start / stop the local devnet (node, indexer, proof server) |
@@ -495,7 +539,7 @@ Preprod when dispatched with a funded wallet secret.
 | `npm run test:simulation` | Wave 1 + Wave 2 devnet simulation |
 | `npm run deploy` / `npm run demo` | Wave 1: deploy + register; end-to-end solvency demo |
 | `npm run loan:deploy` | Deploy the shared `LoanDirectory`, write `.midnight-loans.json` |
-| `npm run loan:demo` | Open, prove, offer, accept, disburse and repay one loan; from the third run, also prove two repaid loans |
+| `npm run loan:demo` | Open, quote, prove, offer, accept, disburse and repay one loan; from the third run, also prove two repaid loans |
 | `npm run check-balance` | Print a wallet's balances |
 | `npm run prove:onchain` / `npm run verify:onchain` | Run the flow on the configured network and record every transaction (devnet in CI, Preprod via `preprod.yml`, written to `PROOF.md`); re-read the record through the indexer. `verify:preprod` checks the Preprod record |
 
@@ -553,10 +597,18 @@ all of it on every push.
   name the borrower's key, so an observer can count a key's `REPAID` listings
   and recompute their leaves. The facts commitment is also copied into each
   loan opened with it. Per-loan keys would close this; they are not built.
-- **A repayment record is only as good as its lender.** `recordRepaid` cannot
-  read the `Loan` (no cross-contract reads), so a lender can record an `ACTIVE`
-  loan as repaid before it is. A borrower who lends to themselves from a second
-  key can mint records. A lender allowlist is the Wave 3 fix.
+- **The lender still controls the price of its own loan.** It picks the bar,
+  can decline the application, and can let a quote lapse instead of
+  re-quoting. Once a VERIFIED tier lapses with its quote (at least 30 minutes
+  after the quote), the lender may offer 150%; that offer binds only if the
+  borrower accepts it.
+- **A repayment record is only as good as its lender.** The directory cannot
+  read the `Loan` (no cross-contract reads), so a lender can still mark a
+  listing `ACTIVE` and record a loan it never disbursed as repaid. A borrower
+  who lends to themselves from a second key can mint records. So can a
+  stranger who lists your loan address with a lender key they hold, but the
+  leaf names the stranger, not you: it is the same as self-lending. A lender
+  allowlist is the Wave 3 fix.
 - **Up to 3 answers per loan.** Each `proveTier` answers one comparison against
   a public quote; a loan caps this at 3 quotes and one proof per quote
   ([privacy hardening](#privacy-hardening-in-wave-2)). Each new loan against the

@@ -18,10 +18,11 @@ const _descriptor_2 = new __compactRuntime.CompactTypeEnum(4, 1);
 
 class _Listing_0 {
   alignment() {
-    return _descriptor_0.alignment().concat(_descriptor_0.alignment().concat(_descriptor_1.alignment().concat(_descriptor_2.alignment())));
+    return _descriptor_0.alignment().concat(_descriptor_0.alignment().concat(_descriptor_0.alignment().concat(_descriptor_1.alignment().concat(_descriptor_2.alignment()))));
   }
   fromValue(value_0) {
     return {
+      loan: _descriptor_0.fromValue(value_0),
       borrower: _descriptor_0.fromValue(value_0),
       lender: _descriptor_0.fromValue(value_0),
       principal: _descriptor_1.fromValue(value_0),
@@ -29,7 +30,7 @@ class _Listing_0 {
     }
   }
   toValue(value_0) {
-    return _descriptor_0.toValue(value_0.borrower).concat(_descriptor_0.toValue(value_0.lender).concat(_descriptor_1.toValue(value_0.principal).concat(_descriptor_2.toValue(value_0.status))));
+    return _descriptor_0.toValue(value_0.loan).concat(_descriptor_0.toValue(value_0.borrower).concat(_descriptor_0.toValue(value_0.lender).concat(_descriptor_1.toValue(value_0.principal).concat(_descriptor_2.toValue(value_0.status)))));
   }
 }
 
@@ -95,30 +96,32 @@ const _descriptor_10 = new _MerkleTreePath_0();
 
 const _descriptor_11 = new __compactRuntime.CompactTypeUnsignedInteger(65535n, 2);
 
-const _descriptor_12 = new __compactRuntime.CompactTypeVector(4, _descriptor_0);
-
-const _descriptor_13 = new __compactRuntime.CompactTypeBytes(6);
+const _descriptor_12 = new __compactRuntime.CompactTypeBytes(6);
 
 class _LeafPreimage_0 {
   alignment() {
-    return _descriptor_13.alignment().concat(_descriptor_0.alignment());
+    return _descriptor_12.alignment().concat(_descriptor_0.alignment());
   }
   fromValue(value_0) {
     return {
-      domain_sep: _descriptor_13.fromValue(value_0),
+      domain_sep: _descriptor_12.fromValue(value_0),
       data: _descriptor_0.fromValue(value_0)
     }
   }
   toValue(value_0) {
-    return _descriptor_13.toValue(value_0.domain_sep).concat(_descriptor_0.toValue(value_0.data));
+    return _descriptor_12.toValue(value_0.domain_sep).concat(_descriptor_0.toValue(value_0.data));
   }
 }
 
-const _descriptor_14 = new _LeafPreimage_0();
+const _descriptor_13 = new _LeafPreimage_0();
 
-const _descriptor_15 = new __compactRuntime.CompactTypeVector(2, _descriptor_5);
+const _descriptor_14 = new __compactRuntime.CompactTypeVector(4, _descriptor_0);
 
-const _descriptor_16 = new __compactRuntime.CompactTypeVector(2, _descriptor_0);
+const _descriptor_15 = new __compactRuntime.CompactTypeVector(3, _descriptor_0);
+
+const _descriptor_16 = new __compactRuntime.CompactTypeVector(2, _descriptor_5);
+
+const _descriptor_17 = new __compactRuntime.CompactTypeVector(2, _descriptor_0);
 
 class _Either_0 {
   alignment() {
@@ -136,9 +139,9 @@ class _Either_0 {
   }
 }
 
-const _descriptor_17 = new _Either_0();
+const _descriptor_18 = new _Either_0();
 
-const _descriptor_18 = new __compactRuntime.CompactTypeUnsignedInteger(340282366920938463463374607431768211455n, 16);
+const _descriptor_19 = new __compactRuntime.CompactTypeUnsignedInteger(340282366920938463463374607431768211455n, 16);
 
 class _ContractAddress_0 {
   alignment() {
@@ -154,7 +157,7 @@ class _ContractAddress_0 {
   }
 }
 
-const _descriptor_19 = new _ContractAddress_0();
+const _descriptor_20 = new _ContractAddress_0();
 
 export class Contract {
   witnesses;
@@ -177,6 +180,9 @@ export class Contract {
       repaidLeaf(context, ...args_1) {
         return { result: pureCircuits.repaidLeaf(...args_1), context };
       },
+      listingKey(context, ...args_1) {
+        return { result: pureCircuits.listingKey(...args_1), context };
+      },
       list: (...args_1) => {
         if (args_1.length !== 4) {
           throw new __compactRuntime.CompactError(`list: expected 4 arguments (as invoked from Typescript), received ${args_1.length}`);
@@ -188,28 +194,28 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('list',
                                      'argument 1 (as invoked from Typescript)',
-                                     'loanDirectory.compact line 58 char 1',
+                                     'loanDirectory.compact line 73 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(loanAddr_0.buffer instanceof ArrayBuffer && loanAddr_0.BYTES_PER_ELEMENT === 1 && loanAddr_0.length === 32)) {
           __compactRuntime.typeError('list',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'loanDirectory.compact line 58 char 1',
+                                     'loanDirectory.compact line 73 char 1',
                                      'Bytes<32>',
                                      loanAddr_0)
         }
         if (!(lenderPk_0.buffer instanceof ArrayBuffer && lenderPk_0.BYTES_PER_ELEMENT === 1 && lenderPk_0.length === 32)) {
           __compactRuntime.typeError('list',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'loanDirectory.compact line 58 char 1',
+                                     'loanDirectory.compact line 73 char 1',
                                      'Bytes<32>',
                                      lenderPk_0)
         }
         if (!(typeof(principal_0) === 'bigint' && principal_0 >= 0n && principal_0 <= 18446744073709551615n)) {
           __compactRuntime.typeError('list',
                                      'argument 3 (argument 4 as invoked from Typescript)',
-                                     'loanDirectory.compact line 58 char 1',
+                                     'loanDirectory.compact line 73 char 1',
                                      'Uint<0..18446744073709551616>',
                                      principal_0)
         }
@@ -236,33 +242,33 @@ export class Contract {
           throw new __compactRuntime.CompactError(`updateStatus: expected 3 arguments (as invoked from Typescript), received ${args_1.length}`);
         }
         const contextOrig_0 = args_1[0];
-        const loanAddr_0 = args_1[1];
+        const listing_0 = args_1[1];
         const status_0 = args_1[2];
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('updateStatus',
                                      'argument 1 (as invoked from Typescript)',
-                                     'loanDirectory.compact line 79 char 1',
+                                     'loanDirectory.compact line 99 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
-        if (!(loanAddr_0.buffer instanceof ArrayBuffer && loanAddr_0.BYTES_PER_ELEMENT === 1 && loanAddr_0.length === 32)) {
+        if (!(listing_0.buffer instanceof ArrayBuffer && listing_0.BYTES_PER_ELEMENT === 1 && listing_0.length === 32)) {
           __compactRuntime.typeError('updateStatus',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'loanDirectory.compact line 79 char 1',
+                                     'loanDirectory.compact line 99 char 1',
                                      'Bytes<32>',
-                                     loanAddr_0)
+                                     listing_0)
         }
         if (!(typeof(status_0) === 'number' && status_0 >= 0 && status_0 <= 4)) {
           __compactRuntime.typeError('updateStatus',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'loanDirectory.compact line 79 char 1',
+                                     'loanDirectory.compact line 99 char 1',
                                      'Enum<ListingStatus, OPEN, ACTIVE, REPAID, DEFAULTED, CLOSED>',
                                      status_0)
         }
         const context = { ...contextOrig_0, gasCost: __compactRuntime.emptyRunningCost() };
         const partialProofData = {
           input: {
-            value: _descriptor_0.toValue(loanAddr_0).concat(_descriptor_2.toValue(status_0)),
+            value: _descriptor_0.toValue(listing_0).concat(_descriptor_2.toValue(status_0)),
             alignment: _descriptor_0.alignment().concat(_descriptor_2.alignment())
           },
           output: undefined,
@@ -271,7 +277,7 @@ export class Contract {
         };
         const result_0 = this._updateStatus_0(context,
                                               partialProofData,
-                                              loanAddr_0,
+                                              listing_0,
                                               status_0);
         partialProofData.output = { value: [], alignment: [] };
         return { result: result_0, context: context, proofData: partialProofData, gasCost: context.gasCost };
@@ -281,25 +287,25 @@ export class Contract {
           throw new __compactRuntime.CompactError(`recordRepaid: expected 2 arguments (as invoked from Typescript), received ${args_1.length}`);
         }
         const contextOrig_0 = args_1[0];
-        const loanAddr_0 = args_1[1];
+        const listing_0 = args_1[1];
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('recordRepaid',
                                      'argument 1 (as invoked from Typescript)',
-                                     'loanDirectory.compact line 104 char 1',
+                                     'loanDirectory.compact line 128 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
-        if (!(loanAddr_0.buffer instanceof ArrayBuffer && loanAddr_0.BYTES_PER_ELEMENT === 1 && loanAddr_0.length === 32)) {
+        if (!(listing_0.buffer instanceof ArrayBuffer && listing_0.BYTES_PER_ELEMENT === 1 && listing_0.length === 32)) {
           __compactRuntime.typeError('recordRepaid',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'loanDirectory.compact line 104 char 1',
+                                     'loanDirectory.compact line 128 char 1',
                                      'Bytes<32>',
-                                     loanAddr_0)
+                                     listing_0)
         }
         const context = { ...contextOrig_0, gasCost: __compactRuntime.emptyRunningCost() };
         const partialProofData = {
           input: {
-            value: _descriptor_0.toValue(loanAddr_0),
+            value: _descriptor_0.toValue(listing_0),
             alignment: _descriptor_0.alignment()
           },
           output: undefined,
@@ -308,7 +314,7 @@ export class Contract {
         };
         const result_0 = this._recordRepaid_0(context,
                                               partialProofData,
-                                              loanAddr_0);
+                                              listing_0);
         partialProofData.output = { value: [], alignment: [] };
         return { result: result_0, context: context, proofData: partialProofData, gasCost: context.gasCost };
       },
@@ -327,56 +333,56 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 1 (as invoked from Typescript)',
-                                     'loanDirectory.compact line 125 char 1',
+                                     'loanDirectory.compact line 150 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(forLoan_0.buffer instanceof ArrayBuffer && forLoan_0.BYTES_PER_ELEMENT === 1 && forLoan_0.length === 32)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'loanDirectory.compact line 125 char 1',
+                                     'loanDirectory.compact line 150 char 1',
                                      'Bytes<32>',
                                      forLoan_0)
         }
         if (!(loanA_0.buffer instanceof ArrayBuffer && loanA_0.BYTES_PER_ELEMENT === 1 && loanA_0.length === 32)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'loanDirectory.compact line 125 char 1',
+                                     'loanDirectory.compact line 150 char 1',
                                      'Bytes<32>',
                                      loanA_0)
         }
         if (!(lenderA_0.buffer instanceof ArrayBuffer && lenderA_0.BYTES_PER_ELEMENT === 1 && lenderA_0.length === 32)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 3 (argument 4 as invoked from Typescript)',
-                                     'loanDirectory.compact line 125 char 1',
+                                     'loanDirectory.compact line 150 char 1',
                                      'Bytes<32>',
                                      lenderA_0)
         }
         if (!(typeof(pathA_0) === 'object' && pathA_0.leaf.buffer instanceof ArrayBuffer && pathA_0.leaf.BYTES_PER_ELEMENT === 1 && pathA_0.leaf.length === 32 && Array.isArray(pathA_0.path) && pathA_0.path.length === 10 && pathA_0.path.every((t) => typeof(t) === 'object' && typeof(t.sibling) === 'object' && typeof(t.sibling.field) === 'bigint' && t.sibling.field >= 0 && t.sibling.field <= __compactRuntime.MAX_FIELD && typeof(t.goes_left) === 'boolean'))) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 4 (argument 5 as invoked from Typescript)',
-                                     'loanDirectory.compact line 125 char 1',
+                                     'loanDirectory.compact line 150 char 1',
                                      'struct MerkleTreePath<leaf: Bytes<32>, path: Vector<10, struct MerkleTreePathEntry<sibling: struct MerkleTreeDigest<field: Field>, goes_left: Boolean>>>',
                                      pathA_0)
         }
         if (!(loanB_0.buffer instanceof ArrayBuffer && loanB_0.BYTES_PER_ELEMENT === 1 && loanB_0.length === 32)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 5 (argument 6 as invoked from Typescript)',
-                                     'loanDirectory.compact line 125 char 1',
+                                     'loanDirectory.compact line 150 char 1',
                                      'Bytes<32>',
                                      loanB_0)
         }
         if (!(lenderB_0.buffer instanceof ArrayBuffer && lenderB_0.BYTES_PER_ELEMENT === 1 && lenderB_0.length === 32)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 6 (argument 7 as invoked from Typescript)',
-                                     'loanDirectory.compact line 125 char 1',
+                                     'loanDirectory.compact line 150 char 1',
                                      'Bytes<32>',
                                      lenderB_0)
         }
         if (!(typeof(pathB_0) === 'object' && pathB_0.leaf.buffer instanceof ArrayBuffer && pathB_0.leaf.BYTES_PER_ELEMENT === 1 && pathB_0.leaf.length === 32 && Array.isArray(pathB_0.path) && pathB_0.path.length === 10 && pathB_0.path.every((t) => typeof(t) === 'object' && typeof(t.sibling) === 'object' && typeof(t.sibling.field) === 'bigint' && t.sibling.field >= 0 && t.sibling.field <= __compactRuntime.MAX_FIELD && typeof(t.goes_left) === 'boolean'))) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 7 (argument 8 as invoked from Typescript)',
-                                     'loanDirectory.compact line 125 char 1',
+                                     'loanDirectory.compact line 150 char 1',
                                      'struct MerkleTreePath<leaf: Bytes<32>, path: Vector<10, struct MerkleTreePathEntry<sibling: struct MerkleTreeDigest<field: Field>, goes_left: Boolean>>>',
                                      pathB_0)
         }
@@ -539,7 +545,7 @@ export class Contract {
     return { field:
                this._folder_0((...args_0) =>
                                 this._merkleTreePathEntryRoot_0(...args_0),
-                              this._degradeToTransient_0(this._persistentHash_2({ domain_sep:
+                              this._degradeToTransient_0(this._persistentHash_3({ domain_sep:
                                                                                     new Uint8Array([109, 100, 110, 58, 108, 104]),
                                                                                   data:
                                                                                     path_0.leaf })),
@@ -553,19 +559,23 @@ export class Contract {
     return this._transientHash_0([left_0, right_0]);
   }
   _transientHash_0(value_0) {
-    const result_0 = __compactRuntime.transientHash(_descriptor_15, value_0);
+    const result_0 = __compactRuntime.transientHash(_descriptor_16, value_0);
     return result_0;
   }
   _persistentHash_0(value_0) {
-    const result_0 = __compactRuntime.persistentHash(_descriptor_16, value_0);
+    const result_0 = __compactRuntime.persistentHash(_descriptor_17, value_0);
     return result_0;
   }
   _persistentHash_1(value_0) {
-    const result_0 = __compactRuntime.persistentHash(_descriptor_12, value_0);
+    const result_0 = __compactRuntime.persistentHash(_descriptor_14, value_0);
     return result_0;
   }
   _persistentHash_2(value_0) {
-    const result_0 = __compactRuntime.persistentHash(_descriptor_14, value_0);
+    const result_0 = __compactRuntime.persistentHash(_descriptor_15, value_0);
+    return result_0;
+  }
+  _persistentHash_3(value_0) {
+    const result_0 = __compactRuntime.persistentHash(_descriptor_13, value_0);
     return result_0;
   }
   _degradeToTransient_0(x_0) {
@@ -579,7 +589,7 @@ export class Contract {
     if (!(result_0.buffer instanceof ArrayBuffer && result_0.BYTES_PER_ELEMENT === 1 && result_0.length === 32)) {
       __compactRuntime.typeError('localSk',
                                  'return value',
-                                 'loanDirectory.compact line 42 char 1',
+                                 'loanDirectory.compact line 52 char 1',
                                  'Bytes<32>',
                                  result_0)
     }
@@ -599,8 +609,14 @@ export class Contract {
                                    loanAddr_0,
                                    lenderPk_0]);
   }
+  _listingKey_0(loanAddr_0, borrowerPk_0) {
+    return this._persistentHash_2([new Uint8Array([107, 121, 109, 105, 100, 101, 114, 58, 108, 105, 115, 116, 105, 110, 103, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+                                   loanAddr_0,
+                                   borrowerPk_0]);
+  }
   _list_0(context, partialProofData, loanAddr_0, lenderPk_0, principal_0) {
     const me_0 = this._getDappPubKey_0(this._localSk_0(context, partialProofData));
+    const key_0 = this._listingKey_0(loanAddr_0, me_0);
     __compactRuntime.assert(!_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                        partialProofData,
                                                                                        [
@@ -612,7 +628,7 @@ export class Contract {
                                                                                                           value: { value: _descriptor_7.toValue(0n),
                                                                                                                    alignment: _descriptor_7.alignment() } }] } },
                                                                                         { push: { storage: false,
-                                                                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(loanAddr_0),
+                                                                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(key_0),
                                                                                                                                                alignment: _descriptor_0.alignment() }).encode() } },
                                                                                         'member',
                                                                                         { popeq: { cached: true,
@@ -620,7 +636,8 @@ export class Contract {
                             'loan is already listed');
     __compactRuntime.assert(!this._equal_0(me_0, lenderPk_0),
                             'borrower and lender must differ');
-    const tmp_0 = { borrower: me_0,
+    const tmp_0 = { loan: loanAddr_0,
+                    borrower: me_0,
                     lender: lenderPk_0,
                     principal: principal_0,
                     status: 0 };
@@ -634,7 +651,7 @@ export class Contract {
                                                          value: { value: _descriptor_7.toValue(0n),
                                                                   alignment: _descriptor_7.alignment() } }] } },
                                        { push: { storage: false,
-                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(loanAddr_0),
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(key_0),
                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                        { push: { storage: true,
                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_3.toValue(tmp_0),
@@ -659,7 +676,7 @@ export class Contract {
                                        { ins: { cached: true, n: 1 } }]);
     return [];
   }
-  _updateStatus_0(context, partialProofData, loanAddr_0, status_0) {
+  _updateStatus_0(context, partialProofData, listing_0, status_0) {
     const me_0 = this._getDappPubKey_0(this._localSk_0(context, partialProofData));
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
@@ -672,7 +689,7 @@ export class Contract {
                                                                                                          value: { value: _descriptor_7.toValue(0n),
                                                                                                                   alignment: _descriptor_7.alignment() } }] } },
                                                                                        { push: { storage: false,
-                                                                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(loanAddr_0),
+                                                                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(listing_0),
                                                                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                                                                        'member',
                                                                                        { popeq: { cached: true,
@@ -692,7 +709,7 @@ export class Contract {
                                                                                     pushPath: false,
                                                                                     path: [
                                                                                            { tag: 'value',
-                                                                                             value: { value: _descriptor_0.toValue(loanAddr_0),
+                                                                                             value: { value: _descriptor_0.toValue(listing_0),
                                                                                                       alignment: _descriptor_0.alignment() } }] } },
                                                                            { popeq: { cached: false,
                                                                                       result: undefined } }]).value);
@@ -703,16 +720,17 @@ export class Contract {
     const next_0 = status_0;
     __compactRuntime.assert(next_0 !== 2,
                             'a repayment is recorded with recordRepaid, not set');
+    __compactRuntime.assert(next_0 !== 3,
+                            "a default is the Loan's own status (markDefault), not set here");
     if (this._equal_3(me_0, l_0.borrower)) {
       __compactRuntime.assert(l_0.status === 0 && next_0 === 4,
                               'the borrower may only withdraw an open listing');
     } else {
-      __compactRuntime.assert(l_0.status === 0 && (next_0 === 1 || next_0 === 4)
-                              ||
-                              l_0.status === 1 && next_0 === 3,
-                              'the lender may only move OPEN to ACTIVE or CLOSED, or ACTIVE to DEFAULTED');
+      __compactRuntime.assert(l_0.status === 0 && (next_0 === 1 || next_0 === 4),
+                              'the lender may only move an OPEN listing to ACTIVE or CLOSED');
     }
-    const tmp_0 = { borrower: l_0.borrower,
+    const tmp_0 = { loan: l_0.loan,
+                    borrower: l_0.borrower,
                     lender: l_0.lender,
                     principal: l_0.principal,
                     status: next_0 };
@@ -726,7 +744,7 @@ export class Contract {
                                                          value: { value: _descriptor_7.toValue(0n),
                                                                   alignment: _descriptor_7.alignment() } }] } },
                                        { push: { storage: false,
-                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(loanAddr_0),
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(listing_0),
                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                        { push: { storage: true,
                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_3.toValue(tmp_0),
@@ -735,7 +753,7 @@ export class Contract {
                                        { ins: { cached: true, n: 1 } }]);
     return [];
   }
-  _recordRepaid_0(context, partialProofData, loanAddr_0) {
+  _recordRepaid_0(context, partialProofData, listing_0) {
     const me_0 = this._getDappPubKey_0(this._localSk_0(context, partialProofData));
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
@@ -748,7 +766,7 @@ export class Contract {
                                                                                                          value: { value: _descriptor_7.toValue(0n),
                                                                                                                   alignment: _descriptor_7.alignment() } }] } },
                                                                                        { push: { storage: false,
-                                                                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(loanAddr_0),
+                                                                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(listing_0),
                                                                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                                                                        'member',
                                                                                        { popeq: { cached: true,
@@ -768,7 +786,7 @@ export class Contract {
                                                                                     pushPath: false,
                                                                                     path: [
                                                                                            { tag: 'value',
-                                                                                             value: { value: _descriptor_0.toValue(loanAddr_0),
+                                                                                             value: { value: _descriptor_0.toValue(listing_0),
                                                                                                       alignment: _descriptor_0.alignment() } }] } },
                                                                            { popeq: { cached: false,
                                                                                       result: undefined } }]).value);
@@ -785,7 +803,7 @@ export class Contract {
                                                                                                           value: { value: _descriptor_7.toValue(3n),
                                                                                                                    alignment: _descriptor_7.alignment() } }] } },
                                                                                         { push: { storage: false,
-                                                                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(loanAddr_0),
+                                                                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(listing_0),
                                                                                                                                                alignment: _descriptor_0.alignment() }).encode() } },
                                                                                         'member',
                                                                                         { popeq: { cached: true,
@@ -793,7 +811,7 @@ export class Contract {
                             'repayment already recorded');
     __compactRuntime.assert(l_0.status === 1,
                             'only an active listing can be recorded as repaid');
-    const tmp_0 = this._repaidLeaf_0(l_0.borrower, loanAddr_0, l_0.lender);
+    const tmp_0 = this._repaidLeaf_0(l_0.borrower, l_0.loan, l_0.lender);
     __compactRuntime.queryLedgerState(context,
                                       partialProofData,
                                       [
@@ -859,13 +877,14 @@ export class Contract {
                                                          value: { value: _descriptor_7.toValue(3n),
                                                                   alignment: _descriptor_7.alignment() } }] } },
                                        { push: { storage: false,
-                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(loanAddr_0),
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(listing_0),
                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                        { push: { storage: true,
                                                  value: __compactRuntime.StateValue.newNull().encode() } },
                                        { ins: { cached: false, n: 1 } },
                                        { ins: { cached: true, n: 1 } }]);
-    const tmp_1 = { borrower: l_0.borrower,
+    const tmp_1 = { loan: l_0.loan,
+                    borrower: l_0.borrower,
                     lender: l_0.lender,
                     principal: l_0.principal,
                     status: 2 };
@@ -879,7 +898,7 @@ export class Contract {
                                                          value: { value: _descriptor_7.toValue(0n),
                                                                   alignment: _descriptor_7.alignment() } }] } },
                                        { push: { storage: false,
-                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(loanAddr_0),
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(listing_0),
                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                        { push: { storage: true,
                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_3.toValue(tmp_1),
@@ -899,6 +918,7 @@ export class Contract {
                     pathB_0)
   {
     const me_0 = this._getDappPubKey_0(this._localSk_0(context, partialProofData));
+    const key_0 = this._listingKey_0(forLoan_0, me_0);
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
                                                                                       [
@@ -910,47 +930,27 @@ export class Contract {
                                                                                                          value: { value: _descriptor_7.toValue(0n),
                                                                                                                   alignment: _descriptor_7.alignment() } }] } },
                                                                                        { push: { storage: false,
-                                                                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(forLoan_0),
+                                                                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(key_0),
                                                                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                                                                        'member',
                                                                                        { popeq: { cached: true,
                                                                                                   result: undefined } }]).value),
                             'application is not listed');
-    __compactRuntime.assert(this._equal_5(_descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
-                                                                                                    partialProofData,
-                                                                                                    [
-                                                                                                     { dup: { n: 0 } },
-                                                                                                     { idx: { cached: false,
-                                                                                                              pushPath: false,
-                                                                                                              path: [
-                                                                                                                     { tag: 'value',
-                                                                                                                       value: { value: _descriptor_7.toValue(0n),
-                                                                                                                                alignment: _descriptor_7.alignment() } }] } },
-                                                                                                     { idx: { cached: false,
-                                                                                                              pushPath: false,
-                                                                                                              path: [
-                                                                                                                     { tag: 'value',
-                                                                                                                       value: { value: _descriptor_0.toValue(forLoan_0),
-                                                                                                                                alignment: _descriptor_0.alignment() } }] } },
-                                                                                                     { popeq: { cached: false,
-                                                                                                                result: undefined } }]).value).borrower,
-                                          me_0),
-                            'only the applicant may attach a history proof');
-    __compactRuntime.assert(!this._equal_6(loanA_0, loanB_0),
+    __compactRuntime.assert(!this._equal_5(loanA_0, loanB_0),
                             'the two loans must differ');
-    __compactRuntime.assert(!this._equal_7(loanA_0, forLoan_0)
+    __compactRuntime.assert(!this._equal_6(loanA_0, forLoan_0)
                             &&
-                            !this._equal_8(loanB_0, forLoan_0),
+                            !this._equal_7(loanB_0, forLoan_0),
                             'a loan cannot vouch for itself');
-    __compactRuntime.assert(this._equal_9(pathA_0.leaf,
+    __compactRuntime.assert(this._equal_8(pathA_0.leaf,
                                           this._repaidLeaf_0(me_0,
                                                              loanA_0,
                                                              lenderA_0)),
                             'first record is not yours');
-    __compactRuntime.assert(this._equal_10(pathB_0.leaf,
-                                           this._repaidLeaf_0(me_0,
-                                                              loanB_0,
-                                                              lenderB_0)),
+    __compactRuntime.assert(this._equal_9(pathB_0.leaf,
+                                          this._repaidLeaf_0(me_0,
+                                                             loanB_0,
+                                                             lenderB_0)),
                             'second record is not yours');
     let tmp_0;
     __compactRuntime.assert((tmp_0 = this._merkleTreePathRoot_0(pathA_0),
@@ -1013,7 +1013,7 @@ export class Contract {
                                                          value: { value: _descriptor_7.toValue(4n),
                                                                   alignment: _descriptor_7.alignment() } }] } },
                                        { push: { storage: false,
-                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(forLoan_0),
+                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(key_0),
                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
                                        { push: { storage: true,
                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_7.toValue(tmp_2),
@@ -1063,10 +1063,6 @@ export class Contract {
     return true;
   }
   _equal_9(x0, y0) {
-    if (!x0.every((x, i) => y0[i] === x)) { return false; }
-    return true;
-  }
-  _equal_10(x0, y0) {
     if (!x0.every((x, i) => y0[i] === x)) { return false; }
     return true;
   }
@@ -1134,7 +1130,7 @@ export function ledger(stateOrChargedState) {
         if (!(key_0.buffer instanceof ArrayBuffer && key_0.BYTES_PER_ELEMENT === 1 && key_0.length === 32)) {
           __compactRuntime.typeError('member',
                                      'argument 1',
-                                     'loanDirectory.compact line 34 char 1',
+                                     'loanDirectory.compact line 44 char 1',
                                      'Bytes<32>',
                                      key_0)
         }
@@ -1163,7 +1159,7 @@ export function ledger(stateOrChargedState) {
         if (!(key_0.buffer instanceof ArrayBuffer && key_0.BYTES_PER_ELEMENT === 1 && key_0.length === 32)) {
           __compactRuntime.typeError('lookup',
                                      'argument 1',
-                                     'loanDirectory.compact line 34 char 1',
+                                     'loanDirectory.compact line 44 char 1',
                                      'Bytes<32>',
                                      key_0)
         }
@@ -1245,7 +1241,7 @@ export function ledger(stateOrChargedState) {
         if (!(typeof(rt_0) === 'object' && typeof(rt_0.field) === 'bigint' && rt_0.field >= 0 && rt_0.field <= __compactRuntime.MAX_FIELD)) {
           __compactRuntime.typeError('checkRoot',
                                      'argument 1',
-                                     'loanDirectory.compact line 37 char 1',
+                                     'loanDirectory.compact line 47 char 1',
                                      'struct MerkleTreeDigest<field: Field>',
                                      rt_0)
         }
@@ -1295,14 +1291,14 @@ export function ledger(stateOrChargedState) {
         if (!(typeof(index_0) === 'bigint' && index_0 >= 0 && index_0 <= __compactRuntime.MAX_FIELD)) {
           __compactRuntime.typeError('path_for_leaf',
                                      'argument 1',
-                                     'loanDirectory.compact line 37 char 1',
+                                     'loanDirectory.compact line 47 char 1',
                                      'Field',
                                      index_0)
         }
         if (!(leaf_0.buffer instanceof ArrayBuffer && leaf_0.BYTES_PER_ELEMENT === 1 && leaf_0.length === 32)) {
           __compactRuntime.typeError('path_for_leaf',
                                      'argument 2',
-                                     'loanDirectory.compact line 37 char 1',
+                                     'loanDirectory.compact line 47 char 1',
                                      'Bytes<32>',
                                      leaf_0)
         }
@@ -1317,7 +1313,7 @@ export function ledger(stateOrChargedState) {
         if (!(leaf_0.buffer instanceof ArrayBuffer && leaf_0.BYTES_PER_ELEMENT === 1 && leaf_0.length === 32)) {
           __compactRuntime.typeError('find_path_for_leaf',
                                      'argument 1',
-                                     'loanDirectory.compact line 37 char 1',
+                                     'loanDirectory.compact line 47 char 1',
                                      'Bytes<32>',
                                      leaf_0)
         }
@@ -1381,7 +1377,7 @@ export function ledger(stateOrChargedState) {
         if (!(elem_0.buffer instanceof ArrayBuffer && elem_0.BYTES_PER_ELEMENT === 1 && elem_0.length === 32)) {
           __compactRuntime.typeError('member',
                                      'argument 1',
-                                     'loanDirectory.compact line 38 char 1',
+                                     'loanDirectory.compact line 48 char 1',
                                      'Bytes<32>',
                                      elem_0)
         }
@@ -1459,7 +1455,7 @@ export function ledger(stateOrChargedState) {
         if (!(key_0.buffer instanceof ArrayBuffer && key_0.BYTES_PER_ELEMENT === 1 && key_0.length === 32)) {
           __compactRuntime.typeError('member',
                                      'argument 1',
-                                     'loanDirectory.compact line 40 char 1',
+                                     'loanDirectory.compact line 50 char 1',
                                      'Bytes<32>',
                                      key_0)
         }
@@ -1488,7 +1484,7 @@ export function ledger(stateOrChargedState) {
         if (!(key_0.buffer instanceof ArrayBuffer && key_0.BYTES_PER_ELEMENT === 1 && key_0.length === 32)) {
           __compactRuntime.typeError('lookup',
                                      'argument 1',
-                                     'loanDirectory.compact line 40 char 1',
+                                     'loanDirectory.compact line 50 char 1',
                                      'Bytes<32>',
                                      key_0)
         }
@@ -1534,7 +1530,7 @@ export const pureCircuits = {
     if (!(sk_0.buffer instanceof ArrayBuffer && sk_0.BYTES_PER_ELEMENT === 1 && sk_0.length === 32)) {
       __compactRuntime.typeError('getDappPubKey',
                                  'argument 1',
-                                 'loanDirectory.compact line 46 char 1',
+                                 'loanDirectory.compact line 56 char 1',
                                  'Bytes<32>',
                                  sk_0)
     }
@@ -1550,25 +1546,47 @@ export const pureCircuits = {
     if (!(borrowerPk_0.buffer instanceof ArrayBuffer && borrowerPk_0.BYTES_PER_ELEMENT === 1 && borrowerPk_0.length === 32)) {
       __compactRuntime.typeError('repaidLeaf',
                                  'argument 1',
-                                 'loanDirectory.compact line 52 char 1',
+                                 'loanDirectory.compact line 62 char 1',
                                  'Bytes<32>',
                                  borrowerPk_0)
     }
     if (!(loanAddr_0.buffer instanceof ArrayBuffer && loanAddr_0.BYTES_PER_ELEMENT === 1 && loanAddr_0.length === 32)) {
       __compactRuntime.typeError('repaidLeaf',
                                  'argument 2',
-                                 'loanDirectory.compact line 52 char 1',
+                                 'loanDirectory.compact line 62 char 1',
                                  'Bytes<32>',
                                  loanAddr_0)
     }
     if (!(lenderPk_0.buffer instanceof ArrayBuffer && lenderPk_0.BYTES_PER_ELEMENT === 1 && lenderPk_0.length === 32)) {
       __compactRuntime.typeError('repaidLeaf',
                                  'argument 3',
-                                 'loanDirectory.compact line 52 char 1',
+                                 'loanDirectory.compact line 62 char 1',
                                  'Bytes<32>',
                                  lenderPk_0)
     }
     return _dummyContract._repaidLeaf_0(borrowerPk_0, loanAddr_0, lenderPk_0);
+  },
+  listingKey: (...args_0) => {
+    if (args_0.length !== 2) {
+      throw new __compactRuntime.CompactError(`listingKey: expected 2 arguments (as invoked from Typescript), received ${args_0.length}`);
+    }
+    const loanAddr_0 = args_0[0];
+    const borrowerPk_0 = args_0[1];
+    if (!(loanAddr_0.buffer instanceof ArrayBuffer && loanAddr_0.BYTES_PER_ELEMENT === 1 && loanAddr_0.length === 32)) {
+      __compactRuntime.typeError('listingKey',
+                                 'argument 1',
+                                 'loanDirectory.compact line 67 char 1',
+                                 'Bytes<32>',
+                                 loanAddr_0)
+    }
+    if (!(borrowerPk_0.buffer instanceof ArrayBuffer && borrowerPk_0.BYTES_PER_ELEMENT === 1 && borrowerPk_0.length === 32)) {
+      __compactRuntime.typeError('listingKey',
+                                 'argument 2',
+                                 'loanDirectory.compact line 67 char 1',
+                                 'Bytes<32>',
+                                 borrowerPk_0)
+    }
+    return _dummyContract._listingKey_0(loanAddr_0, borrowerPk_0);
   }
 };
 export const contractReferenceLocations =

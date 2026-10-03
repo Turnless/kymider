@@ -20,16 +20,20 @@ console source (`frontend/src/lender/LenderLoan.tsx`,
 
 - Console at <https://turnless.github.io/kymider/> in a clean browser profile
   (no extensions, zoom 110%, window 1920×1080). Reload so the simulated ledger
-  starts fresh. (Pages serves the Wave 2 console once `wave2` is merged to
-  `main`.)
+  starts fresh. (`wave2` is merged to `main`, so Pages serves the Wave 2
+  console.)
 - The console seeds two repaid loans for the borrower, so the history proof at
   2:05 needs no preparation.
-- A second tab with the latest green CI run
-  (<https://github.com/Turnless/kymider/actions/workflows/ci.yml>), open on the
-  "Devnet simulation" job's "Verify the record against the devnet" step. Preprod
-  is pending; once the Preprod run has committed `PROOF.md`, use that file on
-  GitHub instead, and the 2:25 alternative below.
-- `DECK.html` in a third tab, on slide 3 (the 110% number; open `DECK.html#3`).
+- A second tab with `DEVNET-PROOF.md` on GitHub
+  (<https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md>): 31 transactions and 45 of 45 read-back checks
+  from CI run 37098203726 on commit `b815b26`. The current contracts add a
+  waiver transaction and two refusals recorded before submission; until
+  DEVNET-PROOF.md is updated from a green run on them, narrate the 31 / 45
+  figures as that run's. Preprod is pending; once the
+  Preprod run has committed `PROOF.md`, use that file instead, and the 2:25
+  alternative below.
+- The deck in a third tab, on slide 3 (the 110% number):
+  <https://turnless.github.io/kymider/deck/#3>.
 - Notifications off. Move the mouse slowly; pause one beat after every click so
   the result is on screen before you speak about it.
 
@@ -70,6 +74,13 @@ $500,000, DTI at most 40%, valid 72 hours).
 
 > Now I'm the lender. I name my bar: a net-worth floor and a maximum
 > debt-to-income ratio. That quote is public.
+
+*Optional beat (about 8 s; cut first if you run over):* **Do:** click
+**Offer 150% before they prove · 15,000**. The contract refuses with "the
+borrower can prove until the quote lapses".
+
+> Can I offer 150% before the borrower answers? Refused. The quote stands
+> until they prove, waive or let it lapse.
 
 **0:50** - **Do:** Switch to **Borrower**. **Loans** → the loan →
 **Prove tier**. Wait for **Verified · 110%**.
@@ -133,15 +144,15 @@ lender's application list shows **2 prior repaid loans proven**.
 ---
 
 ### 2:25-2:40 · On-chain proof
-**Show:** the CI tab, on the "Devnet simulation" job's verify step ("All ...
-checks PASS").
+**Show:** the `DEVNET-PROOF.md` tab.
 
-**2:25** - **Do:** Scroll the `prove:onchain` step to the `proveTier` and
-`underwrite` transactions, then to the verify step's PASS line.
+**2:25** - **Do:** Point at "Read-back checks: 45 of 45 PASS", then scroll the
+Transactions table to rows 12-14 (`Loan.proveTier`, `Loan.underwrite` at 1,100,
+`Loan.accept`).
 
 > In CI, the same contracts run on a Midnight devnet with real proofs, on
-> every push. Every transaction is recorded and read back. 307 offline tests
-> and 46 browser tests back every step.
+> every push. Every transaction is recorded and read back. 339 offline tests
+> and 48 browser tests back every step.
 
 *After the Preprod run (owner):* show `PROOF.md` on GitHub instead, click one
 hash into the explorer ({{PREPROD_TX}}), and say "The same contracts run on
@@ -177,6 +188,8 @@ Narration words, numbers counted as one word each.
 
 Cut in this order:
 
+0. The optional proof-window beat at 0:36 (not in the timings or word
+   counts above). Saves 8 s.
 1. The Private facts hover at 0:10 (start at **Loans**). Saves 10 s.
 2. The auditor edit-and-fail at 2:15 (keep the green verify). Saves 5 s.
 3. Repayments: say the narration over the clicks without pausing. Saves 6 s.
@@ -188,4 +201,5 @@ borrower's Accept.** Those three moments are the product.
 
 - Watch it once end to end, with sound.
 - Upload unlisted to YouTube, 1080p. Put the link in the README table and the
-  AKINDO form ({{VIDEO_URL}}).
+  AKINDO form ({{VIDEO_URL}}), replacing "being recorded, link added before
+  Oct 17" in the README table and Communication section.

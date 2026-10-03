@@ -3,7 +3,7 @@
 Everything a fresh session needs to continue the Midnight Buildathon Wave 2
 work. Start here, then read `program.md` and `wave1-results.md`.
 
-Last updated: 2026-10-03. Branch: `wave2`.
+Last updated: 2026-10-03 (round 4). Branch: `wave2`.
 
 ## The program
 
@@ -56,12 +56,12 @@ owner). Do not claim they were missing.
 | 3 | Build script, `.gitignore` and CI sync updated for both contracts | Done |
 | 4 | Compile both; commit `compiled/loan*/contract` | Done (2026-10-03, compiled locally) |
 | 5 | Export both from `contracts/index.ts`; witnesses in `contracts/witnesses.ts` (`localSk`, `paymentNonce`) | Done |
-| 6 | Offline tests in `tests/unit/` with simulators | Done: 307 tests in 12 files (64 Loan, 24 LoanDirectory, 24 privacy) |
+| 6 | Offline tests in `tests/unit/` with simulators | Done: 339 tests in 12 files (80 Loan, 29 LoanDirectory, 25 privacy) |
 | 7 | Client: `client/` lifecycle ops and CLI (`deploy`, `demo`) for loans | Done: `client/loans.ts`, `npm run loan:deploy`, `npm run loan:demo`; devnet run in CI |
-| 8 | Console: borrower loan view (apply, prove tier, accept, repay) and lender view (quote, offer, disburse, default, record, portfolio) | Done (`frontend/src/borrower/`, `frontend/src/lender/`) |
+| 8 | Console: borrower loan view (apply, prove tier or waive, accept, repay) and lender view (quote, offer, disburse, default, record, portfolio) | Done (`frontend/src/borrower/`, `frontend/src/lender/`) |
 | 9 | `prove:onchain` / `verify:onchain` scripts; CI runs both on the devnet; `preprod.yml` `workflow_dispatch` job writes `PROOF.md` | Scripts and workflow done; Preprod run **pending the owner's wallet secret** |
 | 10 | Read-only Preprod view in the console (indexer reads of the deployed instances) | Done (`frontend/src/live/Live.tsx`); untested against Preprod, shows "Not deployed to Preprod yet" |
-| 11 | README update, new deck, narrated video, AKINDO submission text | README, deck (`wave2/DECK.html`, shots re-captured), video script, X drafts and submission copy done; **video and deck PDF pending the owner** |
+| 11 | README update, new deck, narrated video, AKINDO submission text | README, deck (`wave2/DECK.html` and `wave2/DECK.pdf`, regenerated after round 4), video script, X drafts and submission copy done; **video pending the owner** |
 
 ### What the first compile settled
 
@@ -167,7 +167,8 @@ driving the compiled contracts through `LoanSimulator` and
   circuit `quoteLimit()` = 3 ("quote limit reached"); `tierProven: Boolean`,
   reset by each quote, allows one `proveTier` per quote ("already proven
   against this quote"). The cap added no circuit; the consent step later
-  added `accept` and `declineOffer` (Loan: 9 circuits, 22 across 4 contracts).
+  added `accept` and `declineOffer`, and round 4 added `waiveProof` (Loan: 10
+  circuits, 23 across 4 contracts, plus 8 exported pure helpers).
   `LoanView` has `quotesIssued`, `quoteLimit`, `tierProven`.
 - **Not done in SolvencyProof:** claims are not "decided once" (re-request
   after a decision is allowed), so the same 1-bit-per-round leak exists there,
@@ -202,7 +203,23 @@ driving the compiled contracts through `LoanSimulator` and
 | Listing lockdown | `updateStatus` refuses `REPAID` (`a repayment is recorded with recordRepaid, not set`); borrower may only withdraw an `OPEN` listing; `recordRepaid` only on `ACTIVE` (`only an active listing can be recorded as repaid`) | `contracts/loanDirectory.compact`; `tests/unit/loanDirectory.contract.test.ts` |
 | Lender persona picker | "Acting as" select in the lender rail; the lender console follows the chosen persona (Harbor Bank by default) | `frontend/src/components/Console.tsx`, `frontend/src/lib/simulatedClient.ts` (`setMe`) |
 | Auditor preview | Wave 3 preview: verify an exported payment log against the on-chain history hash (integrity, not secrecy) | `frontend/src/auditor/Audit.tsx`, `contracts/audit.ts`; `tests/unit/audit.unit.test.ts`; commit `d7b561c` |
-| E2E suite | 46 Playwright tests (23 desktop 1440 px + 23 phone 390 px): README fast path, refusals, every route, Wave 1 screens; plus the `shots` project for the deck | `frontend/e2e/`, `frontend/playwright.config.ts`; commit `2f73ab0` |
+| E2E suite | 46 Playwright tests (23 desktop 1440 px + 23 phone 390 px): README fast path, refusals, every route, Wave 1 screens; plus the `shots` project for the deck. 48 (24 + 24) after round 4 | `frontend/e2e/`, `frontend/playwright.config.ts`; commit `2f73ab0` |
+
+## Round 4 changes (second review: N1, N2, N3, N5)
+
+| Change | What it does | Where |
+|---|---|---|
+| Proof window (N1) | No offer before a quote (`quote first`); while a quote is live and unanswered, `underwrite` refuses 150% and `quoteTerms` refuses a re-quote (`the borrower can prove until the quote lapses`) | `contracts/loan.compact`; `loan.contract.test.ts` "Loan — the borrower's proof window"; e2e `refusals.spec.ts`; commit `bce4745` |
+| `waiveProof` | Borrower answers the quote without a proof (`only the borrower may waive a proof`); nothing revealed, 150% offer open at once. Console: "Don't prove; accept 150% terms" | `contracts/loan.compact`, `client/loans.ts`, `frontend/src/borrower/LoanDetail.tsx`; "Loan — waiving the proof" |
+| Accept with the figure (N5) | `accept(expectedCollateral)` refuses any other figure (`offer changed`) | `contracts/loan.compact`, `client/loans.ts` (`acceptOffer(loan, expectedCollateral)`); "Loan — borrower consent" |
+| Listing keys (N2) | Listings keyed by `listingKey(loan, borrower)`; `updateStatus` / `recordRepaid` take the key; readers check each listing's parties against the Loan | `contracts/loanDirectory.compact`, `client/loans.ts` (`listingMatchesLoan`), `scripts/lib/claims.ts`; "LoanDirectory — a squatted listing (judge N2)" |
+| No directory defaults (N3) | `updateStatus` refuses `DEFAULTED` (`a default is the Loan's own status (markDefault), not set here`); console reads "defaulted (from the Loan)" | `contracts/loanDirectory.compact`, `frontend/src/lender/LenderLoan.tsx` |
+| `prove:onchain` | Adds Loan B's waiver transaction and two refusals on verified Loan A recorded before submission; expected 32 transactions and 47 `verify:onchain` checks, **not yet confirmed by a CI run** | `scripts/prove-onchain.ts`, `scripts/lib/claims.ts` |
+
+Counts after round 4 (measured): 23 circuits, 339 offline tests in 12 files,
+48 browser tests. `DEVNET-PROOF.md` still records run 37098203726 on
+`b815b26` (31 transactions, 45 checks); update it from the first green run on
+`bce4745` or later.
 
 Evidence status: CI run 34 (https://github.com/Turnless/kymider/actions/runs/37092735681)
 passed every job on `5a56372`, including the devnet simulation, `prove:onchain`
@@ -211,13 +228,20 @@ salt and the consent step; a green run on the current contracts is the next
 thing to confirm (Actions → CI, "Devnet simulation" job, `proof-local`
 artifact).
 
+Later: run 38 (https://github.com/Turnless/kymider/actions/runs/37098203726)
+on `b815b26` proved 31 transactions and passed 45 of 45 checks; it is the run
+in `DEVNET-PROOF.md`. It predates round 4 (`bce4745`), so a green run on the
+current contracts is again the next thing to confirm.
+
 ## Owner's to-do (not Claude's)
 
 - [ ] On AKINDO, connect the GitHub repo field, make the product public, and
       change the tech tag from Base to Midnight.
-- [ ] Merge `wave2` into `main` so Pages serves the Wave 2 console at
-      https://turnless.github.io/kymider/; keep `docs/` through the merge.
-- [ ] Confirm a green CI run on the current contracts (devnet job included).
+- [x] Merge `wave2` into `main` so Pages serves the Wave 2 console at
+      https://turnless.github.io/kymider/; keep `docs/` through the merge
+      (`5437a29`). Merge again for round 4.
+- [ ] Confirm a green CI run on the current contracts (devnet job included),
+      then update `DEVNET-PROOF.md` and the 31 / 45 figures from it.
 - [ ] Create a Preprod wallet, fund it at
       https://midnight-tmnight-preprod.nethermind.dev/, add the GitHub secret
       `PREPROD_WALLET_SEED`, run Actions → "Preprod proof", and check that
@@ -225,8 +249,9 @@ artifact).
       Then switch the "Preprod pending" wording to links (list in
       `wave2/SUBMISSION.md`, owner checklist) and re-capture `08-live.jpg`.
 - [ ] Try Lace against Preprod in the Live view.
-- [ ] Record the narrated Wave 2 video from `wave2/VIDEO-SCRIPT.md`; export
-      `wave2/DECK.html` to PDF.
+- [ ] Record the narrated Wave 2 video from `wave2/VIDEO-SCRIPT.md`. The deck
+      PDF is regenerated (round 4); re-run `cd frontend && npm run deck:pdf`
+      after putting your name on slide 12.
 - [ ] Fill `{{VIDEO_URL}}`, `{{DECK_PDF_URL}}`, `{{PREPROD_TX}}`,
       `{{OWNER_NAME}}` (where each appears: `wave2/SUBMISSION.md`, owner
       checklist).

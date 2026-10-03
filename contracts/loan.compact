@@ -16,8 +16,9 @@ import CompactStandardLibrary;
 //
 //   APPLIED --quoteTerms (lender, at most 3)--> APPLIED, quoted
 //   APPLIED --proveTier (borrower, once per quote)--> APPLIED, tier VERIFIED or STANDARD
+//   APPLIED --waiveProof (borrower, instead of proving)--> APPLIED, quote answered, no tier
 //   APPLIED --underwrite (lender: the tier's figure, nothing else)--> OFFERED
-//   OFFERED --accept (borrower)--> ACTIVE          (only the borrower makes an offer binding)
+//   OFFERED --accept(figure) (borrower)--> ACTIVE  (only the borrower makes an offer binding)
 //   OFFERED --declineOffer (borrower)--> APPLIED   (the offer is cleared; the lender may offer again)
 //   APPLIED or OFFERED --decline (lender)--> DECLINED
 //   ACTIVE  --disburse--> balanceOwed set, first installment due
@@ -31,8 +32,15 @@ import CompactStandardLibrary;
 // must hold at least minQuoteSeconds(), so the borrower has time to prove and
 // the tier has time to be used. And an offer is only an offer: the lender can
 // offer the tier's exact figure and nothing else, and the loan becomes binding
-// only when the borrower accepts it. A borrower offered 150% can decline, prove
-// (or wait for the next quote) and be offered 110%.
+// only when the borrower accepts it, naming the figure. A borrower offered
+// 150% can decline, prove (or wait for the next quote) and be offered 110%.
+//
+// The proof window: a quote is a question to the borrower, and it stands until
+// the borrower answers it (proveTier or waiveProof) or it lapses. Until then
+// the lender can neither offer 150% nor re-quote, so it cannot front-run a
+// proof in flight or burn the quote cap to keep the borrower from proving.
+// There is no offer at all before the first quote. A borrower who does not
+// want to answer (or cannot) waives, and the 150% offer is open at once.
 //
 // Facts: `factsCommitment` is copied from the borrower's SolvencyProof instance
 // at deploy. Midnight has no cross-contract reads, so the lender checks that it
@@ -79,7 +87,7 @@ export ledger status: LoanStatus;
 export ledger quote: Quote;
 export ledger quoted: Boolean;
 export ledger quotesIssued: Counter;         // quotes made on this loan, capped at quoteLimit()
-export ledger tierProven: Boolean;           // a tier was proven against the current quote
+export ledger tierProven: Boolean;           // the current quote is answered: a tier proven, or the proof waived (tier NONE)
 export ledger tier: Tier;
 export ledger tierExpiresAt: Uint<64>;
 export ledger collateralRequired: Uint<64>;  // principal * tier ratio, binding once the borrower accepts
@@ -175,7 +183,8 @@ constructor(lenderPk: Bytes<32>, loanTerms: LoanTerms, commitment: Bytes<32>) {
 
 // Name the bar for the verified tier, and how long a proof against it holds.
 // Quoting again replaces the bar and clears any tier proven against the old one,
-// but never a live VERIFIED tier: that stands until its quote lapses.
+// but never a live VERIFIED tier (that stands until its quote lapses) and never
+// a live quote the borrower has not answered yet (the proof window).
 // At most quoteLimit() quotes per loan: each one buys the lender a yes/no answer
 // about the private facts, so an unbounded number would let it search for them.
 export circuit quoteTerms(thresholdNetWorth: Uint<64>, maxDti: Uint<64>, expiresAt: Uint<64>): [] {
@@ -183,6 +192,7 @@ export circuit quoteTerms(thresholdNetWorth: Uint<64>, maxDti: Uint<64>, expires
   assert(status == LoanStatus.APPLIED, "loan is no longer open to quotes");
   assert(quotesIssued.lessThan(quoteLimit()), "quote limit reached");
   assert(!(tier == Tier.VERIFIED && blockTimeLt(tierExpiresAt)), "a verified tier is live until it lapses");
+  assert(!quoted || tierProven || !blockTimeLt(quote.expiresAt), "the borrower can prove until the quote lapses");
   assert(maxDti <= 10000, "max DTI limit too high");
   const exp = disclose(expiresAt);
   assert(exp >= minQuoteSeconds() && blockTimeLte((exp - minQuoteSeconds()) as Uint<64>),
@@ -195,8 +205,11 @@ export circuit quoteTerms(thresholdNetWorth: Uint<64>, maxDti: Uint<64>, expires
   collateralRequired = 0;
 }
 
-// Offer the loan at whatever tier the borrower holds. Offering without a live
-// verified tier is allowed — it simply means 150% collateral.
+// Offer the loan at whatever tier the borrower holds. Only after a quote: the
+// borrower must have had a question to answer. Without a live verified tier
+// the offer is 150%, but not while the borrower can still prove: a quote that
+// is live and unanswered holds the 150% offer back until the borrower proves
+// (VERIFIED or STANDARD), waives the proof, or lets the quote lapse.
 // `collateral` is the lender's arithmetic. The circuit takes it only if it is
 // exactly the tier's ratio of the principal: while a VERIFIED tier is live the
 // only figure the lender can offer is 110%. The offer binds nobody until the
@@ -204,7 +217,9 @@ export circuit quoteTerms(thresholdNetWorth: Uint<64>, maxDti: Uint<64>, expires
 export circuit underwrite(collateral: Uint<64>): [] {
   assert(getDappPubKey(localSk()) == lender, "only the lender may underwrite");
   assert(status == LoanStatus.APPLIED, "loan is not awaiting underwriting");
+  assert(quoted, "quote first");
   const verified = tier == Tier.VERIFIED && blockTimeLt(tierExpiresAt);
+  assert(verified || tierProven || !blockTimeLt(quote.expiresAt), "the borrower can prove until the quote lapses");
   const ratio = verified ? verifiedRatioBps() : standardRatioBps();
   assert(isFloorOfBps(disclose(collateral), terms.principal, ratio), "collateral does not match the tier");
   offeredTier = verified ? Tier.VERIFIED : Tier.STANDARD;
@@ -249,10 +264,13 @@ export circuit markDefault(): [] {
 // --- borrower -------------------------------------------------------------
 
 // Make the lender's offer binding: the loan is ACTIVE at the offered tier and
-// collateral, and the lender may disburse.
-export circuit accept(): [] {
+// collateral, and the lender may disburse. The borrower names the collateral
+// they are accepting, so the transcript records the figure they consented to;
+// any other figure is refused.
+export circuit accept(expectedCollateral: Uint<64>): [] {
   assert(getDappPubKey(localSk()) == borrower, "only the borrower may accept an offer");
   assert(status == LoanStatus.OFFERED, "there is no offer to accept");
+  assert(disclose(expectedCollateral) == offeredCollateral, "offer changed");
   tier = offeredTier;
   collateralRequired = offeredCollateral;
   status = LoanStatus.ACTIVE;
@@ -266,6 +284,19 @@ export circuit declineOffer(): [] {
   offeredCollateral = 0;
   offeredTier = Tier.NONE;
   status = LoanStatus.APPLIED;
+}
+
+// Answer the current quote without proving: the borrower takes the 150% route
+// and reveals nothing about the facts (not even a yes/no). The quote counts as
+// answered (tierProven, tier NONE), so the lender may offer 150% at once
+// instead of waiting for the quote to lapse.
+export circuit waiveProof(): [] {
+  assert(getDappPubKey(localSk()) == borrower, "only the borrower may waive a proof");
+  assert(status == LoanStatus.APPLIED, "loan is no longer open to proofs");
+  assert(quoted, "the lender has not quoted yet");
+  assert(!tierProven, "already proven against this quote");
+  tier = Tier.NONE;
+  tierProven = true;
 }
 
 // Prove the committed facts clear the lender's quote. The verdict lands on the

@@ -14,8 +14,11 @@ import {
   installmentFor,
   MIN_QUOTE_SECONDS,
   owedFor,
+  proofWaived,
+  proofWindowOpen,
   quoteRefusal,
   tierIsLive,
+  underwriteRefusal,
 } from '../../client/proof/loanMath.js';
 import { LoanSimulator, T0, TEST_SALT, commitFacts, pubKeyOf, skFrom } from './support/simulators.js';
 
@@ -27,6 +30,9 @@ const open = (terms: { principal: bigint; interestBps: bigint; installments: big
   new LoanSimulator(BORROWER_SK, pubKeyOf(LENDER_SK), terms, commitFacts(FACTS, TEST_SALT), new Uint8Array(32))
     .as(LENDER_SK)
     .quoteTerms(500_000n, 40n, T0 + 86_400n);
+
+// The borrower waives the proof, so the 150% offer is open at once.
+const waived = (terms: Parameters<typeof open>[0]) => open(terms).as(BORROWER_SK).waiveProof().as(LENDER_SK);
 
 const SWEEP = [
   { principal: 1n, interestBps: 0n, installments: 1n },
@@ -46,8 +52,8 @@ describe('loanMath — figures the circuit accepts', () => {
     verified.as(LENDER_SK).underwrite(collateralFor(terms.principal, Tier.VERIFIED));
     verified.as(BORROWER_SK).accept().as(LENDER_SK);
 
-    // Never proved: 150%.
-    open(terms).underwrite(collateralFor(terms.principal, Tier.STANDARD));
+    // Proof waived: 150%.
+    waived(terms).underwrite(collateralFor(terms.principal, Tier.STANDARD));
 
     // Owed and installment, then repay with amountDue until REPAID, in no
     // more than `installments` payments.
@@ -66,7 +72,7 @@ describe('loanMath — figures the circuit accepts', () => {
     // 5 owed over 4 installments: ceil(5 / 4) = 2, so 2, 2, 1 — three payments.
     const terms = { principal: 5n, interestBps: 0n, installments: 4n, periodSeconds: 86_400n };
     const owed = owedFor(terms);
-    const sim = open(terms)
+    const sim = waived(terms)
       .underwrite(collateralFor(terms.principal, Tier.STANDARD))
       .as(BORROWER_SK)
       .accept()
@@ -81,8 +87,8 @@ describe('loanMath — figures the circuit accepts', () => {
   it('collateral one unit off is refused, either way', () => {
     const terms = SWEEP[3]!;
     const c = collateralFor(terms.principal, Tier.STANDARD);
-    expect(() => open(terms).underwrite(c + 1n)).toThrow(/collateral does not match the tier/);
-    expect(() => open(terms).underwrite(c - 1n)).toThrow(/collateral does not match the tier/);
+    expect(() => waived(terms).underwrite(c + 1n)).toThrow(/collateral does not match the tier/);
+    expect(() => waived(terms).underwrite(c - 1n)).toThrow(/collateral does not match the tier/);
   });
 });
 
@@ -92,13 +98,51 @@ describe('loanMath — reading the ledger', () => {
     expect(amountDue({ balanceOwed: 366n, installmentAmount: 367n })).toBe(366n);
   });
 
-  it('quoteRefusal gives the contract\'s words: a live VERIFIED tier, or under 30 minutes', () => {
-    const none = { tier: Tier.NONE, tierExpiresAt: 0n };
-    const live = { tier: Tier.VERIFIED, tierExpiresAt: T0 + 10n };
-    expect(quoteRefusal(none, T0 + MIN_QUOTE_SECONDS, T0)).toBeNull();
-    expect(quoteRefusal(none, T0 + MIN_QUOTE_SECONDS - 1n, T0)).toBe('quote must hold at least 30 minutes');
+  const QUOTE = { thresholdNetWorth: 1n, maxDti: 40n, expiresAt: T0 + 10n };
+  const unquoted = { tier: Tier.NONE, tierExpiresAt: 0n, quoted: false, tierProven: false, quote: QUOTE };
+  const open_ = { ...unquoted, quoted: true };
+  const live = { tier: Tier.VERIFIED, tierExpiresAt: T0 + 10n, quoted: true, tierProven: true, quote: QUOTE };
+  const waivedState = { ...open_, tierProven: true };
+
+  it("quoteRefusal gives the contract's words: a live VERIFIED tier, an open proof window, or under 30 minutes", () => {
+    expect(quoteRefusal(unquoted, T0 + MIN_QUOTE_SECONDS, T0)).toBeNull();
+    expect(quoteRefusal(unquoted, T0 + MIN_QUOTE_SECONDS - 1n, T0)).toBe('quote must hold at least 30 minutes');
     expect(quoteRefusal(live, T0 + 86_400n, T0)).toBe('a verified tier is live until it lapses');
     expect(quoteRefusal(live, T0 + 86_400n, T0 + 10n)).toBeNull();
+    expect(quoteRefusal(open_, T0 + 86_400n, T0 + 9n)).toBe('the borrower can prove until the quote lapses');
+    expect(quoteRefusal(open_, T0 + 86_400n, T0 + 10n)).toBeNull();
+    expect(quoteRefusal(waivedState, T0 + 86_400n, T0)).toBeNull();
+  });
+
+  it("underwriteRefusal gives the contract's words: no quote, or an open proof window", () => {
+    expect(underwriteRefusal(unquoted, T0)).toBe('quote first');
+    expect(underwriteRefusal(open_, T0 + 9n)).toBe('the borrower can prove until the quote lapses');
+    expect(underwriteRefusal(open_, T0 + 10n)).toBeNull();
+    expect(underwriteRefusal(live, T0)).toBeNull();
+    expect(underwriteRefusal(waivedState, T0)).toBeNull();
+    expect(proofWindowOpen(open_, T0)).toBe(true);
+    expect(proofWaived(waivedState)).toBe(true);
+    expect(proofWaived(live)).toBe(false);
+  });
+
+  it('underwriteRefusal agrees with the circuit before a quote, inside the window, at its edge, and after an answer', () => {
+    const terms = SWEEP[2]!;
+    const fresh = () =>
+      new LoanSimulator(BORROWER_SK, pubKeyOf(LENDER_SK), terms, commitFacts(FACTS, TEST_SALT), new Uint8Array(32));
+    const cases = [
+      () => fresh().as(LENDER_SK),
+      () => open(terms),
+      () => open(terms).at(T0 + 86_400n - 1n),
+      () => open(terms).at(T0 + 86_400n),
+      () => waived(terms),
+    ];
+    for (const make of cases) {
+      const sim = make();
+      const refusal = underwriteRefusal(sim.ledger(), sim.now);
+      const c = collateralFor(terms.principal, Tier.STANDARD);
+      if (refusal) expect(() => sim.underwrite(c)).toThrow(refusal);
+      else expect(sim.underwrite(c).ledger().status).toBe(LoanStatus.OFFERED);
+    }
   });
 
   it('quoteRefusal agrees with the circuit at the 30-minute boundary', () => {
@@ -124,7 +168,7 @@ describe('loanMath — reading the ledger', () => {
   it('defaultableFrom matches the circuit: due + grace, plus one second', () => {
     const terms = SWEEP[2]!;
     const owed = owedFor(terms);
-    const sim = open(terms)
+    const sim = waived(terms)
       .underwrite(collateralFor(terms.principal, Tier.STANDARD))
       .as(BORROWER_SK)
       .accept()

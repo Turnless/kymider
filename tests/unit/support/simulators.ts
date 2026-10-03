@@ -339,9 +339,18 @@ export class LoanSimulator {
     return this.run((c) => this.contract.impureCircuits.underwrite(c, collateral));
   }
 
-  /** The borrower makes the lender's offer binding (OFFERED -> ACTIVE). */
-  accept(): this {
-    return this.run((c) => this.contract.impureCircuits.accept(c));
+  /**
+   * The borrower makes the lender's offer binding (OFFERED -> ACTIVE), naming
+   * the collateral they accept. Defaults to the figure on the ledger, as a
+   * console that shows the offer and passes it back would.
+   */
+  accept(expectedCollateral: bigint = this.ledger().offeredCollateral): this {
+    return this.run((c) => this.contract.impureCircuits.accept(c, expectedCollateral));
+  }
+
+  /** The borrower answers the quote without proving (the 150% route). */
+  waiveProof(): this {
+    return this.run((c) => this.contract.impureCircuits.waiveProof(c));
   }
 
   /** The borrower turns the offer down (OFFERED -> APPLIED). */
@@ -387,8 +396,12 @@ export class LoanSimulator {
 export const repaidLeaf = (borrowerPk: Uint8Array, loanAddr: Uint8Array, lenderPk: Uint8Array): Uint8Array =>
   loanDirectoryPureCircuits.repaidLeaf(borrowerPk, loanAddr, lenderPk);
 
-/** Stand-in for a Loan instance's 32-byte address, as the directory keys it. */
+/** Stand-in for a Loan instance's 32-byte address. */
 export const loanAddr = (fill: number): Uint8Array => new Uint8Array(32).fill(fill);
+
+/** Where the directory keeps `borrowerPk`'s listing of `loan`. */
+export const listingKey = (loan: Uint8Array, borrowerPk: Uint8Array): Uint8Array =>
+  loanDirectoryPureCircuits.listingKey(loan, borrowerPk);
 
 /** The shared LoanDirectory, driven offline. */
 export class LoanDirectorySimulator {
@@ -431,13 +444,15 @@ export class LoanDirectorySimulator {
     return this;
   }
 
-  updateStatus(loan: Uint8Array, status: ListingStatus): this {
-    this.ctx = this.contract.impureCircuits.updateStatus(this.ctx, loan, status).context;
+  /** `listing` is the listing key (see listingKey). */
+  updateStatus(listing: Uint8Array, status: ListingStatus): this {
+    this.ctx = this.contract.impureCircuits.updateStatus(this.ctx, listing, status).context;
     return this;
   }
 
-  recordRepaid(loan: Uint8Array): this {
-    this.ctx = this.contract.impureCircuits.recordRepaid(this.ctx, loan).context;
+  /** `listing` is the listing key (see listingKey). */
+  recordRepaid(listing: Uint8Array): this {
+    this.ctx = this.contract.impureCircuits.recordRepaid(this.ctx, listing).context;
     return this;
   }
 

@@ -91,9 +91,9 @@ Image: `06-repaid-history.jpg`.
 **5/7**
 
 > Evidence:
-> - 4 Compact contracts, 22 circuits, compiled in CI
-> - 307 offline tests on the compiled contracts
-> - 46 browser tests of the console
+> - 4 Compact contracts, 23 circuits, compiled in CI
+> - 339 offline tests on the compiled contracts
+> - 48 browser tests of the console
 > - 18 devnet cases with real ZK proofs, every push
 > - Preprod: pending
 >
@@ -127,9 +127,10 @@ Image: `07-auditor.jpg`.
 - **"Can't the borrower lie?"** Today, yes: figures are self-reported, and we
   say so in the README. Wave 3 has a data provider co-sign them before they are
   committed.
-- **"Can't the lender just re-quote?"** Not while a verified tier is live,
-  and any figure the lender names is only an offer until the borrower accepts.
-  A review found that gap in our first version; we closed it in the contract.
+- **"Can't the lender just re-quote?"** Not while a verified tier is live, and
+  not while the borrower can still answer the quote; nor can it offer 150% in
+  that window. Any figure the lender names is only an offer until the borrower
+  accepts it. Two reviews found gaps here; we closed them in the contract.
 - **"Is the payment history private?"** No. Each repayment amount is public on
   the ledger. The history proof hides which loans back it, not that a key has
   repaid loans. The auditor check proves the history is complete and unaltered.

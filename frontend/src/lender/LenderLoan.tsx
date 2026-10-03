@@ -92,6 +92,13 @@ function DeskLoan({ address }: { address: string }) {
 
   const l = loan;
   const quoteLive = l.quote !== null && now < l.quote.expiresAt;
+  // Why the tier's offer cannot be made yet, in the contract's words (null if it can).
+  const offerBlocked =
+    l.quote === null
+      ? 'quote first'
+      : !l.tierLive && l.proofWindowOpen
+        ? 'the borrower can prove until the quote lapses'
+        : null;
   const step =
     l.status === 'APPLIED'
       ? quoteLive
@@ -195,7 +202,9 @@ function DeskLoan({ address }: { address: string }) {
                 {l.quote !== null &&
                   (l.tierLive
                     ? ' A live VERIFIED tier stands: the contract refuses a new quote until it lapses.'
-                    : ' Quoting again replaces the bar and clears a STANDARD tier proven against the old one.')}
+                    : l.proofWindowOpen
+                      ? ' The borrower has not answered this quote yet: the contract refuses a new quote until they prove or waive, or it lapses.'
+                      : ' Quoting again replaces the bar and clears a STANDARD tier proven against the old one.')}
                 {` Each quote asks the borrower's facts one yes/no question, so the contract allows ${l.quoteLimit} per loan and one proof per quote.`}
               </p>
               <button
@@ -207,7 +216,13 @@ function DeskLoan({ address }: { address: string }) {
                     : undefined
                 }
                 disabled={busy !== null}
-                title={l.tierLive ? 'Expected to be refused: a verified tier is live' : undefined}
+                title={
+                  l.tierLive
+                    ? 'Expected to be refused: a verified tier is live'
+                    : l.proofWindowOpen
+                      ? "Expected to be refused: the borrower's proof window is open"
+                      : undefined
+                }
                 onClick={() =>
                   run('quote', () =>
                     desk.quote(l.address, {
@@ -254,7 +269,8 @@ function DeskLoan({ address }: { address: string }) {
                 <button
                   type="button"
                   className="btn btn-accent flex-1 py-[13px]"
-                  disabled={busy !== null}
+                  disabled={busy !== null || offerBlocked !== null}
+                  title={offerBlocked ? `Refused by the contract now: ${offerBlocked}` : undefined}
                   onClick={() =>
                     run('underwrite', async () => {
                       const r = await desk.underwrite(l.address);
@@ -278,6 +294,13 @@ function DeskLoan({ address }: { address: string }) {
                   {busy === 'decline' ? 'Declining…' : 'Decline'}
                 </button>
               </div>
+              {offerBlocked !== null && (
+                <p className="mt-3 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.55)]" data-testid="offer-blocked">
+                  {l.quote === null
+                    ? 'No offer before a quote: the contract refuses it ("quote first"). The borrower needs a bar to prove against.'
+                    : `The 150% offer opens when the borrower proves or waives, or when the quote lapses (${blockDate(l.quote.expiresAt)}). Until then the contract refuses it: "the borrower can prove until the quote lapses".`}
+                </p>
+              )}
               {(refusal?.action === 'underwrite' || refusal?.action === 'decline') && (
                 <DeskRefused message={refusal.message} />
               )}
@@ -445,9 +468,11 @@ function DeskHero({
   onOverask: () => void;
 }) {
   const verified = l.tierLive;
+  const windowOpen = !verified && l.proofWindowOpen;
   const at = verified ? l.collateralIfVerified : l.collateralIfStandard;
   const saved = l.collateralIfStandard - l.collateralIfVerified;
   const tierRefusal = refusal !== null && /collateral does not match the tier/i.test(refusal);
+  const windowRefusal = refusal !== null && /the borrower can prove until the quote lapses/i.test(refusal);
   return (
     <div className="mt-6 border-t border-[rgba(255,247,235,0.08)] pt-5">
       <p className="label-dark mb-3">3 · Offer</p>
@@ -486,9 +511,32 @@ function DeskHero({
         <p className="text-[11px] leading-[1.55] text-[rgba(255,247,235,0.6)]">
           <span className="mono">underwrite</span> takes exactly one collateral figure: 110% of the
           principal while a VERIFIED tier is live, 150% otherwise, and a live VERIFIED tier cannot
-          be re-quoted away. You can only offer the tier's figure, and only the borrower can accept
-          it.
+          be re-quoted away. There is no offer before a quote, and no 150% offer while the borrower
+          can still prove against a live quote. You can only offer the tier's figure, and only the
+          borrower can accept it.
         </p>
+
+        {windowOpen && (
+          <>
+            <button
+              type="button"
+              className="btn mt-3 w-full py-[10px] text-[12px]"
+              style={{
+                background: 'transparent',
+                color: '#F09484',
+                border: '1px dashed rgba(232,112,95,0.55)',
+              }}
+              disabled={busy}
+              onClick={onOverask}
+              title="Expected to be refused by the contract"
+            >
+              {pending ? 'Submitting…' : `Offer 150% before they prove · ${desk$(l.collateralIfStandard)}`}
+            </button>
+            <p className="mt-[6px] text-center text-[10px] text-[rgba(255,247,235,0.4)]">
+              Try it. Front-running the borrower's proof is the move the contract refuses.
+            </p>
+          </>
+        )}
 
         {verified && (
           <>
@@ -527,10 +575,12 @@ function DeskHero({
             <p className="mt-2 text-[14px] font-semibold leading-[1.45] text-cream">
               The contract refused: <span className="mono text-[#F09484]">{refusal}</span>.
               {tierRefusal && ' A verified borrower can only be offered 110%.'}
+              {windowRefusal && ' The borrower may prove until the quote lapses.'}
             </p>
             <p className="tnum mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.55)]">
-              Nothing was written. The loan is still open; {desk$(l.collateralIfVerified)} at 110%
-              is the only collateral you can offer this borrower while the tier holds.
+              {windowRefusal
+                ? 'Nothing was written. The loan is still open; you can offer once the borrower proves or waives, or the quote lapses.'
+                : `Nothing was written. The loan is still open; ${desk$(l.collateralIfVerified)} at 110% is the only collateral you can offer this borrower while the tier holds.`}
             </p>
           </div>
         )}
@@ -543,8 +593,7 @@ function DeskTierLine({ loan: l, now }: { loan: LoanView; now: bigint }) {
   if (l.quote === null) {
     return (
       <p className="text-[12px] text-[rgba(255,247,235,0.5)]">
-        Nothing to prove against until you quote. An offer now is 150%, which the borrower may
-        decline.
+        Nothing to prove against until you quote, and the contract refuses an offer before a quote.
       </p>
     );
   }
@@ -591,10 +640,31 @@ function DeskTierLine({ loan: l, now }: { loan: LoanView; now: bigint }) {
       </div>
     );
   }
+  if (l.proofWaived) {
+    return (
+      <div>
+        <span className="badge" style={DESK_NEUTRAL_DARK}>
+          Proof waived
+        </span>
+        <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.5)]">
+          The borrower answered this quote without a proof: you learn nothing about their facts. An
+          offer now is 150%, which the borrower may accept or decline.
+        </p>
+      </div>
+    );
+  }
+  if (l.proofWindowOpen) {
+    return (
+      <p className="text-[12px] text-[rgba(255,247,235,0.5)]">
+        The borrower can prove against this quote until {blockDate(l.quote.expiresAt)} (in{' '}
+        {duration(l.quote.expiresAt - now)}). Until they prove or waive, the contract refuses a 150%
+        offer and a new quote.
+      </p>
+    );
+  }
   return (
     <p className="text-[12px] text-[rgba(255,247,235,0.5)]">
-      The borrower has not proved against this quote yet. An offer now is 150%, which the borrower
-      may decline; wait for the proof to offer 110%.
+      The quote lapsed without an answer. An offer now is 150%, which the borrower may decline.
     </p>
   );
 }
@@ -802,8 +872,24 @@ function DeskRecord({ loan: l }: { loan: LoanView }) {
         />
         <DeskRow
           label="Directory listing"
-          value={l.listing === null ? 'Not listed' : l.listing.toLowerCase()}
+          value={
+            l.listing === null
+              ? 'Not listed'
+              : l.listingFromLoan
+                ? 'defaulted (from the Loan)'
+                : l.listingMatchesLoan === false
+                  ? `${l.listing.toLowerCase()} · ✕ names another lender`
+                  : l.listing.toLowerCase()
+          }
+          tone={l.listingMatchesLoan === false ? 'fail' : undefined}
         />
+        {l.strayListings > 0 && (
+          <DeskRow
+            label="Other listings"
+            value={`${l.strayListings} by another key: not the loan's borrower, ignored`}
+            tone="warn"
+          />
+        )}
         {l.status === 'REPAID' && (
           <DeskRow
             label="Repayment recorded"

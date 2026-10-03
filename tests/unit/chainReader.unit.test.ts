@@ -38,6 +38,7 @@ import {
   T0,
   commitFacts,
   TEST_SALT,
+  listingKey,
   loanAddr,
   pubKeyOf,
   repaidLeaf,
@@ -55,6 +56,7 @@ import {
   decodeContractState,
   hexToBytes,
   normalizeAddress,
+  reconcileListings,
   type StateCodec,
 } from '../../frontend/src/lib/live/decode.js';
 import { createChainReader } from '../../frontend/src/lib/live/chainReader.js';
@@ -263,8 +265,12 @@ describe('decode — Loan', () => {
     const sim = new LoanSimulator(BORROWER_SK, LENDER_PK, TERMS, commitFacts(FACTS, TEST_SALT), HISTORY_SEED)
       .as(LENDER_SK)
       .quoteTerms(CLAIM.thresholdNetWorth, CLAIM.maxDti, T0 + 7n * 86_400n)
+      .as(BORROWER_SK)
+      .waiveProof()
+      .as(LENDER_SK)
       .underwrite(1_500n);
     const v = decodeContractState(codec, 'loan', indexerStateHex(sim));
+    expect(v.tierProven).toBe(true);
     expect(v.status).toBe('OFFERED');
     expect(v.offeredTier).toBe('STANDARD');
     expect(v.offeredCollateral).toBe(1_500n);
@@ -279,9 +285,11 @@ describe('decode — LoanDirectory', () => {
     const LOAN_B = loanAddr(0xb2);
     const APPLICATION = loanAddr(0xd4);
     const dir = new LoanDirectorySimulator(BORROWER_SK);
+    const KEY_A = listingKey(LOAN_A, BORROWER_PK);
+    const KEY_B = listingKey(LOAN_B, BORROWER_PK);
     dir.as(BORROWER_SK).list(LOAN_A, LENDER_PK, 1_000n).list(LOAN_B, LENDER_B_PK, 2_000n);
-    dir.as(LENDER_SK).updateStatus(LOAN_A, ListingStatus.ACTIVE).recordRepaid(LOAN_A);
-    dir.as(LENDER_B_SK).updateStatus(LOAN_B, ListingStatus.ACTIVE).recordRepaid(LOAN_B);
+    dir.as(LENDER_SK).updateStatus(KEY_A, ListingStatus.ACTIVE).recordRepaid(KEY_A);
+    dir.as(LENDER_B_SK).updateStatus(KEY_B, ListingStatus.ACTIVE).recordRepaid(KEY_B);
     dir.as(BORROWER_SK).list(APPLICATION, LENDER_B_PK, 10_000n);
     dir.as(BORROWER_SK).proveTwoRepaid(
       APPLICATION,
@@ -293,9 +301,12 @@ describe('decode — LoanDirectory', () => {
     expect(v.listingCount).toBe(3n);
     expect(v.recordedCount).toBe(2);
     expect(v.repaidLeaves).toBe(2n);
-    expect(v.historyProofs).toEqual([{ loan: hex(APPLICATION), proven: 2n }]);
+    expect(v.historyProofs).toEqual([
+      { key: hex(listingKey(APPLICATION, BORROWER_PK)), loan: hex(APPLICATION), proven: 2n },
+    ]);
     const byLoan = Object.fromEntries(v.listings.map((x) => [x.loan, x]));
     expect(byLoan[hex(LOAN_A)]).toEqual({
+      key: hex(KEY_A),
       loan: hex(LOAN_A),
       borrower: hex(BORROWER_PK),
       lender: hex(LENDER_PK),
@@ -303,6 +314,27 @@ describe('decode — LoanDirectory', () => {
       status: 'REPAID',
     });
     expect(byLoan[hex(APPLICATION)]!.status).toBe('OPEN');
+  });
+
+  it("reconciles listings with their Loans: flags another key's listing, takes a default from the Loan", () => {
+    const LOAN = loanAddr(0x51);
+    const SQUATTER_SK = skFrom(0x61);
+    const dir = new LoanDirectorySimulator(BORROWER_SK);
+    dir.as(BORROWER_SK).list(LOAN, LENDER_PK, 1_000n);
+    dir.as(LENDER_SK).updateStatus(listingKey(LOAN, BORROWER_PK), ListingStatus.ACTIVE);
+    // Someone else lists the same address under their own key, naming another lender.
+    dir.as(SQUATTER_SK).list(LOAN, LENDER_B_PK, 1_000n);
+    const v = decodeContractState(codec, 'loanDirectory', indexerStateHex(dir));
+    expect(v.listings).toHaveLength(2);
+
+    const loan = { borrower: hex(BORROWER_PK), lender: hex(LENDER_PK), status: 'DEFAULTED' as const };
+    const rows = reconcileListings(v, new Map([[hex(LOAN), loan]]));
+    const real = rows.find((r) => r.borrower === hex(BORROWER_PK))!;
+    const squat = rows.find((r) => r.borrower === hex(pubKeyOf(SQUATTER_SK)))!;
+    expect(real).toMatchObject({ matchesLoan: true, status: 'ACTIVE', shown: 'DEFAULTED', fromLoan: true });
+    expect(squat).toMatchObject({ matchesLoan: false, status: 'OPEN', shown: 'OPEN', fromLoan: false });
+    // Unread Loan: no verdict, the listing's own status.
+    expect(reconcileListings(v, new Map())[0]).toMatchObject({ matchesLoan: null, fromLoan: false });
   });
 });
 

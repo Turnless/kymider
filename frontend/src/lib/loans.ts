@@ -74,10 +74,19 @@ export type LoanView = {
   quotesIssued: number;
   quoteLimit: number;
   /**
-   * A tier was proven against the current quote. One proof per quote: another
-   * answer needs a new quote ("already proven against this quote").
+   * The current quote is answered: a tier was proven against it, or the
+   * borrower waived the proof. One answer per quote: another needs a new quote
+   * ("already proven against this quote").
    */
   tierProven: boolean;
+  /** The borrower answered the current quote by waiving the proof (150% route). */
+  proofWaived: boolean;
+  /**
+   * The borrower's proof window is open: a quote is live and unanswered. The
+   * contract refuses a 150% offer and a new quote until the borrower proves,
+   * waives, or the quote lapses ("the borrower can prove until the quote lapses").
+   */
+  proofWindowOpen: boolean;
   tier: TierName;
   tierExpiresAt: bigint;
   /** True while a VERIFIED tier is live at `now`. */
@@ -107,8 +116,21 @@ export type LoanView = {
   factsBound: boolean;
   /** Prior repaid loans proven for this application in the directory (0 or 2). */
   historyProofCount: number;
-  /** The directory's listing status, or null if not listed. */
+  /**
+   * The loan's listing status (the listing under the Loan's own borrower key),
+   * or null if not listed. DEFAULTED comes from the Loan, never the directory
+   * (see `listingFromLoan`).
+   */
   listing: ListingStatusName | null;
+  /** `listing` reads DEFAULTED because the Loan is DEFAULTED; the directory says ACTIVE. */
+  listingFromLoan: boolean;
+  /** The listing names the Loan's own borrower and lender (null if not listed). */
+  listingMatchesLoan: boolean | null;
+  /**
+   * Listings of this loan's address under other keys: someone else listed it.
+   * The directory keeps them in their own slots; the console ignores them.
+   */
+  strayListings: number;
   /** Repayment recorded in the directory (lender-only action, once). */
   recorded: boolean;
   /** First second a default may be called, or null when not disbursed/active. */
@@ -149,8 +171,17 @@ export interface LoanDesk {
   apply(lenderId: string, terms: LoanTerms): Promise<string>;
   /** Prove the committed facts against the quote; returns the recorded tier. */
   proveTier(address: string): Promise<TierName>;
-  /** Make the lender's offer binding (OFFERED -> ACTIVE); returns what was accepted. */
-  accept(address: string): Promise<{ tier: TierName; collateral: bigint }>;
+  /**
+   * Make the lender's offer binding (OFFERED -> ACTIVE), naming the collateral
+   * the borrower was shown; any other figure is refused ("offer changed").
+   * Returns what was accepted.
+   */
+  accept(address: string, expectedCollateral: bigint): Promise<{ tier: TierName; collateral: bigint }>;
+  /**
+   * Answer the quote without proving: the borrower takes 150% and reveals
+   * nothing about the facts; the lender may offer 150% at once.
+   */
+  waiveProof(address: string): Promise<void>;
   /** Turn the offer down (OFFERED -> APPLIED); the lender may offer again. */
   declineOffer(address: string): Promise<void>;
   /** Pay the amount due; returns what was paid. */
@@ -174,13 +205,15 @@ export interface LoanDesk {
   loan(address: string): LoanView | null;
   /**
    * Quote a bar. Refused by the contract while a VERIFIED tier is live ("a
-   * verified tier is live until it lapses") and for a quote that holds less
-   * than 30 minutes ("quote must hold at least 30 minutes").
+   * verified tier is live until it lapses"), while the borrower's proof window
+   * is open ("the borrower can prove until the quote lapses") and for a quote
+   * that holds less than 30 minutes ("quote must hold at least 30 minutes").
    */
   quote(address: string, quote: QuoteRequest): Promise<void>;
   /**
    * Offer the loan at the tier's collateral (status OFFERED). Returns the
-   * offer; it binds only once the borrower accepts.
+   * offer; it binds only once the borrower accepts. Refused before any quote
+   * ("quote first") and, at 150%, while the borrower's proof window is open.
    */
   underwrite(address: string): Promise<{ tier: TierName; collateral: bigint }>;
   /**

@@ -236,7 +236,7 @@ binaries, and the devnet needs Docker.
 | Job | Needs Docker | What it proves |
 |---|---|---|
 | `contracts` | no | The Compact programs compile (the Buildathon technical gate). Caches `compiled/` on the hash of `contracts/**/*.compact` and publishes it as an artifact. |
-| `unit` | no | `typecheck` + the 49 unit and offline contract tests. |
+| `unit` | no | `typecheck` + the 54 unit and offline contract tests (Wave 1; 307 as of Wave 2). |
 | `simulation` | yes | `docker compose up --wait`, DUST accrual, then the two-wallet ZK simulation with real proof generation and network verification. |
 
 This matters if you develop on Windows: Docker Desktop requires Windows 10
