@@ -120,8 +120,17 @@ async function connect(role: string, secret: WalletSecret) {
 console.log(`\n== Kymider on-chain proof: ${network} ==\n`);
 show('Wallets', wallets.source);
 
-const borrowerCtx = await connect('borrower', wallets.borrower);
-const lenderCtx = wallets.lender ? await connect('lender', wallets.lender) : null;
+// Exit explicitly on failure: an open wallet keeps the process alive, and a
+// hung step would hold CI until its timeout.
+let borrowerCtx: Awaited<ReturnType<typeof connect>>;
+let lenderCtx: Awaited<ReturnType<typeof connect>> | null = null;
+try {
+  borrowerCtx = await connect('borrower', wallets.borrower);
+  lenderCtx = wallets.lender ? await connect('lender', wallets.lender) : null;
+} catch (err) {
+  console.error('Could not connect the wallets:', err instanceof Error ? err.message : err);
+  process.exit(1);
+}
 
 // One provider set per wallet (a private-state store opens once per process).
 // With one wallet, both roles share its providers and keep their private
