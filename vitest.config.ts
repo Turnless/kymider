@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { loadEnv } from 'vite';
+import { fileURLToPath } from 'node:url';
 
 // Network-selective test config. Local runs target the Docker devnet
 // (docker-compose.yml); remote runs (preview/preprod) read wallet secrets
@@ -9,6 +10,17 @@ const isRemote = network !== 'local';
 const envFromFile = isRemote ? loadEnv(network, process.cwd(), '') : {};
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      // The console's modules (frontend/src/lib) are tested from here, and
+      // they would otherwise load compact-runtime from frontend/node_modules
+      // while the compiled contracts load the root copy: two runtimes whose
+      // state objects fail each other's type checks. Pin one copy.
+      '@midnight-ntwrk/compact-runtime': fileURLToPath(
+        new URL('./node_modules/@midnight-ntwrk/compact-runtime', import.meta.url),
+      ),
+    },
+  },
   test: {
     environment: 'node',
     globals: true,

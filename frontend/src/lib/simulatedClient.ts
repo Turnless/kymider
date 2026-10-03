@@ -398,6 +398,41 @@ export class SimulatedKymiderClient implements KymiderClient {
     return this.lenderList;
   }
 
+  // --- Wave 2 accessors (the loan desk) -------------------------------------
+  //
+  // The simulated loan desk drives Loan instances as the same wallets this
+  // client already uses, so a lender's or borrower's identity is the same key
+  // in Wave 1 and Wave 2. These hand it those keys and the on-chain commitments
+  // its Loans bind to. Simulation only: a wallet-backed client never holds
+  // anyone else's key.
+
+  /** Secret key of the borrower this browser owns. */
+  borrowerSecretKey(): Uint8Array {
+    return this.mine.ownerSk;
+  }
+
+  /** Secret key of a lender persona, by id. */
+  lenderSecretKey(lenderId: string): Uint8Array | undefined {
+    return this.lenderSk.get(lenderId);
+  }
+
+  /** Dapp public key of a lender persona, by id. */
+  lenderPublicKey(lenderId: string): Uint8Array | undefined {
+    return this.lenderPk.get(lenderId);
+  }
+
+  /** The current on-chain `commitment` of any SolvencyProof instance. */
+  instanceCommitment(address: string): Uint8Array | null {
+    return this.instances.get(address)?.ledger().commitment ?? null;
+  }
+
+  /** The other seeded borrowers: their instance, wallet key and private facts. */
+  otherBorrowers(): Array<{ address: string; sk: Uint8Array; facts: FinancialFacts }> {
+    return [...this.instances.values()]
+      .filter((inst) => inst !== this.mine)
+      .map((inst) => ({ address: inst.address, sk: inst.ownerSk, facts: inst.facts() }));
+  }
+
   // --- borrower side ------------------------------------------------------
 
   facts(): FinancialFacts {
