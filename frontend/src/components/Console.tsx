@@ -9,18 +9,28 @@ import type { ReactNode } from 'react';
  * screen — with the section links scrolling horizontally under the brand.
  */
 
-export type Role = 'borrower' | 'lender';
+export type Role = 'borrower' | 'lender' | 'auditor';
 
 const BORROWER_NAV = [
   { to: '/app/overview', label: 'Overview' },
   { to: '/app/facts', label: 'Private facts' },
   { to: '/app/claims', label: 'Claims' },
+  { to: '/app/loans', label: 'Loans' },
 ];
 
 const LENDER_NAV = [
-  { to: '/app/directory', label: 'Directory' },
+  { to: '/app/applications', label: 'Applications' },
   { to: '/app/portfolio', label: 'Portfolio' },
+  { to: '/app/directory', label: 'Solvency claims' },
 ];
+
+const AUDITOR_NAV = [{ to: '/app/audit', label: 'Verify a history' }];
+
+const HOME: Record<Role, string> = {
+  borrower: '/app/overview',
+  lender: '/app/applications',
+  auditor: '/app/audit',
+};
 
 export function Console({
   role,
@@ -34,23 +44,23 @@ export function Console({
   surface?: 'cream' | 'sand';
 }) {
   const navigate = useNavigate();
-  const nav = role === 'borrower' ? BORROWER_NAV : LENDER_NAV;
+  const nav = role === 'borrower' ? BORROWER_NAV : role === 'lender' ? LENDER_NAV : AUDITOR_NAV;
 
   const switchTo = (next: Role) => {
     onRole(next);
-    navigate(next === 'borrower' ? '/app/overview' : '/app/directory');
+    navigate(HOME[next]);
   };
 
   const roleToggle = (
     <div className="flex rounded-[10px] bg-[rgba(255,247,235,0.07)] p-[3px]">
-      {(['borrower', 'lender'] as const).map((r) => (
+      {(['borrower', 'lender', 'auditor'] as const).map((r) => (
         <button
           key={r}
           type="button"
           onClick={() => switchTo(r)}
           aria-pressed={role === r}
           className={[
-            'flex-1 rounded-[8px] px-3 py-[6px] text-[11px] font-semibold capitalize transition-colors',
+            'flex-1 rounded-[8px] px-[3px] py-[6px] text-[10px] font-semibold capitalize tracking-[-0.01em] transition-colors',
             role === r
               ? 'bg-cream text-espresso'
               : 'text-[rgba(255,247,235,0.5)] hover:text-[rgba(255,247,235,0.8)]',

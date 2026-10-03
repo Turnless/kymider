@@ -470,7 +470,7 @@ function DeskHero({
               {pending ? 'Submitting…' : `Ask for 150% anyway · ${desk$(l.collateralIfStandard)}`}
             </button>
             <p className="mt-[6px] text-center text-[10px] text-[rgba(255,247,235,0.4)]">
-              Try it. The transaction is built and submitted; the contract decides.
+              Try it. The call runs through the compiled contract, and the contract decides.
             </p>
           </>
         )}

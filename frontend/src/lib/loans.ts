@@ -6,7 +6,8 @@
  * `LoanDirectory` contracts in the browser, so every refusal a screen shows is
  * the contract's own assert message, word for word.
  *
- * Amounts are minor units (bigint). Times are block time in seconds since the
+ * Amounts are whole currency units (bigint), as the Wave 1 screens show them.
+ * Times are block time in seconds since the
  * Unix epoch; the simulated desk owns its block clock (`now`, `advanceTime`)
  * so a demo can step past a due date or a grace period on purpose.
  */
@@ -138,7 +139,7 @@ export interface LoanDesk {
   disclose(address: string): AuditDisclosure;
 
   // --- lender -------------------------------------------------------------
-  /** Loans naming the lender persona (`KymiderClient.me()`), newest first. */
+  /** Loans naming the lender persona (`KymiderClient.me()`, Harbor Bank), newest first. */
   applications(): LoanView[];
   /** Any loan by address, whoever its parties are. */
   loan(address: string): LoanView | null;
