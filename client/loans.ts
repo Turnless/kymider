@@ -48,6 +48,7 @@ import { computeSolvency, type ClaimParams, type FinancialFacts } from './proof/
 import {
   amountDue,
   collateralFor,
+  commitFacts,
   defaultableFrom,
   installmentFor,
   nowSeconds,
@@ -96,18 +97,22 @@ export class LoanClient {
 
   // Borrower: open a loan with one named lender. `commitment` is the public
   // commitment of the borrower's SolvencyProof instance; every tier proof in
-  // this loan is checked against it. The history seed is fresh per loan and
-  // stays in this wallet's private-state store.
+  // this loan is checked against it. `factsSalt` is the salt that commitment
+  // was blinded with (KymiderClient.factsOpening): it stays in this wallet's
+  // private-state store and reaches proveTier through the `factsSalt` witness.
+  // The history seed is fresh per loan and stays there too.
   async deployLoan(args: {
     sk: Uint8Array;
     lenderPk: Uint8Array;
     terms: LoanTerms;
     commitment: Uint8Array;
+    factsSalt: Uint8Array;
     historySeed?: Uint8Array;
   }): Promise<ContractAddress> {
     const privateState = createLoanPrivateState(
       args.sk,
       args.historySeed ?? new Uint8Array(randomBytes(32)),
+      args.factsSalt,
     );
     const deployed = await deployContract<LoanContract>(this.providers.loan, {
       compiledContract: CompiledLoanContract,
@@ -154,7 +159,13 @@ export class LoanClient {
   // --- lender -------------------------------------------------------------
 
   // Name the bar for the 110% tier and how long a proof against it holds.
+  // A loan takes at most quoteLimit() quotes; checked here first so the caller
+  // gets the contract's answer without spending a proof on it.
   async quote(loan: ContractAddress, quote: Quote): Promise<bigint> {
+    const { quotesIssued } = await this.loanState(loan);
+    if (quotesIssued >= loanPureCircuits.quoteLimit()) {
+      throw new Error('quote limit reached');
+    }
     const expiresAt = nowSeconds() + quote.ttlSeconds;
     await this.callLoan(loan, 'quoteTerms', [quote.thresholdNetWorth, quote.maxDti, expiresAt]);
     return expiresAt;
@@ -199,9 +210,17 @@ export class LoanClient {
   // --- borrower -----------------------------------------------------------
 
   // Prove the committed facts against the lender's quote. The facts are
-  // circuit inputs for the proof only; the verdict is what reaches the chain.
+  // circuit inputs for the proof only, and the salt comes from private state
+  // through the `factsSalt` witness; the verdict is what reaches the chain.
+  // Once per quote. Both refusals are checked locally first, with the
+  // contract's own words, so a doomed proof is never generated.
   async proveTier(loan: ContractAddress, facts: FinancialFacts): Promise<Tier> {
-    const { quote } = await this.loanState(loan);
+    const { quote, tierProven, factsCommitment } = await this.loanState(loan);
+    if (tierProven) throw new Error('already proven against this quote');
+    const { factsSalt } = await this.requireLoanPrivateState(loan);
+    if (!bytesEqual(commitFacts(facts, factsSalt), factsCommitment)) {
+      throw new Error('facts do not match committed facts');
+    }
     const local = computeSolvency(facts, quote);
     this.logger.info(`Local verdict for ${loan}: ${local}`);
     await this.callLoan(loan, 'proveTier', [facts.balance, facts.debts, facts.income]);
@@ -347,6 +366,16 @@ export class LoanClient {
       args: args as LoanDirectoryCircuitArgs[LoanDirectoryCircuits],
     });
     emitReceipt(this.onTx, 'LoanDirectory', directory, circuitId, finalized.public);
+  }
+
+  private async requireLoanPrivateState(loan: ContractAddress): Promise<LoanPrivateState> {
+    const provider = this.providers.loan.privateStateProvider;
+    provider.setContractAddress(loan);
+    const state: LoanPrivateState | null = await provider.get(this.loanPrivateStateId);
+    if (!state) {
+      throw new Error(`no Loan private state for ${loan}: call deployLoan or bindLoanPrivateState first`);
+    }
+    return state;
   }
 
   private async requireDirectoryPrivateState(directory: ContractAddress): Promise<LoanDirectoryPrivateState> {

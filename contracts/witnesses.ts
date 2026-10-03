@@ -5,6 +5,11 @@
 // here; the borrower's financial facts are held here too and passed into
 // circuits as private witness inputs (they never leave the machine).
 //
+// The facts commitment is salted (contracts/loanMath.ts#commitFacts). The salt
+// is 32 random bytes kept beside the facts it blinds, and it reaches circuits
+// only through the `factsSalt` witness. Facts and salt are one opening: they
+// are written together and never one without the other.
+//
 // Pattern adapted from midnightntwrk/example-battleship (Apache-2.0).
 
 import {
@@ -18,13 +23,37 @@ import type { Ledger as RegistryLedger } from '../compiled/registry/contract/ind
 import type { Ledger as LoanLedger } from '../compiled/loan/contract/index.js';
 import type { Ledger as LoanDirectoryLedger } from '../compiled/loan-directory/contract/index.js';
 
-// --- SolvencyProof --------------------------------------------------------
+// --- facts salt -----------------------------------------------------------
 
-export type SolvencyPrivateState = {
+/** A fresh 32-byte blinding salt. Web Crypto, so the console can use it too. */
+export const freshFactsSalt = (): Uint8Array => globalThis.crypto.getRandomValues(new Uint8Array(32));
+
+/**
+ * The salt of a party that never commits facts (a lender acting on someone
+ * else's SolvencyProof or Loan). The contracts refuse it as a commitment salt
+ * ("facts salt must be set"), so it cannot blind a borrower's facts by mistake.
+ */
+export const NO_FACTS_SALT: Uint8Array = new Uint8Array(32);
+
+// --- SolvencyProof --------------------------------------------------------
+//
+// `salt` blinds the CURRENT commitment. Re-committing (updateFacts) uses a new
+// salt, and the client stages the new facts and salt here BEFORE it submits,
+// because `factsSalt` is read while the circuit runs. `previous` holds the
+// opening being replaced until the new commitment is confirmed on-chain, so a
+// transaction that fails, or a process that dies mid-update, can be put right
+// by comparing both openings with the ledger (KymiderClient.updateFacts).
+
+export type FactsOpening = {
   balance: bigint;
   debts: bigint;
   income: bigint;
+  salt: Uint8Array;
+};
+
+export type SolvencyPrivateState = FactsOpening & {
   sk: Uint8Array;
+  previous?: FactsOpening;
 };
 
 export const createSolvencyPrivateState = (
@@ -32,13 +61,18 @@ export const createSolvencyPrivateState = (
   debts: bigint,
   income: bigint,
   sk: Uint8Array,
-): SolvencyPrivateState => ({ balance, debts, income, sk });
+  salt: Uint8Array,
+): SolvencyPrivateState => ({ balance, debts, income, sk, salt });
 
 export const solvencyWitnesses = {
   localSk: ({ privateState }: WitnessContext<SolvencyLedger, SolvencyPrivateState>): [
     SolvencyPrivateState,
     Uint8Array,
   ] => [privateState, privateState.sk],
+  factsSalt: ({ privateState }: WitnessContext<SolvencyLedger, SolvencyPrivateState>): [
+    SolvencyPrivateState,
+    Uint8Array,
+  ] => [privateState, privateState.salt],
 };
 
 // --- Registry -------------------------------------------------------------
@@ -71,15 +105,25 @@ export const registryWitnesses = {
 // before it asks for the nonce, so a counter-keyed nonce would depend on the
 // statement order inside the circuit. The head is written only after the nonce
 // is folded in, so every view of the ledger agrees on it.
+//
+// `factsSalt` is the salt of the opening this loan's `factsCommitment` was
+// built from (the borrower's SolvencyProof salt at the time the loan was
+// opened). A lender's is NO_FACTS_SALT and never read.
 
 export type LoanPrivateState = {
   sk: Uint8Array;
   historySeed: Uint8Array;
+  factsSalt: Uint8Array;
 };
 
-export const createLoanPrivateState = (sk: Uint8Array, historySeed: Uint8Array): LoanPrivateState => ({
+export const createLoanPrivateState = (
+  sk: Uint8Array,
+  historySeed: Uint8Array,
+  factsSalt: Uint8Array,
+): LoanPrivateState => ({
   sk,
   historySeed,
+  factsSalt,
 });
 
 // Compact's pad(32, s): the UTF-8 bytes of s, zero-filled to 32.
@@ -106,6 +150,10 @@ export const loanWitnesses = {
     LoanPrivateState,
     Uint8Array,
   ] => [privateState, loanPaymentNonce(privateState.historySeed, ledger.historyCommitment)],
+  factsSalt: ({ privateState }: WitnessContext<LoanLedger, LoanPrivateState>): [
+    LoanPrivateState,
+    Uint8Array,
+  ] => [privateState, privateState.factsSalt],
 };
 
 // --- LoanDirectory --------------------------------------------------------

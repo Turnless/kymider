@@ -42,10 +42,12 @@ import {
   createLoanPrivateState,
   createRegistryPrivateState,
   createSolvencyPrivateState,
+  freshFactsSalt,
   loanDirectoryWitnesses,
   loanWitnesses,
   registryWitnesses,
   solvencyWitnesses,
+  type FactsOpening,
   type LoanDirectoryPrivateState,
   type LoanPrivateState,
   type RegistryPrivateState,
@@ -62,6 +64,13 @@ export const pubKeyOf = (sk: Uint8Array): Uint8Array => solvencyPureCircuits.get
 export const skFrom = (fill: number): Uint8Array => new Uint8Array(32).fill(fill);
 
 /**
+ * The facts salt the simulators use unless told otherwise. Fixed, so two
+ * simulators over the same facts publish the same commitment and a Loan can be
+ * bound to it; the salt-specific tests pass their own.
+ */
+export const TEST_SALT: Uint8Array = new Uint8Array(32).fill(0x5a);
+
+/**
  * A single deployed SolvencyProof instance, driven offline.
  *
  * `as(sk)` switches which wallet is making the next call: the caller identity
@@ -73,13 +82,14 @@ export class SolvencySimulator {
   private readonly contract: SolvencyProofContract<SolvencyPrivateState>;
   private ctx: CircuitContext<SolvencyPrivateState>;
 
-  constructor(facts: FinancialFacts, ownerSk: Uint8Array) {
+  constructor(facts: FinancialFacts, ownerSk: Uint8Array, salt: Uint8Array = TEST_SALT) {
     this.contract = new SolvencyProofContract<SolvencyPrivateState>(solvencyWitnesses);
     const initialPrivateState = createSolvencyPrivateState(
       facts.balance,
       facts.debts,
       facts.income,
       ownerSk,
+      salt,
     );
     const { currentContractState, currentPrivateState } = this.contract.initialState(
       createConstructorContext(initialPrivateState, COIN_PUBLIC_KEY),
@@ -105,9 +115,21 @@ export class SolvencySimulator {
     return { balance, debts, income };
   }
 
+  /** The private opening of the current commitment: facts and salt. */
+  opening(): FactsOpening {
+    const { balance, debts, income, salt } = this.ctx.currentPrivateState;
+    return { balance, debts, income, salt };
+  }
+
   /** Make the next call as the wallet holding `sk`. */
   as(sk: Uint8Array): this {
     this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, sk } };
+    return this;
+  }
+
+  /** Overwrite the salt in private state (to model a client that lost or garbled it). */
+  withSalt(salt: Uint8Array): this {
+    this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, salt } };
     return this;
   }
 
@@ -117,26 +139,30 @@ export class SolvencySimulator {
   }
 
   /**
-   * Commit new facts. Mirrors KymiderClient.updateFacts: the facts are circuit
-   * ARGUMENTS, so the private state must be written back by the caller or the
-   * next proof is built on stale facts.
+   * Commit new facts under a new salt (fresh unless given). Mirrors
+   * KymiderClient.updateFacts: the `factsSalt` witness is read while the
+   * circuit runs, so the new facts and salt are staged in private state BEFORE
+   * the call. A refused call throws before `ctx` is replaced, so the old
+   * opening stays in place.
    */
-  updateFacts(facts: FinancialFacts): this {
+  updateFacts(facts: FinancialFacts, salt: Uint8Array = freshFactsSalt()): this {
+    const staged: CircuitContext<SolvencyPrivateState> = {
+      ...this.ctx,
+      currentPrivateState: {
+        ...this.ctx.currentPrivateState,
+        balance: facts.balance,
+        debts: facts.debts,
+        income: facts.income,
+        salt,
+      },
+    };
     const { context } = this.contract.impureCircuits.updateFacts(
-      this.ctx,
+      staged,
       facts.balance,
       facts.debts,
       facts.income,
     );
-    this.ctx = {
-      ...context,
-      currentPrivateState: {
-        ...context.currentPrivateState,
-        balance: facts.balance,
-        debts: facts.debts,
-        income: facts.income,
-      },
-    };
+    this.ctx = context;
     return this;
   }
 
@@ -249,10 +275,11 @@ export class LoanSimulator {
     terms: LoanTerms,
     commitment: Uint8Array,
     historySeed: Uint8Array,
+    factsSalt: Uint8Array = TEST_SALT,
   ) {
     this.contract = new LoanContract<LoanPrivateState>(loanWitnesses);
     const { currentContractState, currentPrivateState } = this.contract.initialState(
-      createConstructorContext(createLoanPrivateState(borrowerSk, historySeed), COIN_PUBLIC_KEY),
+      createConstructorContext(createLoanPrivateState(borrowerSk, historySeed, factsSalt), COIN_PUBLIC_KEY),
       lenderPk,
       terms,
       commitment,
@@ -273,6 +300,12 @@ export class LoanSimulator {
   /** Make the next call as the wallet holding `sk`. */
   as(sk: Uint8Array): this {
     this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, sk } };
+    return this;
+  }
+
+  /** Overwrite the facts salt the `factsSalt` witness hands the circuit. */
+  withFactsSalt(factsSalt: Uint8Array): this {
+    this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, factsSalt } };
     return this;
   }
 

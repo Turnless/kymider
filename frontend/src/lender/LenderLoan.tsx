@@ -159,7 +159,14 @@ function DeskLoan({ address }: { address: string }) {
                 </DeskNotice>
               )}
 
-              <p className="label-dark mb-3">1 · Quote the 110% bar</p>
+              <div className="mb-3 flex items-baseline justify-between gap-3">
+                <p className="label-dark">1 · Quote the 110% bar</p>
+                <p className="tnum text-[11px] text-[rgba(255,247,235,0.5)]">
+                  {l.quotesIssued === 0
+                    ? `Up to ${l.quoteLimit} quotes`
+                    : `Quote ${l.quotesIssued} of ${l.quoteLimit}`}
+                </p>
+              </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <DeskTerm
                   label="Minimum net worth"
@@ -185,6 +192,7 @@ function DeskLoan({ address }: { address: string }) {
                 You receive a tier, not the figures. A proof lapses when the quote does.
                 {l.quote !== null &&
                   ' Quoting again replaces the bar and clears any tier proven against the old one.'}
+                {` Each quote asks the borrower's facts one yes/no question, so the contract allows ${l.quoteLimit} per loan and one proof per quote.`}
               </p>
               <button
                 type="button"

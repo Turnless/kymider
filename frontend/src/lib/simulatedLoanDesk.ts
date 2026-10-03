@@ -53,9 +53,10 @@ import {
   type LoanDirectoryLedger,
   type LoanDirectoryPrivateState,
   type LoanLedger,
+  type FactsOpening,
   type LoanPrivateState,
 } from './contracts';
-import type { FinancialFacts, Lender } from './client';
+import type { Lender } from './client';
 import type {
   AuditDisclosure,
   AuditVerdict,
@@ -78,6 +79,8 @@ const HOUR = 3_600n;
 const STATUS_NAMES: readonly LoanStatusName[] = ['APPLIED', 'ACTIVE', 'REPAID', 'DEFAULTED', 'DECLINED'];
 const TIER_NAMES: readonly TierName[] = ['NONE', 'VERIFIED', 'STANDARD'];
 const LISTING_NAMES: readonly ListingStatusName[] = ['OPEN', 'ACTIVE', 'REPAID', 'DEFAULTED', 'CLOSED'];
+/** The contract's own cap on quotes per loan (an exported pure circuit). */
+const QUOTE_LIMIT = Number(loanPureCircuits.quoteLimit());
 
 const hex = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 const hex0x = (b: Uint8Array): string => '0x' + hex(b);
@@ -133,8 +136,13 @@ type DeskLoan = {
   borrowerSk: Uint8Array;
   /** The borrower's SolvencyProof instance the facts commitment came from. */
   solvencyInstance: string;
-  /** The borrower's private facts, read at proof time. */
-  facts: () => FinancialFacts;
+  /**
+   * The borrower's private facts and salt, read at proof time. The loan's own
+   * private state keeps the salt its commitment was bound with at deploy; if
+   * the borrower has re-committed since, the two differ and the contract
+   * refuses the proof, as it would on-chain.
+   */
+  opening: () => FactsOpening;
   /** The borrower's private payment log. */
   payments: Payment[];
   /** Block time the loan was applied for; orders the lists. */
@@ -315,7 +323,7 @@ export class SimulatedLoanDesk implements LoanDesk {
   private deploy(
     borrowerSk: Uint8Array,
     solvencyInstance: string,
-    facts: () => FinancialFacts,
+    opening: () => FactsOpening,
     lenderPk: Uint8Array,
     terms: LoanTerms,
   ): DeskLoan {
@@ -324,7 +332,10 @@ export class SimulatedLoanDesk implements LoanDesk {
     const contract = new LoanContract<LoanPrivateState>(loanWitnesses);
     const { currentContractState, currentPrivateState } = attempt(() =>
       contract.initialState(
-        createConstructorContext(createLoanPrivateState(borrowerSk, randomSeed()), COIN_PUBLIC_KEY),
+        createConstructorContext(
+          createLoanPrivateState(borrowerSk, randomSeed(), opening().salt),
+          COIN_PUBLIC_KEY,
+        ),
         lenderPk,
         { ...terms },
         commitment,
@@ -341,7 +352,7 @@ export class SimulatedLoanDesk implements LoanDesk {
       ctx: createCircuitContext(address, COIN_PUBLIC_KEY, currentContractState, currentPrivateState),
       borrowerSk,
       solvencyInstance,
-      facts,
+      opening,
       payments: [],
       openedAt: this.clock,
       seq: this.seq++,
@@ -356,7 +367,9 @@ export class SimulatedLoanDesk implements LoanDesk {
   }
 
   private doProveTier(loan: DeskLoan): TierName {
-    const f = loan.facts();
+    // The facts go in as arguments; the salt is read by the `factsSalt`
+    // witness from the loan's private state.
+    const f = loan.opening();
     this.run(loan, loan.borrowerSk, (c, ctx) => c.proveTier(ctx, f.balance, f.debts, f.income));
     return TIER_NAMES[this.ledgerOf(loan).tier];
   }
@@ -431,7 +444,7 @@ export class SimulatedLoanDesk implements LoanDesk {
     };
     const me = this.meLender();
     const myAddress = this.client.myAddress();
-    const myFacts = () => this.client.facts();
+    const myFacts = () => this.client.factsOpening();
     const borrowerSk = this.client.borrowerSecretKey();
 
     // --- the borrower's history: two loans, two lenders, both repaid -------
@@ -483,7 +496,7 @@ export class SimulatedLoanDesk implements LoanDesk {
     const others = this.client.otherBorrowers();
     const other = (i: number) => {
       const o = others[i % others.length];
-      return { sk: o.sk, address: o.address, facts: () => o.facts };
+      return { sk: o.sk, address: o.address, facts: () => o.opening };
     };
 
     // REPAID at 150%: never proved a tier. Not yet recorded in the directory,
@@ -608,6 +621,9 @@ export class SimulatedLoanDesk implements LoanDesk {
       quote: led.quoted
         ? { thresholdNetWorth: led.quote.thresholdNetWorth, maxDti: led.quote.maxDti, expiresAt: led.quote.expiresAt }
         : null,
+      quotesIssued: Number(led.quotesIssued),
+      quoteLimit: QUOTE_LIMIT,
+      tierProven: led.tierProven,
       tier: TIER_NAMES[led.tier],
       tierExpiresAt: led.tierExpiresAt,
       tierLive: tierIsLive(led, now),
@@ -654,7 +670,7 @@ export class SimulatedLoanDesk implements LoanDesk {
     const loan = this.deploy(
       this.client.borrowerSecretKey(),
       this.client.myAddress(),
-      () => this.client.facts(),
+      () => this.client.factsOpening(),
       pk,
       terms,
     );

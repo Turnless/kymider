@@ -32,7 +32,12 @@ import {
   readDeploymentState,
   writeDeploymentState,
 } from './state.js';
-import { createRegistryPrivateState, createSolvencyPrivateState } from '../contracts/witnesses.js';
+import {
+  NO_FACTS_SALT,
+  createRegistryPrivateState,
+  createSolvencyPrivateState,
+  freshFactsSalt,
+} from '../contracts/witnesses.js';
 import { AttestationStatus, ClaimStatus } from '../contracts/index.js';
 import { bytesToHex } from './utils.js';
 
@@ -57,7 +62,10 @@ const show = (label: string, value: unknown): void =>
 
 const config = getConfig();
 const prior = readDeploymentState(config.networkId);
-const FACTS = prior ? factsFromState(prior) : DEFAULT_FACTS;
+// The facts and the salt that blinds their commitment: restored together, or
+// a fresh salt for a fresh deployment.
+const OPENING = prior ? factsFromState(prior) : { ...DEFAULT_FACTS, salt: freshFactsSalt() };
+const { salt: _salt, ...FACTS } = OPENING;
 
 console.log('\n== Kymider Wave 1 demo — proof of solvency ==\n');
 console.log(
@@ -89,19 +97,19 @@ if (prior) {
   // the chain: it restores the private state a previous process wrote.
   await borrower.bindSolvencyPrivateState(
     solvencyAddress,
-    createSolvencyPrivateState(FACTS.balance, FACTS.debts, FACTS.income, borrowerSk),
+    createSolvencyPrivateState(FACTS.balance, FACTS.debts, FACTS.income, borrowerSk, OPENING.salt),
   );
   await borrower.bindRegistryPrivateState(registryAddress, createRegistryPrivateState(borrowerSk));
 } else {
   console.log('\n--- borrower: deploy + register ---');
   registryAddress = await borrower.deployRegistry(borrowerSk);
-  solvencyAddress = await borrower.deploySolvencyProof(FACTS, borrowerSk);
+  solvencyAddress = await borrower.deploySolvencyProof(FACTS, borrowerSk, OPENING.salt);
   await borrower.registerWithRegistry(registryAddress, solvencyAddress);
   await writeDeploymentState({
     network: config.networkId,
     solvencyAddress,
     registryAddress,
-    facts: factsToState(FACTS),
+    facts: factsToState(FACTS, OPENING.salt),
   });
 }
 
@@ -115,7 +123,7 @@ const lenderPubKey = lender.solvencyPubKeyOf(lenderSk);
 await borrower.authorizeLender(solvencyAddress, lenderPubKey);
 await lender.bindSolvencyPrivateState(
   solvencyAddress,
-  createSolvencyPrivateState(0n, 0n, 0n, lenderSk),
+  createSolvencyPrivateState(0n, 0n, 0n, lenderSk, NO_FACTS_SALT),
 );
 await lender.requestClaim(solvencyAddress, CLAIM);
 show('Lender pubkey', `${bytesToHex(lenderPubKey).slice(0, 16)}...`);

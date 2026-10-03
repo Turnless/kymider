@@ -34,9 +34,11 @@ import {
   writeLoanState,
 } from './state.js';
 import {
+  NO_FACTS_SALT,
   createLoanDirectoryPrivateState,
   createLoanPrivateState,
   createSolvencyPrivateState,
+  freshFactsSalt,
 } from '../contracts/witnesses.js';
 import { ListingStatus, Tier } from '../contracts/index.js';
 import { collateralFor } from './proof/loanMath.js';
@@ -64,7 +66,11 @@ const show = (label: string, value: unknown): void =>
 const config = getConfig();
 const priorSolvency = readDeploymentState(config.networkId);
 const priorLoans = readLoanState(config.networkId);
-const FACTS = priorSolvency ? factsFromState(priorSolvency) : DEFAULT_FACTS;
+// The facts and the salt that blinds their commitment, restored together.
+const OPENING = priorSolvency
+  ? factsFromState(priorSolvency)
+  : { ...DEFAULT_FACTS, salt: freshFactsSalt() };
+const { salt: _salt, ...FACTS } = OPENING;
 
 console.log('\n== Kymider Wave 2 demo — a loan at 110% collateral ==\n');
 
@@ -89,17 +95,17 @@ if (priorSolvency) {
   solvencyAddress = priorSolvency.solvencyAddress;
   await solvency.bindSolvencyPrivateState(
     solvencyAddress,
-    createSolvencyPrivateState(FACTS.balance, FACTS.debts, FACTS.income, borrowerSk),
+    createSolvencyPrivateState(FACTS.balance, FACTS.debts, FACTS.income, borrowerSk, OPENING.salt),
   );
 } else {
-  solvencyAddress = await solvency.deploySolvencyProof(FACTS, borrowerSk);
+  solvencyAddress = await solvency.deploySolvencyProof(FACTS, borrowerSk, OPENING.salt);
   const registryAddress = await solvency.deployRegistry(borrowerSk);
   await solvency.registerWithRegistry(registryAddress, solvencyAddress);
   await writeDeploymentState({
     network: config.networkId,
     solvencyAddress,
     registryAddress,
-    facts: factsToState(FACTS),
+    facts: factsToState(FACTS, OPENING.salt),
   });
 }
 show('SolvencyProof instance (facts committed)', solvencyAddress);
@@ -121,13 +127,14 @@ show('LoanDirectory', directory);
 
 console.log('\n--- borrower: open a loan bound to the committed facts, and list it ---');
 const commitment = (await solvency.solvencyState(solvencyAddress)).commitment;
-const loan = await borrower.deployLoan({ sk: borrowerSk, lenderPk, terms: TERMS, commitment });
+const { salt: factsSalt } = await solvency.factsOpening(solvencyAddress);
+const loan = await borrower.deployLoan({ sk: borrowerSk, lenderPk, terms: TERMS, commitment, factsSalt });
 await borrower.listLoan(directory, loan);
 show('Loan instance', loan);
 show('Principal', TERMS.principal);
 
 console.log('\n--- lender: check the binding, then quote ---');
-await lender.bindLoanPrivateState(loan, createLoanPrivateState(lenderSk, new Uint8Array(32)));
+await lender.bindLoanPrivateState(loan, createLoanPrivateState(lenderSk, new Uint8Array(32), NO_FACTS_SALT));
 show('Facts match the SolvencyProof instance', await lender.factsMatchSolvencyProof(loan, solvencyAddress));
 await lender.quote(loan, QUOTE);
 show('Bar: net worth >= / DTI <= (%)', `${QUOTE.thresholdNetWorth} / ${QUOTE.maxDti}`);

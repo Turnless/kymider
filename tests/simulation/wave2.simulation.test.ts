@@ -19,7 +19,11 @@ import type { ContractAddress } from '@midnight-ntwrk/midnight-js-protocol/compa
 import { buildProviders } from '../../client/providers.js';
 import { KymiderClient } from '../../client/index.js';
 import { LoanClient } from '../../client/loans.js';
-import { createLoanDirectoryPrivateState, createLoanPrivateState } from '../../contracts/witnesses.js';
+import {
+  NO_FACTS_SALT,
+  createLoanDirectoryPrivateState,
+  createLoanPrivateState,
+} from '../../contracts/witnesses.js';
 import { ListingStatus, LoanStatus, Tier } from '../../contracts/index.js';
 import type { MidnightWalletProvider } from '../../client/wallet.js';
 import { connectRoles, logger, network } from './support/wallets.js';
@@ -54,14 +58,17 @@ describe(`Kymider Wave 2 simulation (${network})`, () => {
   // the lender's client binds that identity to it.
   const openLoan = async (lenderSk: Uint8Array, terms: typeof TERMS_A): Promise<ContractAddress> => {
     const commitment = (await solvency.solvencyState(solvencyAddress)).commitment;
+    // The salt that blinds the commitment, from the borrower's private state.
+    const { salt: factsSalt } = await solvency.factsOpening(solvencyAddress);
     const loan = await borrower.deployLoan({
       sk: borrowerSk,
       lenderPk: lender.pubKeyOf(lenderSk),
       terms,
       commitment,
+      factsSalt,
     });
     await borrower.listLoan(directory, loan);
-    await lender.bindLoanPrivateState(loan, createLoanPrivateState(lenderSk, new Uint8Array(32)));
+    await lender.bindLoanPrivateState(loan, createLoanPrivateState(lenderSk, new Uint8Array(32), NO_FACTS_SALT));
     return loan;
   };
 
@@ -111,6 +118,12 @@ describe(`Kymider Wave 2 simulation (${network})`, () => {
   it('a verified borrower is underwritten at 110%', async () => {
     await lender.quote(loanA, QUOTE);
     expect(await borrower.proveTier(loanA, FACTS)).toBe(Tier.VERIFIED);
+    expect((await borrower.loanState(loanA)).quotesIssued).toBe(1n);
+    // One proof per quote. Called through the raw submission path, past the
+    // client's own pre-check, so the refusal is the circuit's.
+    await expect(
+      borrower.callLoan(loanA, 'proveTier', [FACTS.balance, FACTS.debts, FACTS.income]),
+    ).rejects.toThrow();
 
     const { tier, collateral } = await lender.underwrite(loanA);
     expect(tier).toBe(Tier.VERIFIED);
