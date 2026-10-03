@@ -55,6 +55,7 @@ import {
   tierIsLive,
 } from './proof/loanMath.js';
 import { bytesEqual } from './utils.js';
+import { DEPLOY_CIRCUIT, emitReceipt, type TxSink } from './txlog.js';
 
 export const LOAN_PRIVATE_STATE_ID = 'loan';
 export const LOAN_DIRECTORY_PRIVATE_STATE_ID = 'loan-directory';
@@ -81,6 +82,9 @@ export class LoanClient {
     readonly providers: KymiderProviders,
     private readonly loanPrivateStateId: string = LOAN_PRIVATE_STATE_ID,
     private readonly directoryPrivateStateId: string = LOAN_DIRECTORY_PRIVATE_STATE_ID,
+    // Optional receipt sink: called once per finalized transaction this
+    // client submits (deploys included) with its public tx data. See txlog.ts.
+    private readonly onTx?: TxSink,
   ) {}
 
   // Same salt as every Kymider contract, so one key is one identity throughout.
@@ -112,6 +116,7 @@ export class LoanClient {
       args: [args.lenderPk, args.terms, args.commitment],
     });
     const address = deployed.deployTxData.public.contractAddress;
+    emitReceipt(this.onTx, 'Loan', address, DEPLOY_CIRCUIT, deployed.deployTxData.public);
     await this.bindLoanPrivateState(address, privateState);
     this.logger.info(`Loan instance deployed at ${address}`);
     return address;
@@ -125,6 +130,7 @@ export class LoanClient {
       initialPrivateState: privateState,
     });
     const address = deployed.deployTxData.public.contractAddress;
+    emitReceipt(this.onTx, 'LoanDirectory', address, DEPLOY_CIRCUIT, deployed.deployTxData.public);
     await this.bindLoanDirectoryPrivateState(address, privateState);
     this.logger.info(`LoanDirectory deployed at ${address}`);
     return address;
@@ -317,13 +323,14 @@ export class LoanClient {
     args: LoanCircuitArgs[K],
   ): Promise<void> {
     this.providers.loan.privateStateProvider.setContractAddress(loan);
-    await submitCallTx<LoanContract, LoanCircuits>(this.providers.loan, {
+    const finalized = await submitCallTx<LoanContract, LoanCircuits>(this.providers.loan, {
       compiledContract: CompiledLoanContract,
       contractAddress: loan,
       privateStateId: this.loanPrivateStateId,
       circuitId,
       args: args as LoanCircuitArgs[LoanCircuits],
     });
+    emitReceipt(this.onTx, 'Loan', loan, circuitId, finalized.public);
   }
 
   async callDirectory<K extends LoanDirectoryCircuits>(
@@ -332,13 +339,14 @@ export class LoanClient {
     args: LoanDirectoryCircuitArgs[K],
   ): Promise<void> {
     this.providers.loanDirectory.privateStateProvider.setContractAddress(directory);
-    await submitCallTx<LoanDirectoryContract, LoanDirectoryCircuits>(this.providers.loanDirectory, {
+    const finalized = await submitCallTx<LoanDirectoryContract, LoanDirectoryCircuits>(this.providers.loanDirectory, {
       compiledContract: CompiledLoanDirectoryContract,
       contractAddress: directory,
       privateStateId: this.directoryPrivateStateId,
       circuitId,
       args: args as LoanDirectoryCircuitArgs[LoanDirectoryCircuits],
     });
+    emitReceipt(this.onTx, 'LoanDirectory', directory, circuitId, finalized.public);
   }
 
   private async requireDirectoryPrivateState(directory: ContractAddress): Promise<LoanDirectoryPrivateState> {
