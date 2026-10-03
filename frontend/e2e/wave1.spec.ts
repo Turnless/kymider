@@ -61,17 +61,21 @@ test('facts → claim → prove → approve', async ({ page }) => {
   await button(desk, 'Approve application').click();
   await expect(desk).toContainText('Application approved');
 
-  // A second round on new terms. In the simulation the borrower's answer to
-  // a lender's request is proved as part of the request, so the verdict is
-  // on the desk straight away; the borrower's Claims screen shows the same.
+  // A second round on new terms. The request goes on the ledger and waits:
+  // only the borrower, on their own machine, can answer it with a proof.
   await button(desk, 'Underwrite again').click();
   await desk.getByRole('textbox').first().fill('850,000');
   await desk.getByRole('textbox').nth(1).fill('32');
   await button(desk, 'Request claim').click();
-  await expect(desk).toContainText('Step 3 of 3');
+  await expect(desk).toContainText('Step 2 of 3');
+  await expect(desk).toContainText("Waiting for the borrower's proof");
 
   await switchRole(page, 'borrower');
   await nav(page, 'Claims');
+  const again = page.locator('section.card-dark', { hasText: 'Awaiting your proof' });
+  await expect(again).toContainText('Net worth ≥ $850,000 · DTI ≤ 32%');
+  await button(again, 'Generate proof').click();
+  await expect(again).toHaveCount(0);
   const harbor = page.getByRole('row', { name: /Harbor Bank/ });
   await expect(harbor).toContainText('Net worth ≥ $850,000 · DTI ≤ 32%');
   await expect(harbor).toContainText('Pass');
