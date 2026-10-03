@@ -69,3 +69,45 @@ export function factsToState(facts: FinancialFacts): DeploymentState['facts'] {
     income: facts.income.toString(),
   };
 }
+
+// --- Wave 2 ---------------------------------------------------------------
+//
+// The loan CLIs keep their own file: the shared LoanDirectory, and the loans
+// this borrower has repaid and had recorded there. A repaid record is what a
+// later application proves against, so the demo can show a history proof on
+// its second run. Addresses and public keys only, never a secret.
+
+export const DEFAULT_LOAN_STATE_FILE = '.midnight-loans.json';
+
+export type LoanDeploymentState = {
+  network: string;
+  directoryAddress: ContractAddress;
+  repaid: { loan: ContractAddress; lenderPk: string }[];
+};
+
+export async function writeLoanState(
+  state: LoanDeploymentState,
+  file: string = DEFAULT_LOAN_STATE_FILE,
+): Promise<void> {
+  await fsp.writeFile(path.resolve(process.cwd(), file), JSON.stringify(state, null, 2));
+}
+
+// Null for an absent file, another network's deployment, or an unreadable one.
+export function readLoanState(
+  network: string,
+  file: string = DEFAULT_LOAN_STATE_FILE,
+): LoanDeploymentState | null {
+  const resolved = path.resolve(process.cwd(), file);
+  if (!fs.existsSync(resolved)) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(resolved, 'utf8')) as Partial<LoanDeploymentState>;
+    if (parsed.network !== network || !parsed.directoryAddress) {
+      return null;
+    }
+    return { network, directoryAddress: parsed.directoryAddress, repaid: parsed.repaid ?? [] };
+  } catch {
+    return null;
+  }
+}

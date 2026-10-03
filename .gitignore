@@ -26,6 +26,7 @@ compiled/loan-directory/*
 
 # Runtime/deployment state
 .midnight-state.json
+.midnight-loans.json
 .wallet-seed
 
 # Env files (contain wallet secrets)

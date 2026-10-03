@@ -18,12 +18,7 @@ import {
   type CircuitContext,
   type ContractAddress,
 } from '@midnight-ntwrk/midnight-js-protocol/compact-runtime';
-import {
-  CompactTypeUnsignedInteger,
-  CompactTypeVector,
-  persistentHash,
-  type MerkleTreePath,
-} from '@midnight-ntwrk/compact-runtime';
+import type { MerkleTreePath } from '@midnight-ntwrk/compact-runtime';
 import {
   LoanContract,
   LoanDirectoryContract,
@@ -229,11 +224,7 @@ export class RegistrySimulator {
 
 // --- Wave 2 ---------------------------------------------------------------
 
-// SolvencyProof.commitFacts, computed off-chain. Loan copies this commitment
-// from the borrower's SolvencyProof instance at deploy.
-const u64x3 = new CompactTypeVector(3, new CompactTypeUnsignedInteger((1n << 64n) - 1n, 8));
-export const commitFacts = (facts: FinancialFacts): Uint8Array =>
-  persistentHash(u64x3, [facts.balance, facts.debts, facts.income]);
+export { commitFacts } from '../../../client/proof/loanMath.js';
 
 /** A fixed, recent block time, so the time-dependent cases are reproducible. */
 export const T0 = 1_800_000_000n;

@@ -57,8 +57,8 @@ owner). Do not claim they were missing.
 | 4 | Compile both; commit `compiled/loan*/contract` | Done (2026-10-03, compiled locally) |
 | 5 | Export both from `contracts/index.ts`; witnesses in `contracts/witnesses.ts` (`localSk`, `paymentNonce`) | Done |
 | 6 | Offline tests in `tests/unit/` with simulators | Done: 47 Loan + 18 LoanDirectory tests |
-| 7 | Client: `client/` lifecycle ops and CLI (`deploy`, `demo`) for loans | **Next** |
-| 8 | Console: borrower loan view (apply, prove tier, repay) and lender view (quote, underwrite, disburse, default, portfolio) | To do |
+| 7 | Client: `client/` lifecycle ops and CLI (`deploy`, `demo`) for loans | Done: `client/loans.ts`, `npm run loan:deploy`, `npm run loan:demo`; devnet run in CI |
+| 8 | Console: borrower loan view (apply, prove tier, repay) and lender view (quote, underwrite, disburse, default, portfolio) | **Next** |
 | 9 | CI `workflow_dispatch` job: proof server + deploy to Preprod + run the flow, write tx hashes to `PROOF.md` | To do |
 | 10 | Read-only Preprod view in the console (indexer reads of the deployed instances) | To do |
 | 11 | README update, new deck, narrated video, AKINDO submission text | To do |
@@ -97,6 +97,30 @@ driving the compiled contracts through `LoanSimulator` and
   vouching for itself, and a path still valid after later inserts change the root.
 - The suites were mutation-checked: altering the collateral, a late flag or
   the proof count fails 24 tests.
+
+### Client (step 7)
+
+- `client/loans.ts`: `LoanClient`, one per wallet, beside `KymiderClient`.
+  It computes every figure the circuits check but cannot divide out
+  (`client/proof/loanMath.ts`: collateral, owed, installment, amount due),
+  so callers never pass one. `tests/unit/loanMath.unit.test.ts` sweeps terms
+  through the compiled contract to prove the two agree.
+- Rounding the installment up can finish a small loan in fewer payments than
+  `installments` (5 owed over 4 is 2, 2, 1). Pinned by a test; harmless.
+- `disburse` back-dates its start by 60 s, since block time and the client's
+  clock can differ and the circuit refuses a start in the future.
+- `npm run loan:demo` repays one loan per run and records it in the directory
+  (`.midnight-loans.json`, gitignored). From the third run on, each new
+  application also proves two repaid loans.
+- `tests/simulation/wave2.simulation.test.ts` runs the same flows on the
+  devnet in CI. Simulation files now run one at a time
+  (`--no-file-parallelism`): they share the genesis wallets.
+- One provider set per wallet per process: `buildProviders` opens that
+  wallet's LevelDB private-state stores, which cannot be opened twice.
+- The devnet cannot run in a cloud session: the network policy blocks
+  `srs.midnight.network`, where the proof server fetches its parameters
+  (allow that host to change this). Docker itself works, and the proof
+  server also needs the session CA mounted (`/root/.ccr/ca-bundle.crt`).
 
 ### Witness design (step 5)
 

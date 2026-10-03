@@ -272,7 +272,7 @@ jobs:
       - name: Wait for NIGHT + DUST
         run: npm run wait:dust
 
-      - name: Run the Wave 1 simulation
+      - name: Run the devnet simulations (Wave 1, Wave 2)
         run: npm run test:simulation
 
       - name: Devnet logs
