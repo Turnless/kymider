@@ -20,16 +20,17 @@ console source (`frontend/src/lender/LenderLoan.tsx`,
 
 - Console at <https://turnless.github.io/kymider/> in a clean browser profile
   (no extensions, zoom 110%, window 1920×1080). Reload so the simulated ledger
-  starts fresh. (Pages serves the Wave 2 console once `wave2` is merged to
-  `main`.)
+  starts fresh. (`wave2` is merged to `main`, so Pages serves the Wave 2
+  console.)
 - The console seeds two repaid loans for the borrower, so the history proof at
   2:05 needs no preparation.
-- A second tab with the latest green CI run
-  (<https://github.com/Turnless/kymider/actions/workflows/ci.yml>), open on the
-  "Devnet simulation" job's "Verify the record against the devnet" step. Preprod
-  is pending; once the Preprod run has committed `PROOF.md`, use that file on
-  GitHub instead, and the 2:25 alternative below.
-- `DECK.html` in a third tab, on slide 3 (the 110% number; open `DECK.html#3`).
+- A second tab with `DEVNET-PROOF.md` on GitHub
+  (<https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md>): 31 transactions and 45 of 45 read-back checks
+  from CI run 37098203726 on the final contracts. Preprod is pending; once the
+  Preprod run has committed `PROOF.md`, use that file instead, and the 2:25
+  alternative below.
+- The deck in a third tab, on slide 3 (the 110% number):
+  <https://turnless.github.io/kymider/deck/#3>.
 - Notifications off. Move the mouse slowly; pause one beat after every click so
   the result is on screen before you speak about it.
 
@@ -133,11 +134,11 @@ lender's application list shows **2 prior repaid loans proven**.
 ---
 
 ### 2:25-2:40 · On-chain proof
-**Show:** the CI tab, on the "Devnet simulation" job's verify step ("All ...
-checks PASS").
+**Show:** the `DEVNET-PROOF.md` tab.
 
-**2:25** - **Do:** Scroll the `prove:onchain` step to the `proveTier` and
-`underwrite` transactions, then to the verify step's PASS line.
+**2:25** - **Do:** Point at "Read-back checks: 45 of 45 PASS", then scroll the
+Transactions table to rows 12-14 (`Loan.proveTier`, `Loan.underwrite` at 1,100,
+`Loan.accept`).
 
 > In CI, the same contracts run on a Midnight devnet with real proofs, on
 > every push. Every transaction is recorded and read back. 307 offline tests
@@ -188,4 +189,5 @@ borrower's Accept.** Those three moments are the product.
 
 - Watch it once end to end, with sound.
 - Upload unlisted to YouTube, 1080p. Put the link in the README table and the
-  AKINDO form ({{VIDEO_URL}}).
+  AKINDO form ({{VIDEO_URL}}), replacing "being recorded, link added before
+  Oct 17" in the README table and Communication section.

@@ -23,7 +23,7 @@ never enter a transaction.
 
 | Live console | Video | Deck | On-chain proof | Tests | What is simulated |
 |---|---|---|---|---|---|
-| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | [{{VIDEO_URL}}]({{VIDEO_URL}}) | [DECK.html](./hackathon/wave2/DECK.html) · [PDF]({{DECK_PDF_URL}}) | Devnet in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 307 offline, 46 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
+| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | Narrated video: being recorded, link added before Oct 17 | [Slides](https://turnless.github.io/kymider/deck/) · [PDF](./hackathon/wave2/DECK.pdf) | Devnet: 31 tx, 45/45 read-back checks ([DEVNET-PROOF.md](./DEVNET-PROOF.md)), re-run in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 307 offline, 46 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
 
 ---
 
@@ -122,7 +122,7 @@ change.
 
 Wave 1 shipped a solvency proof (`SolvencyProof` + `Registry`). Wave 2 turns it
 into a loan with an enforced price. All of the following was built between
-Sep 27 and Oct 17, 2026, on the [`wave2`](https://github.com/Turnless/kymider/tree/wave2) branch.
+Sep 27 and Oct 17, 2026, on the `wave2` branch, now merged to [`main`](https://github.com/Turnless/kymider/tree/main).
 
 | | Wave 1 | Wave 2 |
 |---|---|---|
@@ -131,7 +131,7 @@ Sep 27 and Oct 17, 2026, on the [`wave2`](https://github.com/Turnless/kymider/tr
 | Lifecycle | Claim → verdict | Apply → quote → prove tier → lender offers → borrower accepts → disburse → repay / default |
 | Time | None | Block time: quote expiry, a minimum quote life, due dates, late flags, a 3-day grace period before default |
 | History | None | Payment-history hash chain per loan; two-repaid-loans proof over a `HistoricMerkleTree` |
-| Offline tests | 49 | 307 in 12 files |
+| Offline tests | 54 in 3 files (`main` at Wave 1, `fde02de`) | 307 in 12 files |
 | Browser tests | None | 46 Playwright tests at 1440 and 390 px, in CI |
 | Devnet simulation | 11 cases, 2 wallets | 18 cases (+7 Wave 2 lifecycle), run in CI on every push |
 | Client | `KymiderClient` | + [`LoanClient`](./client/loans.ts), `npm run loan:deploy`, `npm run loan:demo`, `prove:onchain` / `verify:onchain` |
@@ -206,7 +206,7 @@ can at worst make an offer the borrower declines: a 150% offer before the
 borrower has proven a tier, or after a tier has lapsed. Combined with no
 re-quote while a verified tier is live and a 30-minute minimum quote life, the
 lender has no sequence of calls that turns a verified borrower's loan into an
-active 150% loan.
+active 150% loan without the borrower's acceptance.
 
 ### Why one `Loan` instance per loan
 
@@ -337,9 +337,11 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 
 ### Communication (10%)
 
-- Narrated video, about 2:50: [{{VIDEO_URL}}]({{VIDEO_URL}}).
+- Narrated video, about 2:50: being recorded, link added before Oct 17.
   Script: [`hackathon/wave2/VIDEO-SCRIPT.md`](./hackathon/wave2/VIDEO-SCRIPT.md).
-- Deck: [`hackathon/wave2/DECK.html`](./hackathon/wave2/DECK.html).
+- Deck: [slides on Pages](https://turnless.github.io/kymider/deck/) and
+  [PDF, 12 pages](./hackathon/wave2/DECK.pdf); source
+  [`hackathon/wave2/DECK.html`](./hackathon/wave2/DECK.html).
 
 ### Business Development & Viability (5%)
 

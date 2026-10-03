@@ -229,6 +229,19 @@ jobs:
       # URL to the router instead.
       - run: cp frontend/dist/index.html frontend/dist/404.html
 
+      # The Wave 2 deck at <pages>/deck/, so it opens as slides rather than as
+      # HTML source on GitHub. It is still edited in hackathon/wave2/ only;
+      # this copies it at publish time. DECK.html loads its shots from the
+      # relative path deck/shots/, so they go to dist/deck/deck/shots/. The
+      # PDF is the committed one (regenerate: cd frontend && npm run deck:pdf).
+      - name: Add the deck
+        run: |
+          set -euo pipefail
+          mkdir -p frontend/dist/deck/deck
+          cp hackathon/wave2/DECK.html frontend/dist/deck/index.html
+          cp -r hackathon/wave2/deck/shots frontend/dist/deck/deck/shots
+          cp hackathon/wave2/DECK.pdf frontend/dist/deck/Kymider-Wave2-deck.pdf
+
       # One-time manual step: Settings -> Pages -> Source: "GitHub Actions".
       # `enablement: true` cannot substitute for it — the default Actions token
       # is not allowed to CREATE a Pages site ("Resource not accessible by

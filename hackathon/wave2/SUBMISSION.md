@@ -2,9 +2,10 @@
 
 Paste each section into the matching AKINDO field. Character counts are for the
 text between the horizontal rules, measured with `wc -m`. Delete the HTML
-comments before pasting. Every `{{...}}` is a placeholder; all four are listed
-in the owner checklist. Where a step is still pending (Preprod, video, deck
-PDF, AKINDO record), the copy below says so; update it once the step is done.
+comments before pasting. Every `{{...}}` is a placeholder; both (`{{VIDEO_URL}}`,
+`{{PREPROD_TX}}`) are listed in the owner checklist. Where a step is still
+pending (Preprod, video, AKINDO record), the copy below says so; update it once
+the step is done.
 
 ---
 
@@ -19,10 +20,10 @@ private entry, earned points (see `hackathon/wave1-results.md`).
 - [ ] **Change the tech tag from "Base" to "Midnight".**
 - [ ] Repo is public and carries the `midnightntwrk` topic. Update the GitHub
       repo description to the Wave 2 pitch (it still reads as Wave 1).
-- [ ] `wave2` is merged to `main`, so GitHub Pages serves the Wave 2 console at
-      https://turnless.github.io/kymider/ (Pages deploys from `main` only), and
-      `docs/architecture-wave1/2/3.md` and `docs/scaffold.md` survive the merge
-      (`main` deleted them; the README and the contracts link them).
+- [x] `wave2` is merged to `main` (`5437a29`), so GitHub Pages serves the Wave 2
+      console at https://turnless.github.io/kymider/ and the deck at
+      https://turnless.github.io/kymider/deck/ (Pages deploys from `main` only).
+      `docs/architecture-wave1/2/3.md` and `docs/scaffold.md` are present on `main`.
 - [ ] **Preprod run.** Add the `PREPROD_WALLET_SEED` secret (a wallet funded
       with tNIGHT), run Actions → "Preprod proof", and check it committed
       `PROOF.md` and `frontend/public/deployments/preprod.json`. Then: run
@@ -35,18 +36,18 @@ private entry, earned points (see `hackathon/wave1-results.md`).
 - [ ] **Try Lace on Preprod** in the Live view; if it works, drop "untested on
       Preprod" from `README.md` (UX section, "What is real") and progress item
       7 below.
-- [ ] Record the narrated video from `VIDEO-SCRIPT.md` (unlisted YouTube) and
-      export `DECK.html` to PDF (open it, press P).
-- [ ] Fill all four placeholders:
-      - `{{VIDEO_URL}}`: `README.md` (table, Communication), Links below,
-        `VIDEO-SCRIPT.md` ("After recording"),
-        `X-THREAD.md`.
-      - `{{DECK_PDF_URL}}`: `README.md` (table), Links below.
+- [ ] Record the narrated video from `VIDEO-SCRIPT.md` (unlisted YouTube).
+- [ ] Put your name on `DECK.html` slide 12 (it reads "Kymider team"; an HTML
+      comment marks the spot), then regenerate the PDF:
+      `cd frontend && npm run deck:pdf`, and commit `hackathon/wave2/DECK.pdf`.
+- [ ] Fill both placeholders:
+      - `{{VIDEO_URL}}`: Links below, `VIDEO-SCRIPT.md` ("After recording"),
+        `X-THREAD.md`. In `README.md`, replace "being recorded, link added
+        before Oct 17" (table and Communication) with the link.
       - `{{PREPROD_TX}}`: Links below, `VIDEO-SCRIPT.md` (2:25),
         `X-THREAD.md` (post 2). An explorer link to one Preprod transaction
         from `PROOF.md`.
-      - `{{OWNER_NAME}}`: `DECK.html` slide 12.
-      Before submitting, `grep -rnI "{{" README.md hackathon/wave2/DECK.html`
+      Before submitting, `grep -rnI "{{\|being recorded" README.md hackathon/wave2/DECK.html`
       returns nothing and the Links table below has no `{{`.
 - [ ] Submit before **Oct 17, 2026** (AKINDO's timer says Oct 19 15:00 UTC; do
       not rely on it).
@@ -65,7 +66,7 @@ Prove solvency privately, post 110% collateral instead of 150%.
 
 ## Project description
 
-<!-- Recount with wc -m after the placeholders are filled (target 900-2,600). 1,871 as written (no placeholders in this section). -->
+<!-- Recount with wc -m after the placeholders are filled (target 900-2,600). 1,979 as written (no placeholders in this section). -->
 
 Kymider is privacy-first loan underwriting on Midnight. DeFi lenders cannot see
 a borrower's finances, so every borrower posts the same over-collateral, usually
@@ -94,7 +95,8 @@ Evidence: 4 Compact contracts (22 circuits) compiled in CI on
 toolchain 0.31.1; 307 offline tests on the compiled contracts;
 46 browser tests of the console; an 18-case devnet simulation with
 real proofs on every push, followed by the full flow proven and re-read on
-that devnet. Preprod deployment: pending.
+that devnet (31 transactions, 45 of 45 read-back checks:
+https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md). Preprod deployment: pending.
 
 What is simulated: no token moves, and the figures are self-reported, so a
 VERIFIED tier costs nothing to get today. Attested data provenance is Wave 3.
@@ -103,8 +105,8 @@ VERIFIED tier costs nothing to get today. Attested data provenance is Wave 3.
 
 ## Progress made during this wave
 
-All built Sep 27 - Oct 17, 2026, on the `wave2` branch
-(https://github.com/Turnless/kymider/tree/wave2).
+All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
+(https://github.com/Turnless/kymider/tree/main).
 
 1. **`Loan` contract** (`contracts/loan.compact`, 9 circuits):
    per-loan lifecycle from application to repaid, defaulted or declined;
@@ -123,7 +125,7 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch
    Merkle paths with `checkRoot`. The borrower can only withdraw an open
    listing; no one can set `REPAID` through `updateStatus`.
 3. **307 offline tests** in 12 files, all driving
-   the compiled contracts (Wave 1 had 49), plus **46 Playwright
+   the compiled contracts (Wave 1 had 54), plus **46 Playwright
    tests** that run the README's judge path and each refusal at 1440 and 390 px
    in CI.
 4. **`LoanClient`** (`client/loans.ts`) and the CLIs `loan:deploy`, `loan:demo`,
@@ -138,8 +140,9 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch
    untested on Preprod.
 8. **On-chain proof scripts**: `prove:onchain` runs the flow and records every
    transaction; `verify:onchain` re-reads them. CI runs both on a local devnet
-   on every push. A manually triggered Preprod job writes `PROOF.md`; that run
-   is pending the owner's funded wallet.
+   on every push; the run on the final contracts (31 transactions, 45 of 45
+   checks) is recorded in https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. A manually triggered Preprod job writes
+   `PROOF.md`; that run is pending the owner's funded wallet.
 9. **Wave 3 preview**: an auditor checks a borrower's exported payment log
    against the on-chain history hash (`/app/audit`).
 10. **Hardening after review**: salted facts commitment, re-quote cap, the
@@ -151,20 +154,22 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch
 ## What changed since Wave 1
 
 Wave 1 proved creditworthiness as a PASS/FAIL attestation. Wave 2 makes the
-proof buy something: a lower collateral ratio that the lender cannot change and
-the borrower must accept.
+proof buy something: a lower collateral ratio that the lender cannot raise for a
+verified borrower and the borrower must accept.
 
 - Contracts: 2 → 4 (+ `Loan`, `LoanDirectory`); circuits 9 → 22.
-  https://github.com/Turnless/kymider/blob/wave2/contracts/loan.compact
-- Offline tests: 49 → 307; browser tests: 0 → 46.
-  https://github.com/Turnless/kymider/tree/wave2/tests/unit
+  https://github.com/Turnless/kymider/blob/main/contracts/loan.compact
+- Offline tests: 54 → 307; browser tests: 0 → 46.
+  https://github.com/Turnless/kymider/tree/main/tests/unit
 - Devnet simulation: 11 → 18 cases.
-  https://github.com/Turnless/kymider/tree/wave2/tests/simulation
+  https://github.com/Turnless/kymider/tree/main/tests/simulation
 - New Compact features in use: block time (`blockTimeLt/Lte/Gt/Gte`),
   `HistoricMerkleTree` with `checkRoot`, more witnesses (`factsSalt`,
   `paymentNonce`), division-free quotient checks.
 - On-chain: local devnet only → the full flow proven and re-read on a devnet in
-  CI on every push; Preprod deployment pending.
+  CI on every push (31 transactions, 45 of 45 checks on the final contracts);
+  Preprod deployment pending.
+  https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md
 - Console: solvency screens → plus loan desk, portfolio, auditor preview and a
   Live view reading the chain.
 - What Wave 1 judges asked entries for, now addressed: the README states exactly which data is
@@ -224,8 +229,8 @@ for the Live view (untested on Preprod).
 | GitHub repo (connect in the repo field) | https://github.com/Turnless/kymider |
 | Live console | https://turnless.github.io/kymider/ |
 | Demo video (narrated) | {{VIDEO_URL}} |
-| Slide deck | {{DECK_PDF_URL}} (source: `hackathon/wave2/DECK.html`) |
-| On-chain proof | Devnet, every push: https://github.com/Turnless/kymider/actions/workflows/ci.yml (job "Devnet simulation", artifact `proof-local`). Preprod: pending; after the run, https://github.com/Turnless/kymider/blob/main/PROOF.md |
+| Slide deck | https://turnless.github.io/kymider/deck/ (PDF: https://github.com/Turnless/kymider/blob/main/hackathon/wave2/DECK.pdf) |
+| On-chain proof | Devnet, final contracts, 31 transactions, 45 of 45 checks: https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. Re-run on every push: https://github.com/Turnless/kymider/actions/workflows/ci.yml (job "Devnet simulation", artifact `proof-local`). Preprod: pending; after the run, https://github.com/Turnless/kymider/blob/main/PROOF.md |
 | Preprod transaction | {{PREPROD_TX}} |
 | Build with (tech tag) | Midnight |
 | Category | DeFi, lending, privacy |

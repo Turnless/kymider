@@ -336,8 +336,17 @@ function Evidence() {
     ['4', 'Compact contracts', `${CIRCUITS} circuits. Compiled by CI on every push, toolchain 0.31.1.`],
     [UNIT_TESTS, 'Offline tests', 'Drive the compiled contracts, every refusal included. npm run test:unit'],
     [E2E_TESTS, 'Browser tests', 'The README fast path and each refusal, at 1440 and 390 px. npm run e2e'],
-    [DEVNET_CASES, 'Devnet cases', 'Real zero-knowledge proofs, two wallets, a local Midnight node. In CI.'],
-  ];
+    [
+      DEVNET_CASES,
+      'Devnet cases',
+      <>
+        Real zero-knowledge proofs, two wallets, a local Midnight node. In CI.{' '}
+        <a href={`${REPO}/blob/main/DEVNET-PROOF.md`} className="underline">
+          DEVNET-PROOF.md
+        </a>
+      </>,
+    ],
+  ] as const;
 
   return (
     <section id="proof" className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 3 }}>
