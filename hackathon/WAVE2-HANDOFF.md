@@ -55,8 +55,8 @@ owner). Do not claim they were missing.
 | 2 | `contracts/loanDirectory.compact`: index + Merkle repaid records + `proveTwoRepaid` | Done, compiles |
 | 3 | Build script, `.gitignore` and CI sync updated for both contracts | Done |
 | 4 | Compile both; commit `compiled/loan*/contract` | Done (2026-10-03, compiled locally) |
-| 5 | Export both from `contracts/index.ts`; witnesses in `contracts/witnesses.ts` (`localSk`, `paymentNonce`) | **Next** |
-| 6 | Offline tests in `tests/unit/` with simulators (see below) | To do |
+| 5 | Export both from `contracts/index.ts`; witnesses in `contracts/witnesses.ts` (`localSk`, `paymentNonce`) | Done |
+| 6 | Offline tests in `tests/unit/` with simulators (see below) | **Next** |
 | 7 | Client: `client/` lifecycle ops and CLI (`deploy`, `demo`) for loans | To do |
 | 8 | Console: borrower loan view (apply, prove tier, repay) and lender view (quote, underwrite, disburse, default, portfolio) | To do |
 | 9 | CI `workflow_dispatch` job: proof server + deploy to Preprod + run the flow, write tx hashes to `PROOF.md` | To do |
@@ -90,8 +90,25 @@ owner). Do not claim they were missing.
   - a wrong installment amount;
   - facts that don't match the commitment;
   - `proveTwoRepaid` with the same loan twice, someone else's leaf, or the application vouching for itself.
-- Time: the offline simulator needs a controllable block time (check how
-  `createCircuitContext` / QueryContext carries `secondsSinceEpoch`).
+- History chain: rebuild `historyCommitment` in the test from the seed with
+  `loanPaymentNonce(seed, previousHead)` and compare. Uint<64> hashes use
+  `CompactTypeUnsignedInteger(2n ** 64n - 1n, 8)`. A smoke run of the full
+  happy path (quote → proveTier → underwrite 1100 → disburse → repay ×2 →
+  REPAID) already passed this way.
+- Time: `createCircuitContext` stamps the block with the real clock, at
+  `ctx.currentQueryContext.block.secondsSinceEpoch`. The simulator needs a way
+  to set it (for expiry, lateness and the default grace period).
+
+### Witness design (step 5)
+
+- `LoanPrivateState = { sk, historySeed }`; `LoanDirectoryPrivateState = { sk }`.
+- `paymentNonce` is derived, not random: `loanPaymentNonce(historySeed,
+  historyCommitment)`, keyed to the chain head the payment extends. Not keyed
+  to `paymentsMade`: `repay` increments the counter before asking for the
+  nonce, and the witness sees the incremented value, so a counter key would
+  hang on statement order inside the circuit.
+- The witnesses are shared verbatim with the browser console, so they use the
+  compact runtime's `persistentHash`, never `node:crypto`.
 
 ## Constraints
 
