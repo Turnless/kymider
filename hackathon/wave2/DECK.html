@@ -196,8 +196,9 @@
     </p>
     <p class="say">
       A borrower proves in zero knowledge that their committed balance, debts and income
-      clear a lender&rsquo;s bar. The <span class="mono">Loan</span> contract then enforces
-      110% collateral and refuses any other figure. The figures never enter a transaction.
+      clear a lender&rsquo;s bar. The <span class="mono">Loan</span> contract then lets the lender
+      offer only the tier&rsquo;s collateral, 110%, and only the borrower&rsquo;s acceptance makes it
+      binding. The figures never enter a transaction.
     </p>
     <div class="cards" style="max-width:70vw">
       <div class="card"><p class="k">Live console</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">turnless.github.io/kymider</p></div>
@@ -235,7 +236,7 @@
   <!-- 3 · THE NUMBER ................................................... -->
   <section class="slide">
     <p class="eyebrow">The number &middot; a 10,000 loan</p>
-    <h2>One bit of disclosure, 4,000 less collateral.</h2>
+    <h2>One yes/no answer, 4,000 less collateral.</h2>
     <div class="versus">
       <div class="card">
         <p class="k">Not verified &middot; Tier STANDARD</p>
@@ -260,14 +261,16 @@
   <!-- 4 · HOW IT WORKS ................................................. -->
   <section class="slide">
     <p class="eyebrow">How it works &middot; one Loan instance per loan</p>
-    <h2>The proof buys a price, and the contract holds the lender to it.</h2>
+    <h2>The proof fixes the price. Only the borrower makes it binding.</h2>
     <div class="flow">
-      <div class="step local"><span class="n">LOCAL</span><span class="t">The borrower commits <code>hash(balance, debts, income)</code>. Figures stay on the device.</span></div>
+      <div class="step local"><span class="n">LOCAL</span><span class="t">The borrower commits <code>H(tag, H(balance, debts, income), salt)</code>. Figures and the 32-byte salt stay on the device.</span></div>
       <div class="step"><span class="n">CHAIN</span><span class="t"><code>deploy Loan(lender, terms, commitment)</code> and <code>LoanDirectory.list</code>. Terms are public.</span></div>
-      <div class="step"><span class="n">CHAIN</span><span class="t"><code>quoteTerms</code> &nbsp; The lender names a net-worth floor, a max DTI and an expiry.</span></div>
+      <div class="step"><span class="n">CHAIN</span><span class="t"><code>quoteTerms</code> &nbsp; A net-worth floor, a max DTI, an expiry at least 30 min out. At most 3 per loan; none while a verified tier is live.</span></div>
       <div class="step local"><span class="n">PROVE</span><span class="t"><code>proveTier</code> &nbsp; Facts are private circuit inputs; the circuit checks them against the commitment and writes <code>VERIFIED</code> or <code>STANDARD</code>.</span></div>
-      <div class="step"><span class="n">CHAIN</span><span class="t"><code>underwrite(collateral)</code> &nbsp; Accepted only if <code>collateral = floor(principal &times; 110% or 150%)</code>.</span></div>
+      <div class="step"><span class="n">CHAIN</span><span class="t"><code>underwrite(collateral)</code> &nbsp; An offer, accepted only if <code>collateral = floor(principal &times; 110% or 150%)</code>.</span></div>
       <div class="step refuse"><span class="n">REFUSED</span><span class="t">A 150% ask on a verified borrower: <code>collateral does not match the tier</code>.</span></div>
+      <!-- VERIFY: circuit name of the borrower's accept step -->
+      <div class="step local"><span class="n">ACCEPT</span><span class="t">The borrower accepts the offer, and only then is the loan <code>ACTIVE</code>. Or declines it.</span></div>
       <div class="step"><span class="n">CHAIN</span><span class="t"><code>disburse</code>, <code>repay &times; N</code>, <code>markDefault</code> after a 3-day grace. Lateness is block time.</span></div>
       <div class="step local"><span class="n">PROVE</span><span class="t"><code>proveTwoRepaid</code> &nbsp; Two private Merkle paths, <code>checkRoot</code> against the directory. Public result: &ldquo;2 repaid loans&rdquo;.</span></div>
     </div>
@@ -284,19 +287,19 @@
     <table class="ledger">
       <thead><tr><th>Datum</th><th>Ledger</th><th>Mechanism</th></tr></thead>
       <tbody>
-        <tr><td>Balance, debts, income</td><td class="priv">Private</td><td>Circuit inputs to <span class="mono">proveTier</span>; only <span class="mono">persistentHash</span> of them is public</td></tr>
-        <tr><td>Secret key, history seed, payment nonces</td><td class="priv">Private</td><td>Witnesses <span class="mono">localSk</span>, <span class="mono">paymentNonce</span></td></tr>
-        <tr><td>Which loans back a history proof</td><td class="priv">Private</td><td><span class="mono">HistoricMerkleTree</span> paths + <span class="mono">checkRoot</span></td></tr>
-        <tr><td>Tier <span class="mono">VERIFIED</span> / <span class="mono">STANDARD</span> and its expiry</td><td class="pub">Public</td><td><span class="mono">disclose()</span>: the one bit the borrower gives</td></tr>
+        <tr><td>Balance, debts, income</td><td class="priv">Private</td><td>Circuit inputs to <span class="mono">proveTier</span>; only a salted <span class="mono">persistentHash</span> of them is public</td></tr>
+        <tr><td>Secret key, facts salt, history seed, payment nonces</td><td class="priv">Private</td><td>Witnesses <span class="mono">localSk</span>, <span class="mono">factsSalt</span>, <span class="mono">paymentNonce</span></td></tr>
+        <tr><td>Which loans back a history proof</td><td class="priv">Private</td><td><span class="mono">HistoricMerkleTree</span> paths + <span class="mono">checkRoot</span>. A key&rsquo;s repaid listings stay countable</td></tr>
+        <tr><td>Tier <span class="mono">VERIFIED</span> / <span class="mono">STANDARD</span> and its expiry</td><td class="pub">Public</td><td><span class="mono">disclose()</span>: one yes/no answer per proof, at most 3 per loan</td></tr>
         <tr><td>Quote, terms, collateral, balance owed, due date</td><td class="pub">Public</td><td>Enforced by block time and caller checks</td></tr>
-        <tr><td>Payments made, late payments, history chain head</td><td class="pub">Public</td><td><span class="mono">Counter</span> + hash chain; openable to an auditor</td></tr>
+        <tr><td>Each repay amount, payments made, late payments, history chain head</td><td class="pub">Public</td><td>Amounts are transaction inputs; <span class="mono">Counter</span> + hash chain an auditor can check offline</td></tr>
       </tbody>
     </table>
   </section>
 
   <!-- 6 · DEMO A ....................................................... -->
-  <!-- VERIFY: shots 01-08 captured into hackathon/wave2/deck/shots/ from the
-       shipped Wave 2 console; captions match what the screens show. -->
+  <!-- VERIFY: re-capture 01 (new landing) and 04 (the lender's offer button)
+       with `cd frontend && npm run shots` after the offer / accept change. -->
   <section class="slide">
     <p class="eyebrow">Live console &middot; the borrower and the lender</p>
     <div class="shots">
@@ -314,15 +317,14 @@
       </div>
       <div class="shotcell">
         <div class="shot" data-file="deck/shots/04-lender-underwrite.jpg"><img src="deck/shots/04-lender-underwrite.jpg" alt="Lender underwrites at 110% with figures not disclosed" onerror="this.remove()"></div>
-        <div class="cap"><span class="num">4</span><span class="txt"><b>The lender&rsquo;s view.</b> Tier VERIFIED; balance, debts, income <i>not disclosed</i>. Underwrite at 11,000.</span></div>
+        <div class="cap"><span class="num">4</span><span class="txt"><b>The lender&rsquo;s view.</b> Tier VERIFIED; balance, debts, income <i>not disclosed</i>. The only offer: 11,000.</span></div>
       </div>
     </div>
   </section>
 
   <!-- 7 · DEMO B ....................................................... -->
-  <!-- VERIFY: 05 needs a console control that submits a non-tier collateral
-       (LoanDesk.underwrite took no figure at a0337b1); 07 needs /app/audit and
-       contracts/audit.ts implemented; 08 needs the Live view and Preprod. -->
+  <!-- VERIFY: 08 shows "Not deployed to Preprod yet" until the Preprod run;
+       re-capture it after. -->
   <section class="slide">
     <p class="eyebrow">Live console &middot; refusal, history, auditor, chain</p>
     <div class="shots">
@@ -336,7 +338,7 @@
       </div>
       <div class="shotcell">
         <div class="shot" data-file="deck/shots/07-auditor.jpg"><img src="deck/shots/07-auditor.jpg" alt="Auditor verifies a payment-history disclosure" onerror="this.remove()"></div>
-        <div class="cap"><span class="num">7</span><span class="txt"><b>Auditor (Wave 3 preview).</b> The disclosed history lands exactly on the on-chain commitment.</span></div>
+        <div class="cap"><span class="num">7</span><span class="txt"><b>Auditor (Wave 3 preview).</b> The exported history lands exactly on the on-chain hash: complete and unaltered.</span></div>
       </div>
       <div class="shotcell">
         <div class="shot" data-file="deck/shots/08-live.jpg"><img src="deck/shots/08-live.jpg" alt="Live view reading Preprod through the indexer" onerror="this.remove()"></div>
@@ -349,16 +351,16 @@
   <section class="slide">
     <p class="eyebrow">Engineering evidence &middot; every number links to the repo</p>
     <h2>Refusals are the product, so every refusal has a test.</h2>
-    <div class="cards" style="grid-template-columns:repeat(4,1fr)">
+    <div class="cards" style="grid-template-columns:repeat(4,minmax(0,1fr))">
       <div class="card">
         <p class="n">4</p>
         <p class="k" style="margin-top:1.2vh">Compact contracts</p>
-        <p class="v">20 exported circuits. Language 0.23, toolchain 0.31.1, compiled in CI on every push.</p>
+        <p class="v">{{CIRCUITS}} circuits plus exported pure helpers. Language 0.23, toolchain 0.31.1, compiled in CI on every push.</p>
       </div>
       <div class="card">
-        <p class="n pass-t">131</p>
+        <p class="n pass-t" style="overflow-wrap:anywhere">{{UNIT_TESTS}}</p>
         <p class="k" style="margin-top:1.2vh">Offline tests</p>
-        <p class="v">Drive the compiled contracts: 47 Loan, 18 LoanDirectory, 12 arithmetic sweep, 54 Wave 1.</p>
+        <p class="v">Drive the compiled contracts, every refusal included. <span class="mono">npm run test:unit</span></p>
       </div>
       <div class="card">
         <p class="n" style="color:var(--amber)">18</p>
@@ -366,9 +368,9 @@
         <p class="v">Two wallets, real ZK proofs, node + indexer + proof server in Docker.</p>
       </div>
       <div class="card">
-        <p class="n">24</p>
-        <p class="k" style="margin-top:1.2vh">Mutation kills</p>
-        <p class="v">Altering the collateral ratio, a late flag or the proof count fails 24 tests.</p>
+        <p class="n" style="overflow-wrap:anywhere">{{E2E_TESTS}}</p>
+        <p class="k" style="margin-top:1.2vh">Browser tests</p>
+        <p class="v">Playwright on the console build at 1440 and 390 px: the judge path and each refusal, in CI.</p>
       </div>
     </div>
     <p class="say" style="margin-top:3vh">
@@ -394,7 +396,7 @@
       </div>
       <div class="card">
         <p class="k">The dependency</p>
-        <p class="v">Figures are self-reported today. A data provider co-signing facts into private state makes the tier worth more than its arithmetic. That is a partnership, not more cryptography.</p>
+        <p class="v">Figures are self-reported today, so anyone can get VERIFIED. A data provider co-signing facts into private state makes the tier worth a lower price. That is a partnership, not more cryptography.</p>
       </div>
     </div>
   </section>
@@ -406,10 +408,10 @@
     <table class="ledger">
       <thead><tr><th></th><th>Wave 1</th><th>Wave 2</th></tr></thead>
       <tbody>
-        <tr><td>Contracts / circuits</td><td>2 / 9</td><td class="pub">4 / 20 &middot; + Loan, LoanDirectory</td></tr>
-        <tr><td>What a proof buys</td><td>PASS / FAIL</td><td class="pub">110% vs 150% collateral, enforced in-circuit</td></tr>
-        <tr><td>Compact features</td><td>Witness, commitments, Map/Set, Counter</td><td class="pub">+ block time, HistoricMerkleTree + checkRoot, a 2nd witness, division-free quotient checks</td></tr>
-        <tr><td>Offline tests / devnet cases</td><td>49 / 11</td><td class="pub">131 / 18</td></tr>
+        <tr><td>Contracts / circuits</td><td>2 / 9</td><td class="pub">4 / {{CIRCUITS}} &middot; + Loan, LoanDirectory</td></tr>
+        <tr><td>What a proof buys</td><td>PASS / FAIL</td><td class="pub">110% vs 150% collateral, enforced in-circuit, binding on the borrower&rsquo;s acceptance</td></tr>
+        <tr><td>Compact features</td><td>Witness, commitments, Map/Set, Counter</td><td class="pub">+ block time, HistoricMerkleTree + checkRoot, salt and nonce witnesses, division-free quotient checks</td></tr>
+        <tr><td>Offline / browser tests / devnet cases</td><td>49 / 0 / 11</td><td class="pub">{{UNIT_TESTS}} / {{E2E_TESTS}} / 18</td></tr>
         <!-- VERIFY: Preprod deploy done and PROOF.md published; else "Preprod: pending" -->
         <tr><td>On-chain</td><td>Local devnet</td><td class="pub">Preprod, hashes in PROOF.md</td></tr>
         <tr><td>Console</td><td>Solvency screens</td><td class="pub">+ loan desk, portfolio, auditor preview, Live view</td></tr>
@@ -424,14 +426,14 @@
     <p class="eyebrow">Roadmap &middot; and what is simulated today</p>
     <h2>Wave 3 closes the gaps we name.</h2>
     <div class="cards">
-      <div class="card"><p class="k">Auditor views</p><p class="v">The preview exists: a borrower opens a loan&rsquo;s payment history; the auditor checks it against the on-chain commitment. Wave 3 adds a read-only regulator dashboard.</p></div>
+      <div class="card"><p class="k">Auditor views</p><p class="v">The preview exists: the auditor checks an exported payment history against the on-chain hash, offline. It proves integrity; the amounts are already public. Wave 3 adds a read-only regulator dashboard.</p></div>
       <div class="card"><p class="k">Attested provenance</p><p class="v">A data provider co-signs facts at ingestion. The same allowlist stops a borrower minting repayment records by lending to themselves.</p></div>
       <div class="card"><p class="k">Bank channel</p><p class="v">Signed, expirable attestations a bank verifies offline, with no Midnight node on its side.</p></div>
     </div>
     <p class="say" style="margin-top:3.4vh">
       <span class="hl">Simulated today:</span> no token moves (collateral and balances are
-      figures in contract state); figures are self-reported; the browser console executes circuits
-      without generating proofs. Unaudited.
+      figures in contract state); figures are self-reported, so VERIFIED is free today; the browser
+      console executes circuits without generating proofs or using a wallet. Unaudited.
     </p>
   </section>
 
@@ -440,6 +442,7 @@
     <p class="eyebrow">Kymider &middot; Wave 2</p>
     <h1 style="font-size:clamp(34px,5.6vw,84px)">Prove it privately.<br><span style="color:var(--amber)">Post 110%.</span></h1>
     <div class="cards" style="max-width:80vw; margin-top:4vh">
+      <!-- PLACEHOLDER: {{OWNER_NAME}} is the owner's name, filled before export. -->
       <div class="card"><p class="k">Team</p><p class="v">{{OWNER_NAME}}, solo builder: contracts, client, console, CI.</p></div>
       <div class="card"><p class="k">The ask</p><p class="v">An introduction to one Midnight lending protocol, and one data provider willing to co-sign facts.</p></div>
       <div class="card"><p class="k">Try it</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">turnless.github.io/kymider<br>github.com/Turnless/kymider<br>Apache-2.0</p></div>

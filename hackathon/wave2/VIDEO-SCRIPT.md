@@ -1,15 +1,17 @@
 # Kymider - Wave 2 demo video script
 
-**Length:** 2:50 (target window 2:30-3:00).
-**Narration:** 328 words, about 115 words per minute, which leaves room for pauses. Do not rush;
-cut from the "If you run over" list instead.
+**Length:** 2:55 (target window 2:30-3:00).
+**Narration:** 333 words, about 115 words per minute, which leaves room
+for pauses. Do not rush; cut from the "If you run over" list instead.
 **Audio is required.** A Wave 1 judge asked another team for narration. Record
 the voice track; add captions from the same lines if you can.
 **Format:** one screen recording of the live console, plus three deck slides
 (3, 11, 12 of `hackathon/wave2/DECK.html`).
 
-<!-- VERIFY: screen names, buttons and routes below match the shipped Wave 2
-     console. Adjust the "Do" lines, not the narration. -->
+The "Do" lines follow the README's judge fast path, which runs in CI as
+`frontend/e2e/fast-path.spec.ts`. If a label differs on screen, adjust the "Do"
+line, not the narration. Labels for the new offer / accept step are not final:
+<!-- VERIFY: button labels marked below match the shipped console. -->
 
 ---
 
@@ -17,12 +19,11 @@ the voice track; add captions from the same lines if you can.
 
 - Console at <https://turnless.github.io/kymider/> in a clean browser profile
   (no extensions, zoom 110%, window 1920×1080). Reload so the simulated ledger
-  starts fresh.
-- Have **two repaid loans** ready for the history proof at 1:50, or rehearse
-  creating them: apply → quote → underwrite → disburse → repay ×N, twice. If the
-  console ships a demo seed with repaid loans, use it.
-- A second tab with [PROOF.md](../../PROOF.md) on GitHub and, if shipped, the
-  console's **Live** view connected to Lace on Preprod. <!-- VERIFY -->
+  starts fresh. <!-- VERIFY: Pages serves the Wave 2 console (wave2 merged to main) -->
+- The console seeds two repaid loans for the borrower, so the history proof at
+  2:05 needs no preparation.
+- A second tab with [PROOF.md](../../PROOF.md) on GitHub, or the console's
+  **Live chain** view after the Preprod run. <!-- VERIFY: Preprod run done -->
 - `DECK.html` in a third tab, on slide 3 (the 110% number; open `DECK.html#3`).
 - Notifications off. Move the mouse slowly; pause one beat after every click so
   the result is on screen before you speak about it.
@@ -39,134 +40,141 @@ the voice track; add captions from the same lines if you can.
 
 ---
 
-### 0:10-1:30 · Borrower proves a tier; the lender sees only the tier
+### 0:10-1:05 · Borrower proves a tier
 **Show:** Switch to the console tab.
 
-**0:10** - **Do:** Landing → **Open the console**. You are the borrower. Click
-**Private facts**, hover the three figures.
+**0:10** - **Do:** Landing → **Open the console →**. You are the borrower.
+Click **Private facts**, hover the three figures.
 
 > These are the borrower's balance, debts and income. They stay on this device.
-> On chain there is only a hash of them.
+> On chain there is only a salted hash of them.
 
-**0:22** - **Do:** **Loans** → **Apply**. Lender: the first in the list.
-Principal 10,000, interest 10%, 3 installments. Point at the two collateral
-figures. Submit.
+**0:20** - **Do:** **Loans**. Lender: **Harbor Bank** (the default; the
+console's Lender role is Harbor Bank, so do not pick another). Principal
+**10,000**, interest **10**%, **3** installments. Point at the two collateral
+figures. Click **Apply to Harbor Bank**.
 
 > I apply for 10,000. Each loan is its own contract instance on Midnight.
-> The application already shows the price of each answer: 11,000 if verified,
+> The form already shows the price of each answer: 11,000 if verified,
 > 15,000 if not.
 
-**0:38** - **Do:** Bottom-left, switch **Borrower → Lender**. **Applications** →
-open the new loan → **Quote**: net worth at least 50,000, DTI at most 40%,
-expires in 7 days. Submit.
+**0:36** - **Do:** Switch **Borrower → Lender** (bottom-left of the rail).
+**Applications** → open the new loan → **Send quote** (net worth at least
+$500,000, DTI at most 40%, valid 72 hours).
 
 > Now I'm the lender. I name my bar: a net-worth floor and a maximum
 > debt-to-income ratio. That quote is public.
 
-**0:55** - **Do:** Switch back to **Borrower**. Open the loan → **Prove tier**.
-Wait for **VERIFIED**.
+**0:50** - **Do:** Switch to **Borrower**. **Loans** → the loan →
+**Prove tier**. Wait for **Verified · 110%**.
 
 > The borrower proves against it. The circuit recomputes the hash from the
 > private figures, checks it matches, and writes one word to the ledger:
 > verified.
 
-**1:08** - **Do:** Switch to **Lender**, open the loan. Hold the cursor still
+---
+
+### 1:05-1:45 · The lender sees the tier, and cannot ask for more
+**1:05** - **Do:** Switch to **Lender**, open the loan. Hold the cursor still
 on the tier, then on the *not disclosed* figures, for three seconds.
 
 > Here's what the lender sees. Tier: verified. Balance, debts, income: not
-> disclosed. Not hidden behind a permission. Never written.
+> disclosed. Never written to the chain.
 
-**1:20** - **Do:** Click **Underwrite**. Collateral reads 11,000.
-
-> I underwrite. Collateral: 11,000.
-
----
-
-### 1:30-1:50 · The contract refuses 150%
-**Show:** A second verified application, on the lender's underwriting screen.
-<!-- VERIFY: the console has a control to submit a non-tier collateral figure
-     (LoanDesk.underwrite took no collateral argument at commit a0337b1). -->
-
-**1:30** - **Do:** Click **Ask for 150%** (collateral 15,000). Let the red error
+**1:15** - **Do:** Click **Ask for 150% anyway · 15,000**. Let the red error
 sit on screen for four seconds.
 
-> Can a lender quietly charge a verified borrower the full 150%? I try.
-> Refused: "collateral does not match the tier". Compact has no division, so the
-> circuit checks the exact floor of 110% by cross-multiplying. Nothing else
-> passes.
+> Can the lender charge a verified borrower the full 150%? I try. Refused:
+> "collateral does not match the tier". The circuit checks the exact floor of
+> 110% by cross-multiplying, since Compact has no division. And while the tier
+> is live, the lender can't re-quote to clear it.
 
 *Do not talk over the error. Let it sit.*
 
+**1:32** - **Do:** Click **Offer at 110% · 11,000** <!-- VERIFY: button label -->.
+Switch to **Borrower**, open the loan, click **Accept** <!-- VERIFY: button label -->.
+Status: **Active**.
+
+> So the lender offers 11,000. Nothing binds until the borrower accepts.
+> Now it does.
+
 ---
 
-### 1:50-2:20 · Repay, history proof, auditor
-**1:50** - **Do:** Lender → **Disburse**. Borrower → **Repay** three times
-(fast; the amounts read 3,667, 3,667, 3,666 on 11,000 owed at 10%). Status:
-**REPAID**. Lender → **Record repayment**.
+### 1:45-2:25 · Repay, history proof, auditor
+**1:45** - **Do:** Switch to **Lender** → **Disburse**. Switch to **Borrower**:
+**+31 days**, **Repay $3,667** (marked late), **Repay $3,667**, **+30 days**,
+**Repay $3,666**. Status: **Repaid in full**. Switch to **Lender** →
+**Record repayment in the directory**.
 
-> The borrower repays three installments. On time or late is decided by block
+> The borrower repays three installments. Late or on time is decided by block
 > time, not by the borrower. Each payment extends a hash chain on the loan.
 
-**2:02** - **Do:** Open a new application → **Prove history** → pick the two
-repaid loans. The lender's view now shows "2 repaid loans proven".
+**2:05** - **Do:** As the borrower, apply for a second loan. On it, under
+**Prove two repaid loans**, tick two and click **Prove two repaid loans**. The
+lender's application list shows **2 prior repaid loans proven**.
 
 > On a new application, the borrower proves two earlier loans were repaid,
-> against a Merkle tree in the directory, without saying which loans or which
-> lenders.
+> against a Merkle tree in the directory, without saying which ones.
 
-**2:10** - **Do:** Repaid loan → **Disclose** → copy. Open **/app/audit**,
-paste, **Verify**: green. Change one amount, **Verify**: red.
+**2:15** - **Do:** Open the repaid loan → **Open history to an auditor** →
+**Copy JSON**. Switch to **Auditor**, paste, **Verify against the chain**:
+**Verified**. Change one amount, verify again: **Rejected**.
 
-> And for an auditor, the borrower opens the full history. It matches the
-> on-chain commitment exactly. Change one amount, and it doesn't.
+> An auditor checks the exported history against the on-chain hash. It
+> matches exactly. Change one amount, and it doesn't.
 
 ---
 
-### 2:20-2:35 · On-chain proof
-**Show:** The **Live** view (Lace connected, Preprod) or PROOF.md on GitHub.
+### 2:25-2:40 · On-chain proof
+**Show:** PROOF.md on GitHub, or the **Live chain** view after the Preprod run.
 <!-- VERIFY: Preprod deploy done ({{PREPROD_TX}}); otherwise show the green CI
-     devnet job and say "on our CI devnet, with real proofs" instead. -->
+     devnet job and say "on our CI devnet, with real proofs" instead of
+     "on Midnight Preprod". -->
 
-**2:20** - **Do:** Scroll PROOF.md to the `proveTier` and `underwrite`
+**2:25** - **Do:** Scroll PROOF.md to the `proveTier` and `underwrite`
 transactions. Click one hash into the explorer.
 
-> The same contracts run on Midnight Preprod. These are the transactions:
-> deploy, prove tier, underwrite at 110%, repay. 131 offline tests and a
-> devnet run with real proofs back every step in CI.
+> The same contracts run on Midnight Preprod. These are the transactions.
+> {{UNIT_TESTS}} offline tests, {{E2E_TESTS}} browser tests and a devnet run
+> with real proofs back every step in CI.
+
+*Read the two numbers as filled in at recording time.*
 
 ---
 
-### 2:35-2:50 · Why Midnight, what's next
+### 2:40-2:55 · What is simulated, what's next
 **Show:** Deck slide 11 (roadmap), then slide 12 (close).
 
-> This needs Midnight's dual ledger: the figures stay private, the loan stays
-> public and enforceable. No token moves yet, and the figures are self-reported.
-> Wave 3 adds attested data providers and the auditor view. Kymider: prove it
-> privately, post 110%.
+> The figures stay private, the loan stays public and enforceable. No token
+> moves yet, and the figures are self-reported, so today anyone can be
+> verified. Wave 3 adds attested data providers. Kymider: prove it privately,
+> post 110%.
 
 ---
 
 ## Word count by section
 
+Narration words, counted before the test numbers are filled in.
+
 | Section | Time | Words |
 |---|---|---|
 | Hook | 0:00-0:10 | 24 |
-| Prove tier, lender view | 0:10-1:30 | 118 |
-| Refusal | 1:30-1:50 | 38 |
-| Repay, history, auditor | 1:50-2:20 | 75 |
-| On-chain | 2:20-2:35 | 33 |
-| Why Midnight, next | 2:35-2:50 | 40 |
+| Borrower proves a tier | 0:10-1:05 | 96 |
+| Lender view, refusal, offer and accept | 1:05-1:45 | 78 |
+| Repay, history, auditor | 1:45-2:25 | 69 |
+| On-chain | 2:25-2:40 | 29 |
+| What is simulated, next | 2:40-2:55 | 37 |
 
 ## If you run over
 
 Cut in this order:
 
-1. The Private facts hover at 0:10 (start at **Apply**). Saves 12 s.
-2. The auditor edit-and-fail at 2:10 (keep the green verify). Saves 5 s.
-3. Repayments: show only the last one. Saves 6 s.
+1. The Private facts hover at 0:10 (start at **Loans**). Saves 10 s.
+2. The auditor edit-and-fail at 2:15 (keep the green verify). Saves 5 s.
+3. Repayments: say the narration over the clicks without pausing. Saves 6 s.
 
-**Never cut the lender's "not disclosed" view or the 150% refusal.** Those two
-moments are the product.
+**Never cut the lender's "not disclosed" view, the 150% refusal or the
+borrower's Accept.** Those three moments are the product.
 
 ## After recording
 
