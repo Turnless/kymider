@@ -1,7 +1,7 @@
 # Kymider - Wave 2 demo video script
 
 **Length:** 2:55 (target window 2:30-3:00).
-**Narration:** 333 words, about 115 words per minute, which leaves room
+**Narration:** 337 words, about 115 words per minute, which leaves room
 for pauses. Do not rush; cut from the "If you run over" list instead.
 **Audio is required.** A Wave 1 judge asked another team for narration. Record
 the voice track; add captions from the same lines if you can.
@@ -10,8 +10,9 @@ the voice track; add captions from the same lines if you can.
 
 The "Do" lines follow the README's judge fast path, which runs in CI as
 `frontend/e2e/fast-path.spec.ts`. If a label differs on screen, adjust the "Do"
-line, not the narration. Labels for the new offer / accept step are not final:
-<!-- VERIFY: button labels marked below match the shipped console. -->
+line, not the narration. Every bold label below was checked against the
+console source (`frontend/src/lender/LenderLoan.tsx`,
+`frontend/src/borrower/LoanDetail.tsx`) and the shots in `deck/shots/`.
 
 ---
 
@@ -19,11 +20,15 @@ line, not the narration. Labels for the new offer / accept step are not final:
 
 - Console at <https://turnless.github.io/kymider/> in a clean browser profile
   (no extensions, zoom 110%, window 1920×1080). Reload so the simulated ledger
-  starts fresh. <!-- VERIFY: Pages serves the Wave 2 console (wave2 merged to main) -->
+  starts fresh. (Pages serves the Wave 2 console once `wave2` is merged to
+  `main`.)
 - The console seeds two repaid loans for the borrower, so the history proof at
   2:05 needs no preparation.
-- A second tab with [PROOF.md](../../PROOF.md) on GitHub, or the console's
-  **Live chain** view after the Preprod run. <!-- VERIFY: Preprod run done -->
+- A second tab with the latest green CI run
+  (<https://github.com/Turnless/kymider/actions/workflows/ci.yml>), open on the
+  "Devnet simulation" job's "Verify the record against the devnet" step. Preprod
+  is pending; once the Preprod run has committed `PROOF.md`, use that file on
+  GitHub instead, and the 2:25 alternative below.
 - `DECK.html` in a third tab, on slide 3 (the 110% number; open `DECK.html#3`).
 - Notifications off. Move the mouse slowly; pause one beat after every click so
   the result is on screen before you speak about it.
@@ -50,7 +55,8 @@ Click **Private facts**, hover the three figures.
 > On chain there is only a salted hash of them.
 
 **0:20** - **Do:** **Loans**. Lender: **Harbor Bank** (the default; the
-console's Lender role is Harbor Bank, so do not pick another). Principal
+lender console acts as Harbor Bank unless you change **Acting as** in the
+lender rail, so keep it). Principal
 **10,000**, interest **10**%, **3** installments. Point at the two collateral
 figures. Click **Apply to Harbor Bank**.
 
@@ -91,9 +97,10 @@ sit on screen for four seconds.
 
 *Do not talk over the error. Let it sit.*
 
-**1:32** - **Do:** Click **Offer at 110% · 11,000** <!-- VERIFY: button label -->.
-Switch to **Borrower**, open the loan, click **Accept** <!-- VERIFY: button label -->.
-Status: **Active**.
+**1:32** - **Do:** Click **Offer at 110% · 11,000**. The desk shows "Waiting
+for the borrower to accept". Switch to **Borrower**, open the loan: "Your step
+· Accept or decline", "Harbor Bank offers $11,000 collateral (110%)". Click
+**Accept**. Status: **Active**.
 
 > So the lender offers 11,000. Nothing binds until the borrower accepts.
 > Now it does.
@@ -126,19 +133,20 @@ lender's application list shows **2 prior repaid loans proven**.
 ---
 
 ### 2:25-2:40 · On-chain proof
-**Show:** PROOF.md on GitHub, or the **Live chain** view after the Preprod run.
-<!-- VERIFY: Preprod deploy done ({{PREPROD_TX}}); otherwise show the green CI
-     devnet job and say "on our CI devnet, with real proofs" instead of
-     "on Midnight Preprod". -->
+**Show:** the CI tab, on the "Devnet simulation" job's verify step ("All ...
+checks PASS").
 
-**2:25** - **Do:** Scroll PROOF.md to the `proveTier` and `underwrite`
-transactions. Click one hash into the explorer.
+**2:25** - **Do:** Scroll the `prove:onchain` step to the `proveTier` and
+`underwrite` transactions, then to the verify step's PASS line.
 
-> The same contracts run on Midnight Preprod. These are the transactions.
-> 302 offline tests, 46 browser tests and a devnet run
-> with real proofs back every step in CI.
+> In CI, the same contracts run on a Midnight devnet with real proofs, on
+> every push. Every transaction is recorded and read back. 302 offline tests
+> and 46 browser tests back every step.
 
-*Read the two numbers as filled in at recording time.*
+*After the Preprod run (owner):* show `PROOF.md` on GitHub instead, click one
+hash into the explorer ({{PREPROD_TX}}), and say "The same contracts run on
+Midnight Preprod. These are the transactions." in place of the first two
+sentences.
 
 ---
 
@@ -154,7 +162,7 @@ transactions. Click one hash into the explorer.
 
 ## Word count by section
 
-Narration words, counted before the test numbers are filled in.
+Narration words, numbers counted as one word each.
 
 | Section | Time | Words |
 |---|---|---|
@@ -162,7 +170,7 @@ Narration words, counted before the test numbers are filled in.
 | Borrower proves a tier | 0:10-1:05 | 96 |
 | Lender view, refusal, offer and accept | 1:05-1:45 | 78 |
 | Repay, history, auditor | 1:45-2:25 | 69 |
-| On-chain | 2:25-2:40 | 29 |
+| On-chain | 2:25-2:40 | 33 |
 | What is simulated, next | 2:40-2:55 | 37 |
 
 ## If you run over
