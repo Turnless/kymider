@@ -68,18 +68,34 @@ export circuit list(loanAddr: Bytes<32>, lenderPk: Bytes<32>, principal: Uint<64
   listingCount.increment(1);
 }
 
-// Either party moves the listing along; the Loan instance is the source of
-// truth and the console reconciles the two.
+// The parties move the listing along; the Loan instance is the source of truth
+// and the console reconciles the two. Each party may make only its own moves:
+//   borrower: OPEN -> CLOSED (withdraw the application)
+//   lender:   OPEN -> ACTIVE, OPEN -> CLOSED, ACTIVE -> DEFAULTED
+// Nobody sets REPAID here: only recordRepaid does, and only from ACTIVE.
+// Honest limit: with no cross-contract reads the directory cannot see the Loan
+// itself, so a lender could still mark a loan ACTIVE and record it repaid
+// without disbursing. The Loan instance, which anyone can read, shows that.
 export circuit updateStatus(loanAddr: Bytes<32>, status: ListingStatus): [] {
   const me = getDappPubKey(localSk());
   assert(listings.member(disclose(loanAddr)), "loan is not listed");
   const l = listings.lookup(disclose(loanAddr));
   assert(me == l.borrower || me == l.lender, "only the loan's parties may update it");
+  const next = disclose(status);
+  assert(next != ListingStatus.REPAID, "a repayment is recorded with recordRepaid, not set");
+  if (disclose(me == l.borrower)) {
+    assert(l.status == ListingStatus.OPEN && next == ListingStatus.CLOSED,
+      "the borrower may only withdraw an open listing");
+  } else {
+    assert((l.status == ListingStatus.OPEN && (next == ListingStatus.ACTIVE || next == ListingStatus.CLOSED))
+        || (l.status == ListingStatus.ACTIVE && next == ListingStatus.DEFAULTED),
+      "the lender may only move OPEN to ACTIVE or CLOSED, or ACTIVE to DEFAULTED");
+  }
   listings.insert(disclose(loanAddr), Listing {
     borrower: l.borrower,
     lender: l.lender,
     principal: l.principal,
-    status: disclose(status),
+    status: next,
   });
 }
 
@@ -91,6 +107,7 @@ export circuit recordRepaid(loanAddr: Bytes<32>): [] {
   const l = listings.lookup(disclose(loanAddr));
   assert(me == l.lender, "only the loan's lender may record a repayment");
   assert(!recordedLoans.member(disclose(loanAddr)), "repayment already recorded");
+  assert(l.status == ListingStatus.ACTIVE, "only an active listing can be recorded as repaid");
   repaid.insert(repaidLeaf(l.borrower, disclose(loanAddr), l.lender));
   recordedLoans.insert(disclose(loanAddr));
   listings.insert(disclose(loanAddr), Listing {

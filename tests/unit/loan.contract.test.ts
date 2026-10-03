@@ -13,7 +13,8 @@ import {
   CompactTypeVector,
   persistentHash,
 } from '@midnight-ntwrk/compact-runtime';
-import { LoanStatus, Tier } from '../../contracts/index.js';
+import { LoanStatus, Tier, loanPureCircuits } from '../../contracts/index.js';
+import { MIN_QUOTE_SECONDS } from '../../contracts/loanMath.js';
 import { loanPaymentNonce } from '../../contracts/witnesses.js';
 import {
   LoanSimulator,
@@ -55,8 +56,12 @@ const quoted = (): LoanSimulator =>
 
 const verified = (): LoanSimulator => quoted().as(BORROWER_SK).proveTier(FACTS);
 
-const disbursed = (): LoanSimulator =>
-  verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL).disburse(T0, OWED, INSTALLMENT);
+// The lender offers 110% and the borrower accepts: ACTIVE, ready to disburse.
+// Left acting as the lender.
+const active = (): LoanSimulator =>
+  verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL).as(BORROWER_SK).accept().as(LENDER_SK);
+
+const disbursed = (): LoanSimulator => active().disburse(T0, OWED, INSTALLMENT);
 
 const hex = (b: Uint8Array): string => Buffer.from(b).toString('hex');
 
@@ -142,10 +147,22 @@ describe('Loan — quote', () => {
     );
   });
 
-  it('refuses a quote that has already expired', () => {
-    expect(() => sim.as(LENDER_SK).quoteTerms(1n, 40n, T0)).toThrow(
-      /quote would already have expired/,
-    );
+  it('refuses a quote that holds less than 30 minutes, to the second', () => {
+    sim.as(LENDER_SK);
+    expect(() => sim.quoteTerms(1n, 40n, T0)).toThrow(/quote must hold at least 30 minutes/);
+    expect(() => sim.quoteTerms(1n, 40n, T0 - 1n)).toThrow(/quote must hold at least 30 minutes/);
+    expect(() => sim.quoteTerms(1n, 40n, T0 + 2n)).toThrow(/quote must hold at least 30 minutes/);
+    expect(() => sim.quoteTerms(1n, 40n, T0 + 1_799n)).toThrow(/quote must hold at least 30 minutes/);
+    // An expiry below 30 minutes past the epoch must not underflow the check.
+    expect(() => sim.quoteTerms(1n, 40n, 0n)).toThrow(/quote must hold at least 30 minutes/);
+    expect(() => sim.quoteTerms(1n, 40n, 1_799n)).toThrow(/quote must hold at least 30 minutes/);
+    expect(sim.ledger().quotesIssued).toBe(0n);
+    sim.quoteTerms(1n, 40n, T0 + 1_800n);
+    expect(sim.ledger().quote.expiresAt).toBe(T0 + 1_800n);
+  });
+
+  it('reads the 30-minute floor from the contract', () => {
+    expect(loanPureCircuits.minQuoteSeconds()).toBe(MIN_QUOTE_SECONDS);
   });
 
   it('refuses a DTI limit above 10000%', () => {
@@ -154,11 +171,29 @@ describe('Loan — quote', () => {
     );
   });
 
-  it('a new quote clears a tier proven against the old one', () => {
-    const s = verified();
-    expect(s.ledger().tier).toBe(Tier.VERIFIED);
+  it('a new quote clears a STANDARD tier proven against the old one', () => {
+    const s = quoted().as(LENDER_SK).quoteTerms(800_000n, BAR.maxDti, T0 + QUOTE_TTL);
+    s.as(BORROWER_SK).proveTier(FACTS);
+    expect(s.ledger().tier).toBe(Tier.STANDARD);
     s.as(LENDER_SK).quoteTerms(BAR.thresholdNetWorth, BAR.maxDti, T0 + QUOTE_TTL);
     expect(s.ledger().tier).toBe(Tier.NONE);
+  });
+
+  it('a live VERIFIED tier cannot be re-quoted away, up to its last second', () => {
+    const s = verified().as(LENDER_SK);
+    expect(() => s.quoteTerms(BAR.thresholdNetWorth, BAR.maxDti, T0 + QUOTE_TTL)).toThrow(
+      /a verified tier is live until it lapses/,
+    );
+    s.at(T0 + QUOTE_TTL - 1n);
+    expect(() => s.quoteTerms(BAR.thresholdNetWorth, BAR.maxDti, T0 + 2n * QUOTE_TTL)).toThrow(
+      /a verified tier is live until it lapses/,
+    );
+    expect(s.ledger().tier).toBe(Tier.VERIFIED);
+    expect(s.ledger().quotesIssued).toBe(1n);
+    // Once it lapses the lender may quote again; the borrower may prove again.
+    s.at(T0 + QUOTE_TTL).quoteTerms(BAR.thresholdNetWorth, BAR.maxDti, T0 + 2n * QUOTE_TTL);
+    expect(s.ledger().tier).toBe(Tier.NONE);
+    expect(s.as(BORROWER_SK).proveTier(FACTS).ledger().tier).toBe(Tier.VERIFIED);
   });
 });
 
@@ -215,48 +250,55 @@ describe('Loan — tier proof', () => {
     );
   });
 
-  it('refuses a proof once the loan is underwritten', () => {
-    const sim = verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL);
-    expect(() => sim.as(BORROWER_SK).proveTier(FACTS)).toThrow(
-      /loan is no longer open to proofs/,
-    );
+  it('refuses a proof while an offer is standing, and once the loan is active', () => {
+    const sim = quoted().as(LENDER_SK).underwrite(STANDARD_COLLATERAL);
+    expect(() => sim.as(BORROWER_SK).proveTier(FACTS)).toThrow(/loan is no longer open to proofs/);
+    expect(() => active().as(BORROWER_SK).proveTier(FACTS)).toThrow(/loan is no longer open to proofs/);
+  });
+
+  it('after declining an offer the borrower can still prove against the live quote', () => {
+    const sim = quoted().as(LENDER_SK).underwrite(STANDARD_COLLATERAL).as(BORROWER_SK).declineOffer();
+    expect(sim.proveTier(FACTS).ledger().tier).toBe(Tier.VERIFIED);
   });
 });
 
-describe('Loan — underwriting', () => {
-  it('a verified borrower is underwritten at 110% collateral', () => {
+describe('Loan — underwriting (the lender offers)', () => {
+  it('a verified borrower is offered 110% collateral, and nothing is binding yet', () => {
     const state = verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL).ledger();
-    expect(state.status).toBe(LoanStatus.ACTIVE);
-    expect(state.tier).toBe(Tier.VERIFIED);
-    expect(state.collateralRequired).toBe(VERIFIED_COLLATERAL);
+    expect(state.status).toBe(LoanStatus.OFFERED);
+    expect(state.offeredTier).toBe(Tier.VERIFIED);
+    expect(state.offeredCollateral).toBe(VERIFIED_COLLATERAL);
+    expect(state.collateralRequired).toBe(0n);
   });
 
-  it('a lender cannot quietly ask a verified borrower for 150%', () => {
+  it('the lender can only offer a verified borrower the 110% figure', () => {
     expect(() => verified().as(LENDER_SK).underwrite(STANDARD_COLLATERAL)).toThrow(
       /collateral does not match the tier/,
     );
   });
 
-  it('a borrower who never proved is underwritten at 150%, and only 150%', () => {
+  it('a borrower who never proved is offered 150%, and only 150%', () => {
     expect(() => quoted().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL)).toThrow(
       /collateral does not match the tier/,
     );
     const state = quoted().as(LENDER_SK).underwrite(STANDARD_COLLATERAL).ledger();
-    expect(state.tier).toBe(Tier.STANDARD);
-    expect(state.collateralRequired).toBe(STANDARD_COLLATERAL);
+    expect(state.offeredTier).toBe(Tier.STANDARD);
+    expect(state.offeredCollateral).toBe(STANDARD_COLLATERAL);
+    // The proven tier is not rewritten by an offer.
+    expect(state.tier).toBe(Tier.NONE);
   });
 
-  it('a STANDARD proof is underwritten at 150%', () => {
+  it('a STANDARD proof is offered 150%', () => {
     const sim = quoted().as(LENDER_SK).quoteTerms(800_000n, BAR.maxDti, T0 + QUOTE_TTL);
     sim.as(BORROWER_SK).proveTier(FACTS).as(LENDER_SK);
     expect(() => sim.underwrite(VERIFIED_COLLATERAL)).toThrow(/collateral does not match the tier/);
-    expect(sim.underwrite(STANDARD_COLLATERAL).ledger().tier).toBe(Tier.STANDARD);
+    expect(sim.underwrite(STANDARD_COLLATERAL).ledger().offeredTier).toBe(Tier.STANDARD);
   });
 
   it('a lapsed tier falls back to 150%', () => {
     const sim = verified().advance(QUOTE_TTL).as(LENDER_SK);
     expect(() => sim.underwrite(VERIFIED_COLLATERAL)).toThrow(/collateral does not match the tier/);
-    expect(sim.underwrite(STANDARD_COLLATERAL).ledger().tier).toBe(Tier.STANDARD);
+    expect(sim.underwrite(STANDARD_COLLATERAL).ledger().offeredTier).toBe(Tier.STANDARD);
   });
 
   it('accepts only the exact floor of the ratio', () => {
@@ -269,7 +311,8 @@ describe('Loan — underwriting', () => {
       .as(LENDER_SK);
     expect(() => sim.underwrite(1_102n)).toThrow(/collateral does not match the tier/);
     expect(() => sim.underwrite(1_100n)).toThrow(/collateral does not match the tier/);
-    expect(sim.underwrite(1_101n).ledger().collateralRequired).toBe(1_101n);
+    expect(sim.underwrite(1_101n).ledger().offeredCollateral).toBe(1_101n);
+    expect(sim.as(BORROWER_SK).accept().ledger().collateralRequired).toBe(1_101n);
   });
 
   it('refuses underwriting from the borrower', () => {
@@ -278,14 +321,138 @@ describe('Loan — underwriting', () => {
     );
   });
 
+  it('refuses a second offer while one is standing', () => {
+    const sim = verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL);
+    expect(() => sim.underwrite(VERIFIED_COLLATERAL)).toThrow(/loan is not awaiting underwriting/);
+  });
+
   it('lets the lender decline, which closes the loan', () => {
     const sim = quoted().as(LENDER_SK).decline();
     expect(sim.ledger().status).toBe(LoanStatus.DECLINED);
     expect(() => sim.underwrite(STANDARD_COLLATERAL)).toThrow(/loan is not awaiting underwriting/);
   });
 
-  it('refuses a decline from the borrower', () => {
+  it('lets the lender withdraw an offer the borrower has not accepted', () => {
+    const sim = verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL).decline();
+    expect(sim.ledger().status).toBe(LoanStatus.DECLINED);
+    expect(() => sim.as(BORROWER_SK).accept()).toThrow(/there is no offer to accept/);
+  });
+
+  it('refuses a decline from the borrower, and once the loan is active', () => {
     expect(() => quoted().as(BORROWER_SK).decline()).toThrow(/only the lender may decline/);
+    expect(() => active().decline()).toThrow(/loan is not awaiting underwriting/);
+  });
+});
+
+describe('Loan — borrower consent (accept or decline the offer)', () => {
+  it('accepting makes the offer binding: ACTIVE at the offered tier and collateral', () => {
+    const state = verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL).as(BORROWER_SK).accept().ledger();
+    expect(state.status).toBe(LoanStatus.ACTIVE);
+    expect(state.tier).toBe(Tier.VERIFIED);
+    expect(state.collateralRequired).toBe(VERIFIED_COLLATERAL);
+  });
+
+  it('accepting a 150% offer records the STANDARD tier', () => {
+    const state = quoted().as(LENDER_SK).underwrite(STANDARD_COLLATERAL).as(BORROWER_SK).accept().ledger();
+    expect(state.tier).toBe(Tier.STANDARD);
+    expect(state.collateralRequired).toBe(STANDARD_COLLATERAL);
+  });
+
+  it('declining clears the offer and reopens the application', () => {
+    const state = quoted().as(LENDER_SK).underwrite(STANDARD_COLLATERAL).as(BORROWER_SK).declineOffer().ledger();
+    expect(state.status).toBe(LoanStatus.APPLIED);
+    expect(state.offeredCollateral).toBe(0n);
+    expect(state.offeredTier).toBe(Tier.NONE);
+    expect(state.collateralRequired).toBe(0n);
+  });
+
+  it('only the borrower may accept or decline the offer', () => {
+    const sim = verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL);
+    expect(() => sim.as(LENDER_SK).accept()).toThrow(/only the borrower may accept an offer/);
+    expect(() => sim.as(STRANGER_SK).accept()).toThrow(/only the borrower may accept an offer/);
+    expect(() => sim.as(LENDER_SK).declineOffer()).toThrow(/only the borrower may decline an offer/);
+    expect(() => sim.as(STRANGER_SK).declineOffer()).toThrow(/only the borrower may decline an offer/);
+    expect(sim.ledger().status).toBe(LoanStatus.OFFERED);
+  });
+
+  it('there is nothing to accept or decline before an offer, or after accepting', () => {
+    expect(() => quoted().as(BORROWER_SK).accept()).toThrow(/there is no offer to accept/);
+    expect(() => quoted().as(BORROWER_SK).declineOffer()).toThrow(/there is no offer to decline/);
+    const sim = active().as(BORROWER_SK);
+    expect(() => sim.accept()).toThrow(/there is no offer to accept/);
+    expect(() => sim.declineOffer()).toThrow(/there is no offer to decline/);
+  });
+
+  it('refuses a disbursement before the borrower accepts', () => {
+    const sim = verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL);
+    expect(() => sim.disburse(T0, OWED, INSTALLMENT)).toThrow(/loan is not active/);
+    expect(() => sim.as(BORROWER_SK).repay(INSTALLMENT)).toThrow(/loan is not active/);
+  });
+
+  it('after a decline the lender may offer again, still only the tier figure', () => {
+    const sim = verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL).as(BORROWER_SK).declineOffer();
+    sim.as(LENDER_SK);
+    expect(() => sim.underwrite(STANDARD_COLLATERAL)).toThrow(/collateral does not match the tier/);
+    expect(sim.underwrite(VERIFIED_COLLATERAL).ledger().status).toBe(LoanStatus.OFFERED);
+  });
+});
+
+// The bypasses a review reproduced against the previous contract, where
+// underwriting activated the loan and the lender controlled the tier. Each is
+// now refused, or ends in an offer the borrower declines.
+describe('Loan — a lender cannot impose 150% on a verified borrower', () => {
+  it('re-quoting after a VERIFIED proof is refused, so the tier stands and 150% is refused', () => {
+    const sim = verified().as(LENDER_SK);
+    expect(() => sim.quoteTerms(BAR.thresholdNetWorth, BAR.maxDti, T0 + QUOTE_TTL)).toThrow(
+      /a verified tier is live until it lapses/,
+    );
+    expect(() => sim.underwrite(STANDARD_COLLATERAL)).toThrow(/collateral does not match the tier/);
+    expect(sim.ledger().status).toBe(LoanStatus.APPLIED);
+    expect(sim.ledger().tier).toBe(Tier.VERIFIED);
+  });
+
+  it('a quote short enough to lapse before underwriting is refused', () => {
+    const sim = deploy().as(LENDER_SK);
+    expect(() => sim.quoteTerms(BAR.thresholdNetWorth, BAR.maxDti, T0 + 2n)).toThrow(
+      /quote must hold at least 30 minutes/,
+    );
+    expect(sim.ledger().quoted).toBe(false);
+  });
+
+  it('a 150% offer once the shortest allowed quote lapses binds no one: the borrower declines', () => {
+    const sim = deploy()
+      .as(LENDER_SK)
+      .quoteTerms(BAR.thresholdNetWorth, BAR.maxDti, T0 + 1_800n)
+      .as(BORROWER_SK)
+      .proveTier(FACTS)
+      .advance(1_800n)
+      .as(LENDER_SK)
+      .underwrite(STANDARD_COLLATERAL);
+    expect(sim.ledger().status).toBe(LoanStatus.OFFERED);
+    sim.as(BORROWER_SK).declineOffer();
+    expect(sim.ledger().status).toBe(LoanStatus.APPLIED);
+    expect(() => sim.as(LENDER_SK).disburse(sim.now, OWED, INSTALLMENT)).toThrow(/loan is not active/);
+  });
+
+  it('a 150% offer before the borrower can prove binds no one: decline, prove, be offered 110%', () => {
+    const sim = quoted().as(LENDER_SK).underwrite(STANDARD_COLLATERAL);
+    sim.as(BORROWER_SK).declineOffer().proveTier(FACTS);
+    sim.as(LENDER_SK);
+    expect(() => sim.underwrite(STANDARD_COLLATERAL)).toThrow(/collateral does not match the tier/);
+    sim.underwrite(VERIFIED_COLLATERAL).as(BORROWER_SK).accept();
+    expect(sim.ledger().collateralRequired).toBe(VERIFIED_COLLATERAL);
+    expect(sim.ledger().tier).toBe(Tier.VERIFIED);
+  });
+
+  it('re-quote and 150% after the tier lapsed is only an offer; the borrower declines and proves again', () => {
+    const sim = verified().at(T0 + QUOTE_TTL).as(LENDER_SK);
+    sim.quoteTerms(BAR.thresholdNetWorth, BAR.maxDti, T0 + 2n * QUOTE_TTL).underwrite(STANDARD_COLLATERAL);
+    expect(sim.ledger().status).toBe(LoanStatus.OFFERED);
+    sim.as(BORROWER_SK).declineOffer().proveTier(FACTS);
+    expect(sim.ledger().tier).toBe(Tier.VERIFIED);
+    expect(() => sim.as(LENDER_SK).quoteTerms(1n, 40n, T0 + 3n * QUOTE_TTL)).toThrow(
+      /a verified tier is live until it lapses/,
+    );
   });
 });
 
@@ -293,7 +460,7 @@ describe('Loan — disbursement', () => {
   let sim: LoanSimulator;
 
   beforeEach(() => {
-    sim = verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL);
+    sim = active();
   });
 
   it('sets the balance, the installment and the first due date', () => {
@@ -389,7 +556,7 @@ describe('Loan — repayment', () => {
   });
 
   it('refuses a repayment before disbursement', () => {
-    const s = verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL);
+    const s = active();
     expect(() => s.as(BORROWER_SK).repay(367n)).toThrow(/nothing was disbursed/);
   });
 
@@ -434,7 +601,7 @@ describe('Loan — default', () => {
   });
 
   it('refuses a default on a loan never disbursed', () => {
-    const s = verified().as(LENDER_SK).underwrite(VERIFIED_COLLATERAL);
+    const s = active();
     expect(() => s.markDefault()).toThrow(/nothing was disbursed/);
   });
 });

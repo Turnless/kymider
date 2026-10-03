@@ -9,6 +9,8 @@ export {
   STANDARD_RATIO_BPS,
   GRACE_SECONDS,
   MAX_PRINCIPAL,
+  MIN_QUOTE_SECONDS,
+  quoteRefusal,
   collateralFor,
   owedFor,
   installmentFor,

@@ -5,8 +5,9 @@
 //   - the shared LoanDirectory (index, repayment records, history proofs)
 //
 // Instantiate one LoanClient per wallet, like KymiderClient. The borrower
-// deploys a Loan naming one lender and proves a tier; the lender quotes,
-// underwrites, disburses and records the repayment. The client does the
+// deploys a Loan naming one lender, proves a tier and accepts (or declines)
+// the lender's offer; the lender quotes, offers (underwrite), disburses and
+// records the repayment. The client does the
 // arithmetic the circuits check but cannot do (Compact has no division), so
 // callers never pass a collateral, owed or installment figure themselves.
 //
@@ -25,6 +26,7 @@ import {
   CompiledLoanContract,
   CompiledLoanDirectoryContract,
   ListingStatus,
+  LoanStatus,
   Tier,
   loanDirectoryLedger,
   loanDirectoryPureCircuits,
@@ -53,6 +55,7 @@ import {
   installmentFor,
   nowSeconds,
   owedFor,
+  quoteRefusal,
   tierIsLive,
 } from './proof/loanMath.js';
 import { bytesEqual } from './utils.js';
@@ -158,27 +161,32 @@ export class LoanClient {
 
   // --- lender -------------------------------------------------------------
 
-  // Name the bar for the 110% tier and how long a proof against it holds.
-  // A loan takes at most quoteLimit() quotes; checked here first so the caller
-  // gets the contract's answer without spending a proof on it.
+  // Name the bar for the 110% tier and how long a proof against it holds
+  // (at least 30 minutes). A loan takes at most quoteLimit() quotes, and a live
+  // VERIFIED tier cannot be re-quoted away. All three are checked here first so
+  // the caller gets the contract's answer without spending a proof on it.
   async quote(loan: ContractAddress, quote: Quote): Promise<bigint> {
-    const { quotesIssued } = await this.loanState(loan);
-    if (quotesIssued >= loanPureCircuits.quoteLimit()) {
+    const state = await this.loanState(loan);
+    if (state.quotesIssued >= loanPureCircuits.quoteLimit()) {
       throw new Error('quote limit reached');
     }
-    const expiresAt = nowSeconds() + quote.ttlSeconds;
+    const now = nowSeconds();
+    const expiresAt = now + quote.ttlSeconds;
+    const refusal = quoteRefusal(state, expiresAt, now);
+    if (refusal) throw new Error(refusal);
     await this.callLoan(loan, 'quoteTerms', [quote.thresholdNetWorth, quote.maxDti, expiresAt]);
     return expiresAt;
   }
 
-  // Accept the loan at the tier the borrower holds now, with the exact
-  // collateral the circuit will accept for it.
+  // Offer the loan at the tier the borrower holds now, with the exact
+  // collateral the circuit will take for it. The loan is OFFERED, not ACTIVE:
+  // it binds once the borrower accepts.
   async underwrite(loan: ContractAddress): Promise<{ tier: Tier; collateral: bigint }> {
     const state = await this.loanState(loan);
     const tier = tierIsLive(state, nowSeconds()) ? Tier.VERIFIED : Tier.STANDARD;
     const collateral = collateralFor(state.terms.principal, tier);
     await this.callLoan(loan, 'underwrite', [collateral]);
-    this.logger.info(`Underwrote ${loan} at ${tierName(tier)}, collateral ${collateral}`);
+    this.logger.info(`Offered ${loan} at ${tierName(tier)}, collateral ${collateral}`);
     return { tier, collateral };
   }
 
@@ -225,6 +233,22 @@ export class LoanClient {
     this.logger.info(`Local verdict for ${loan}: ${local}`);
     await this.callLoan(loan, 'proveTier', [facts.balance, facts.debts, facts.income]);
     return (await this.loanState(loan)).tier;
+  }
+
+  // Make the lender's offer binding. Returns the tier and collateral accepted.
+  async acceptOffer(loan: ContractAddress): Promise<{ tier: Tier; collateral: bigint }> {
+    const state = await this.loanState(loan);
+    if (state.status !== LoanStatus.OFFERED) throw new Error('there is no offer to accept');
+    await this.callLoan(loan, 'accept', []);
+    this.logger.info(`Accepted ${loan} at ${tierName(state.offeredTier)}, collateral ${state.offeredCollateral}`);
+    return { tier: state.offeredTier, collateral: state.offeredCollateral };
+  }
+
+  // Turn the offer down; the application is open again.
+  async declineOffer(loan: ContractAddress): Promise<void> {
+    const { status } = await this.loanState(loan);
+    if (status !== LoanStatus.OFFERED) throw new Error('there is no offer to decline');
+    await this.callLoan(loan, 'declineOffer', []);
   }
 
   // Pay the installment due (or the remainder). Returns the amount paid.

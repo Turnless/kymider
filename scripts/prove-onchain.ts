@@ -47,7 +47,7 @@ import {
   createLoanPrivateState,
   createSolvencyPrivateState,
 } from '../contracts/witnesses.js';
-import { AttestationStatus, LoanStatus, Tier, type LoanTerms } from '../contracts/index.js';
+import { AttestationStatus, ListingStatus, LoanStatus, Tier, type LoanTerms } from '../contracts/index.js';
 import { CLAIM, FACTS, QUOTE, STEPS, TERMS_A, TERMS_B, TERMS_C, type StepInfo } from './lib/flow.js';
 import { buildDeployments, deploymentsPath, writeDeployments } from './lib/deployments.js';
 import { renderProofMd, explorerTemplate } from './lib/proof-md.js';
@@ -225,6 +225,13 @@ try {
     check(state.latePayments === 0n, `loan ${loan} has ${state.latePayments} late payments`);
   };
 
+  // The listing moves OPEN -> ACTIVE (by its lender) once the borrower has
+  // accepted; recordRepaid is refused on any listing that is not ACTIVE.
+  const activate = async (loan: ContractAddress, s: StepInfo, lenderSk: Uint8Array): Promise<void> => {
+    await lenderLoans.bindLoanDirectoryPrivateState(directory, createLoanDirectoryPrivateState(lenderSk));
+    await step(s, () => lenderLoans.updateListingStatus(directory, loan, ListingStatus.ACTIVE));
+  };
+
   const record = async (loan: ContractAddress, s: StepInfo, lenderSk: Uint8Array): Promise<void> => {
     await lenderLoans.bindLoanDirectoryPrivateState(directory, createLoanDirectoryPrivateState(lenderSk));
     await step(s, () => lenderLoans.recordRepaid(directory, loan));
@@ -236,8 +243,10 @@ try {
   const tierA = await step(STEPS.proveTierA, () => borrowerLoans.proveTier(loanA, FACTS));
   check(tierA === Tier.VERIFIED, `loan A tier is ${tierName(tierA)}, expected VERIFIED`);
   const underA = await step(STEPS.underwriteA, () => lenderLoans.underwrite(loanA));
-  check(underA.tier === Tier.VERIFIED, `loan A underwritten at ${tierName(underA.tier)}`);
-  show('Loan A collateral', `${underA.collateral} on ${TERMS_A.principal} (110%)`);
+  check(underA.tier === Tier.VERIFIED, `loan A offered at ${tierName(underA.tier)}`);
+  show('Loan A collateral offered', `${underA.collateral} on ${TERMS_A.principal} (110%)`);
+  await step(STEPS.acceptA, () => borrowerLoans.acceptOffer(loanA));
+  await activate(loanA, STEPS.activateA, lenderASk);
   await step(STEPS.disburseA, () => lenderLoans.disburse(loanA));
   await repayAll(loanA, STEPS.repayA, TERMS_A.installments);
   await record(loanA, STEPS.recordA, lenderASk);
@@ -246,8 +255,10 @@ try {
   const loanB = await openLoan(STEPS.deployLoanB, STEPS.listB, lenderBSk, TERMS_B);
   await step(STEPS.quoteB, () => lenderLoans.quote(loanB, QUOTE));
   const underB = await step(STEPS.underwriteB, () => lenderLoans.underwrite(loanB));
-  check(underB.tier === Tier.STANDARD, `loan B underwritten at ${tierName(underB.tier)}`);
-  show('Loan B collateral', `${underB.collateral} on ${TERMS_B.principal} (150%)`);
+  check(underB.tier === Tier.STANDARD, `loan B offered at ${tierName(underB.tier)}`);
+  show('Loan B collateral offered', `${underB.collateral} on ${TERMS_B.principal} (150%)`);
+  await step(STEPS.acceptB, () => borrowerLoans.acceptOffer(loanB));
+  await activate(loanB, STEPS.activateB, lenderBSk);
   await step(STEPS.disburseB, () => lenderLoans.disburse(loanB));
   await repayAll(loanB, STEPS.repayB, TERMS_B.installments);
   await record(loanB, STEPS.recordB, lenderBSk);

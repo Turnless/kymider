@@ -202,11 +202,14 @@ describe('Loan — re-quote cap', () => {
     expect(() => sim.as(BORROWER_SK).proveTier(FACTS)).toThrow(/already proven against this quote/);
   });
 
-  it('allows one proof again after a re-quote, which resets the flag and the tier', () => {
+  it('a live VERIFIED tier blocks a re-quote; once it lapses, a re-quote resets the flag and the tier', () => {
     const sim = quote(loanFor(commitFacts(FACTS, TEST_SALT)));
     sim.as(BORROWER_SK).proveTier(FACTS);
     expect(sim.ledger().tier).toBe(Tier.VERIFIED);
+    expect(() => quote(sim, 900_000n)).toThrow(/a verified tier is live until it lapses/);
+    expect(sim.ledger().quotesIssued).toBe(1n);
 
+    sim.advance(TTL); // the quote, and with it the tier, lapses
     quote(sim, 900_000n); // net worth is 700,000: this bar fails
     expect(sim.ledger().tierProven).toBe(false);
     expect(sim.ledger().tier).toBe(Tier.NONE);
@@ -217,6 +220,8 @@ describe('Loan — re-quote cap', () => {
 
   it('bounds what a lender can learn: three answers at most, however it chooses the bars', () => {
     // The search the cap exists to stop: bisect net worth over [0, 2^20).
+    // A VERIFIED answer stands until its quote lapses, so this lender waits
+    // each one out before asking again; the cap still stops it at three.
     const sim = loanFor(commitFacts(FACTS, TEST_SALT)).at(T0);
     let lo = 0n;
     let hi = 1n << 20n;
@@ -234,6 +239,7 @@ describe('Loan — re-quote cap', () => {
       answers += 1;
       if (sim.ledger().tier === Tier.VERIFIED) lo = mid;
       else hi = mid;
+      sim.advance(TTL);
     }
     expect(answers).toBe(3);
     // Three bits narrow 2^20 to 2^17: the interval still spans 131,072 values.
@@ -259,6 +265,9 @@ describe('Loan desk — the cap as the console shows it', () => {
     expect(desk.loan(address)).toMatchObject({ quotesIssued: 1, tierProven: true });
     await expect(desk.proveTier(address)).rejects.toThrow(/^already proven against this quote$/);
 
+    // The VERIFIED tier stands until it lapses: no re-quote before then.
+    await expect(desk.quote(address, bar)).rejects.toThrow(/^a verified tier is live until it lapses$/);
+    desk.advanceTime(7n * DAY);
     await desk.quote(address, bar);
     await desk.quote(address, bar);
     expect(desk.loan(address)).toMatchObject({ quotesIssued: 3, tierProven: false });

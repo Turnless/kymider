@@ -241,21 +241,21 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('updateStatus',
                                      'argument 1 (as invoked from Typescript)',
-                                     'loanDirectory.compact line 73 char 1',
+                                     'loanDirectory.compact line 79 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(loanAddr_0.buffer instanceof ArrayBuffer && loanAddr_0.BYTES_PER_ELEMENT === 1 && loanAddr_0.length === 32)) {
           __compactRuntime.typeError('updateStatus',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'loanDirectory.compact line 73 char 1',
+                                     'loanDirectory.compact line 79 char 1',
                                      'Bytes<32>',
                                      loanAddr_0)
         }
         if (!(typeof(status_0) === 'number' && status_0 >= 0 && status_0 <= 4)) {
           __compactRuntime.typeError('updateStatus',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'loanDirectory.compact line 73 char 1',
+                                     'loanDirectory.compact line 79 char 1',
                                      'Enum<ListingStatus, OPEN, ACTIVE, REPAID, DEFAULTED, CLOSED>',
                                      status_0)
         }
@@ -285,14 +285,14 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('recordRepaid',
                                      'argument 1 (as invoked from Typescript)',
-                                     'loanDirectory.compact line 88 char 1',
+                                     'loanDirectory.compact line 104 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(loanAddr_0.buffer instanceof ArrayBuffer && loanAddr_0.BYTES_PER_ELEMENT === 1 && loanAddr_0.length === 32)) {
           __compactRuntime.typeError('recordRepaid',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'loanDirectory.compact line 88 char 1',
+                                     'loanDirectory.compact line 104 char 1',
                                      'Bytes<32>',
                                      loanAddr_0)
         }
@@ -327,56 +327,56 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 1 (as invoked from Typescript)',
-                                     'loanDirectory.compact line 108 char 1',
+                                     'loanDirectory.compact line 125 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(forLoan_0.buffer instanceof ArrayBuffer && forLoan_0.BYTES_PER_ELEMENT === 1 && forLoan_0.length === 32)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'loanDirectory.compact line 108 char 1',
+                                     'loanDirectory.compact line 125 char 1',
                                      'Bytes<32>',
                                      forLoan_0)
         }
         if (!(loanA_0.buffer instanceof ArrayBuffer && loanA_0.BYTES_PER_ELEMENT === 1 && loanA_0.length === 32)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'loanDirectory.compact line 108 char 1',
+                                     'loanDirectory.compact line 125 char 1',
                                      'Bytes<32>',
                                      loanA_0)
         }
         if (!(lenderA_0.buffer instanceof ArrayBuffer && lenderA_0.BYTES_PER_ELEMENT === 1 && lenderA_0.length === 32)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 3 (argument 4 as invoked from Typescript)',
-                                     'loanDirectory.compact line 108 char 1',
+                                     'loanDirectory.compact line 125 char 1',
                                      'Bytes<32>',
                                      lenderA_0)
         }
         if (!(typeof(pathA_0) === 'object' && pathA_0.leaf.buffer instanceof ArrayBuffer && pathA_0.leaf.BYTES_PER_ELEMENT === 1 && pathA_0.leaf.length === 32 && Array.isArray(pathA_0.path) && pathA_0.path.length === 10 && pathA_0.path.every((t) => typeof(t) === 'object' && typeof(t.sibling) === 'object' && typeof(t.sibling.field) === 'bigint' && t.sibling.field >= 0 && t.sibling.field <= __compactRuntime.MAX_FIELD && typeof(t.goes_left) === 'boolean'))) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 4 (argument 5 as invoked from Typescript)',
-                                     'loanDirectory.compact line 108 char 1',
+                                     'loanDirectory.compact line 125 char 1',
                                      'struct MerkleTreePath<leaf: Bytes<32>, path: Vector<10, struct MerkleTreePathEntry<sibling: struct MerkleTreeDigest<field: Field>, goes_left: Boolean>>>',
                                      pathA_0)
         }
         if (!(loanB_0.buffer instanceof ArrayBuffer && loanB_0.BYTES_PER_ELEMENT === 1 && loanB_0.length === 32)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 5 (argument 6 as invoked from Typescript)',
-                                     'loanDirectory.compact line 108 char 1',
+                                     'loanDirectory.compact line 125 char 1',
                                      'Bytes<32>',
                                      loanB_0)
         }
         if (!(lenderB_0.buffer instanceof ArrayBuffer && lenderB_0.BYTES_PER_ELEMENT === 1 && lenderB_0.length === 32)) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 6 (argument 7 as invoked from Typescript)',
-                                     'loanDirectory.compact line 108 char 1',
+                                     'loanDirectory.compact line 125 char 1',
                                      'Bytes<32>',
                                      lenderB_0)
         }
         if (!(typeof(pathB_0) === 'object' && pathB_0.leaf.buffer instanceof ArrayBuffer && pathB_0.leaf.BYTES_PER_ELEMENT === 1 && pathB_0.leaf.length === 32 && Array.isArray(pathB_0.path) && pathB_0.path.length === 10 && pathB_0.path.every((t) => typeof(t) === 'object' && typeof(t.sibling) === 'object' && typeof(t.sibling.field) === 'bigint' && t.sibling.field >= 0 && t.sibling.field <= __compactRuntime.MAX_FIELD && typeof(t.goes_left) === 'boolean'))) {
           __compactRuntime.typeError('proveTwoRepaid',
                                      'argument 7 (argument 8 as invoked from Typescript)',
-                                     'loanDirectory.compact line 108 char 1',
+                                     'loanDirectory.compact line 125 char 1',
                                      'struct MerkleTreePath<leaf: Bytes<32>, path: Vector<10, struct MerkleTreePathEntry<sibling: struct MerkleTreeDigest<field: Field>, goes_left: Boolean>>>',
                                      pathB_0)
         }
@@ -700,10 +700,22 @@ export class Contract {
                             ||
                             this._equal_2(me_0, l_0.lender),
                             "only the loan's parties may update it");
+    const next_0 = status_0;
+    __compactRuntime.assert(next_0 !== 2,
+                            'a repayment is recorded with recordRepaid, not set');
+    if (this._equal_3(me_0, l_0.borrower)) {
+      __compactRuntime.assert(l_0.status === 0 && next_0 === 4,
+                              'the borrower may only withdraw an open listing');
+    } else {
+      __compactRuntime.assert(l_0.status === 0 && (next_0 === 1 || next_0 === 4)
+                              ||
+                              l_0.status === 1 && next_0 === 3,
+                              'the lender may only move OPEN to ACTIVE or CLOSED, or ACTIVE to DEFAULTED');
+    }
     const tmp_0 = { borrower: l_0.borrower,
                     lender: l_0.lender,
                     principal: l_0.principal,
-                    status: status_0 };
+                    status: next_0 };
     __compactRuntime.queryLedgerState(context,
                                       partialProofData,
                                       [
@@ -760,7 +772,7 @@ export class Contract {
                                                                                                       alignment: _descriptor_0.alignment() } }] } },
                                                                            { popeq: { cached: false,
                                                                                       result: undefined } }]).value);
-    __compactRuntime.assert(this._equal_3(me_0, l_0.lender),
+    __compactRuntime.assert(this._equal_4(me_0, l_0.lender),
                             "only the loan's lender may record a repayment");
     __compactRuntime.assert(!_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                        partialProofData,
@@ -779,6 +791,8 @@ export class Contract {
                                                                                         { popeq: { cached: true,
                                                                                                    result: undefined } }]).value),
                             'repayment already recorded');
+    __compactRuntime.assert(l_0.status === 1,
+                            'only an active listing can be recorded as repaid');
     const tmp_0 = this._repaidLeaf_0(l_0.borrower, loanAddr_0, l_0.lender);
     __compactRuntime.queryLedgerState(context,
                                       partialProofData,
@@ -902,7 +916,7 @@ export class Contract {
                                                                                        { popeq: { cached: true,
                                                                                                   result: undefined } }]).value),
                             'application is not listed');
-    __compactRuntime.assert(this._equal_4(_descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
+    __compactRuntime.assert(this._equal_5(_descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                                     partialProofData,
                                                                                                     [
                                                                                                      { dup: { n: 0 } },
@@ -922,21 +936,21 @@ export class Contract {
                                                                                                                 result: undefined } }]).value).borrower,
                                           me_0),
                             'only the applicant may attach a history proof');
-    __compactRuntime.assert(!this._equal_5(loanA_0, loanB_0),
+    __compactRuntime.assert(!this._equal_6(loanA_0, loanB_0),
                             'the two loans must differ');
-    __compactRuntime.assert(!this._equal_6(loanA_0, forLoan_0)
+    __compactRuntime.assert(!this._equal_7(loanA_0, forLoan_0)
                             &&
-                            !this._equal_7(loanB_0, forLoan_0),
+                            !this._equal_8(loanB_0, forLoan_0),
                             'a loan cannot vouch for itself');
-    __compactRuntime.assert(this._equal_8(pathA_0.leaf,
+    __compactRuntime.assert(this._equal_9(pathA_0.leaf,
                                           this._repaidLeaf_0(me_0,
                                                              loanA_0,
                                                              lenderA_0)),
                             'first record is not yours');
-    __compactRuntime.assert(this._equal_9(pathB_0.leaf,
-                                          this._repaidLeaf_0(me_0,
-                                                             loanB_0,
-                                                             lenderB_0)),
+    __compactRuntime.assert(this._equal_10(pathB_0.leaf,
+                                           this._repaidLeaf_0(me_0,
+                                                              loanB_0,
+                                                              lenderB_0)),
                             'second record is not yours');
     let tmp_0;
     __compactRuntime.assert((tmp_0 = this._merkleTreePathRoot_0(pathA_0),
@@ -1049,6 +1063,10 @@ export class Contract {
     return true;
   }
   _equal_9(x0, y0) {
+    if (!x0.every((x, i) => y0[i] === x)) { return false; }
+    return true;
+  }
+  _equal_10(x0, y0) {
     if (!x0.every((x, i) => y0[i] === x)) { return false; }
     return true;
   }

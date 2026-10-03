@@ -14,7 +14,11 @@
 
 import type { Lender } from './client';
 
-export type LoanStatusName = 'APPLIED' | 'ACTIVE' | 'REPAID' | 'DEFAULTED' | 'DECLINED';
+/**
+ * OFFERED: the lender has offered the tier's collateral; nothing binds until
+ * the borrower accepts (ACTIVE) or declines (back to APPLIED).
+ */
+export type LoanStatusName = 'APPLIED' | 'OFFERED' | 'ACTIVE' | 'REPAID' | 'DEFAULTED' | 'DECLINED';
 export type TierName = 'NONE' | 'VERIFIED' | 'STANDARD';
 export type ListingStatusName = 'OPEN' | 'ACTIVE' | 'REPAID' | 'DEFAULTED' | 'CLOSED';
 
@@ -78,8 +82,14 @@ export type LoanView = {
   tierExpiresAt: bigint;
   /** True while a VERIFIED tier is live at `now`. */
   tierLive: boolean;
-  /** Zero until underwritten. */
+  /** Binding collateral: zero until the borrower accepts an offer. */
   collateralRequired: bigint;
+  /**
+   * The lender's standing offer while status is OFFERED: the collateral and the
+   * tier it was priced at. Zero and NONE otherwise (a declined offer is cleared).
+   */
+  offeredCollateral: bigint;
+  offeredTier: TierName;
   /** The pitch, for this principal: what each tier would cost the borrower. */
   collateralIfVerified: bigint;
   collateralIfStandard: bigint;
@@ -139,6 +149,10 @@ export interface LoanDesk {
   apply(lenderId: string, terms: LoanTerms): Promise<string>;
   /** Prove the committed facts against the quote; returns the recorded tier. */
   proveTier(address: string): Promise<TierName>;
+  /** Make the lender's offer binding (OFFERED -> ACTIVE); returns what was accepted. */
+  accept(address: string): Promise<{ tier: TierName; collateral: bigint }>;
+  /** Turn the offer down (OFFERED -> APPLIED); the lender may offer again. */
+  declineOffer(address: string): Promise<void>;
   /** Pay the amount due; returns what was paid. */
   repay(address: string): Promise<bigint>;
   /** This borrower's private record of payments on one loan. */
@@ -151,15 +165,27 @@ export interface LoanDesk {
   disclose(address: string): AuditDisclosure;
 
   // --- lender -------------------------------------------------------------
-  /** Loans naming the lender persona (`KymiderClient.me()`, Harbor Bank), newest first. */
+  /**
+   * Loans naming the lender persona the console acts as (`KymiderClient.me()`,
+   * Harbor Bank unless the lender rail picks another), newest first.
+   */
   applications(): LoanView[];
   /** Any loan by address, whoever its parties are. */
   loan(address: string): LoanView | null;
+  /**
+   * Quote a bar. Refused by the contract while a VERIFIED tier is live ("a
+   * verified tier is live until it lapses") and for a quote that holds less
+   * than 30 minutes ("quote must hold at least 30 minutes").
+   */
   quote(address: string, quote: QuoteRequest): Promise<void>;
+  /**
+   * Offer the loan at the tier's collateral (status OFFERED). Returns the
+   * offer; it binds only once the borrower accepts.
+   */
   underwrite(address: string): Promise<{ tier: TierName; collateral: bigint }>;
   /**
-   * Underwrite at a collateral figure the lender chose. The adversarial demo:
-   * the contract accepts only the exact collateral for the borrower's tier,
+   * Offer at a collateral figure the lender chose. The adversarial demo:
+   * the contract takes only the exact collateral for the borrower's tier,
    * so asking a VERIFIED borrower for 150% throws "collateral does not match
    * the tier".
    */

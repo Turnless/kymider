@@ -2,7 +2,8 @@
 //
 //   Borrower opens a Loan bound to their SolvencyProof facts, lists it
 //   Lender checks the binding, quotes a bar      ->  borrower proves the tier (ZK)
-//   Lender underwrites at 110% (150% without it) ->  disburses
+//   Lender offers 110% (150% without it)         ->  borrower accepts the offer
+//   Lender disburses
 //   Borrower repays every installment            ->  lender records the repayment
 //
 // Each run repays one loan and records it in the shared LoanDirectory. Once
@@ -151,9 +152,13 @@ console.log('\n--- borrower: prove the tier (ZK, verified by the network) ---');
 const tier = await borrower.proveTier(loan, FACTS);
 show('Tier on the ledger', tierName(tier));
 
-console.log('\n--- lender: underwrite and disburse ---');
+console.log('\n--- lender: offer the tier\'s collateral; borrower: accept it ---');
 const { collateral } = await lender.underwrite(loan);
-show('Collateral required', `${collateral} (150% would be ${collateralFor(TERMS.principal, Tier.STANDARD)})`);
+show('Collateral offered', `${collateral} (150% would be ${collateralFor(TERMS.principal, Tier.STANDARD)})`);
+await borrower.acceptOffer(loan);
+show('Collateral required (accepted)', (await borrower.loanState(loan)).collateralRequired);
+
+console.log('\n--- lender: disburse ---');
 await lender.updateListingStatus(directory, loan, ListingStatus.ACTIVE);
 const { owed, installment } = await lender.disburse(loan);
 show('Owed / installment', `${owed} / ${installment}`);

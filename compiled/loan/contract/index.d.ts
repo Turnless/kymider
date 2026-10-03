@@ -4,7 +4,8 @@ export enum LoanStatus { APPLIED = 0,
                          ACTIVE = 1,
                          REPAID = 2,
                          DEFAULTED = 3,
-                         DECLINED = 4
+                         DECLINED = 4,
+                         OFFERED = 5
 }
 
 export enum Tier { NONE = 0, VERIFIED = 1, STANDARD = 2 }
@@ -38,6 +39,8 @@ export type ImpureCircuits<PS> = {
            owed_0: bigint,
            installment_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   markDefault(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  accept(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  declineOffer(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,
@@ -57,6 +60,8 @@ export type ProvableCircuits<PS> = {
            owed_0: bigint,
            installment_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   markDefault(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  accept(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  declineOffer(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,
@@ -66,11 +71,13 @@ export type ProvableCircuits<PS> = {
 
 export type PureCircuits = {
   quoteLimit(): bigint;
+  minQuoteSeconds(): bigint;
   getDappPubKey(sk_0: Uint8Array): Uint8Array;
 }
 
 export type Circuits<PS> = {
   quoteLimit(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, bigint>;
+  minQuoteSeconds(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, bigint>;
   getDappPubKey(context: __compactRuntime.CircuitContext<PS>, sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
   quoteTerms(context: __compactRuntime.CircuitContext<PS>,
              thresholdNetWorth_0: bigint,
@@ -83,6 +90,8 @@ export type Circuits<PS> = {
            owed_0: bigint,
            installment_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   markDefault(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  accept(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  declineOffer(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,
@@ -103,6 +112,8 @@ export type Ledger = {
   readonly tier: Tier;
   readonly tierExpiresAt: bigint;
   readonly collateralRequired: bigint;
+  readonly offeredCollateral: bigint;
+  readonly offeredTier: Tier;
   readonly balanceOwed: bigint;
   readonly installmentAmount: bigint;
   readonly nextDueAt: bigint;

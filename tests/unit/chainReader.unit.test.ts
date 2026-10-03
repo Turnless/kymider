@@ -115,6 +115,9 @@ const activeLoan = (): LoanSimulator =>
     .proveTier(FACTS)
     .as(LENDER_SK)
     .underwrite(1_100n)
+    .as(BORROWER_SK)
+    .accept()
+    .as(LENDER_SK)
     .disburse(T0, 1_100n, 367n)
     .as(BORROWER_SK)
     .repay(367n);
@@ -252,6 +255,21 @@ describe('decode — Loan', () => {
     expect(v.nextDueAt).toBe(l.nextDueAt);
     expect(v.nextDueAt).toBeGreaterThan(T0);
     expect(v.historyCommitment).toBe(hex(l.historyCommitment));
+    expect(v.offeredCollateral).toBe(1_100n);
+    expect(v.offeredTier).toBe('VERIFIED');
+  });
+
+  it("reads a standing offer the borrower has not accepted", () => {
+    const sim = new LoanSimulator(BORROWER_SK, LENDER_PK, TERMS, commitFacts(FACTS, TEST_SALT), HISTORY_SEED)
+      .as(LENDER_SK)
+      .quoteTerms(CLAIM.thresholdNetWorth, CLAIM.maxDti, T0 + 7n * 86_400n)
+      .underwrite(1_500n);
+    const v = decodeContractState(codec, 'loan', indexerStateHex(sim));
+    expect(v.status).toBe('OFFERED');
+    expect(v.offeredTier).toBe('STANDARD');
+    expect(v.offeredCollateral).toBe(1_500n);
+    expect(v.tier).toBe('NONE');
+    expect(v.collateralRequired).toBe(0n);
   });
 });
 
@@ -262,8 +280,8 @@ describe('decode — LoanDirectory', () => {
     const APPLICATION = loanAddr(0xd4);
     const dir = new LoanDirectorySimulator(BORROWER_SK);
     dir.as(BORROWER_SK).list(LOAN_A, LENDER_PK, 1_000n).list(LOAN_B, LENDER_B_PK, 2_000n);
-    dir.as(LENDER_SK).recordRepaid(LOAN_A);
-    dir.as(LENDER_B_SK).recordRepaid(LOAN_B);
+    dir.as(LENDER_SK).updateStatus(LOAN_A, ListingStatus.ACTIVE).recordRepaid(LOAN_A);
+    dir.as(LENDER_B_SK).updateStatus(LOAN_B, ListingStatus.ACTIVE).recordRepaid(LOAN_B);
     dir.as(BORROWER_SK).list(APPLICATION, LENDER_B_PK, 10_000n);
     dir.as(BORROWER_SK).proveTwoRepaid(
       APPLICATION,

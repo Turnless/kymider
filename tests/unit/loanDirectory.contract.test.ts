@@ -64,12 +64,80 @@ describe('LoanDirectory — index', () => {
     );
   });
 
-  it("lets either of the loan's parties move its status", () => {
+  const statusOf = (loan: Uint8Array): ListingStatus => dir.ledger().listings.lookup(loan).status;
+
+  it('the lender moves a listing OPEN to ACTIVE, then ACTIVE to DEFAULTED', () => {
     dir.as(BORROWER_SK).list(LOAN_A, LENDER_A_PK, 1_000n);
     dir.as(LENDER_A_SK).updateStatus(LOAN_A, ListingStatus.ACTIVE);
-    expect(dir.ledger().listings.lookup(LOAN_A).status).toBe(ListingStatus.ACTIVE);
+    expect(statusOf(LOAN_A)).toBe(ListingStatus.ACTIVE);
+    dir.updateStatus(LOAN_A, ListingStatus.DEFAULTED);
+    expect(statusOf(LOAN_A)).toBe(ListingStatus.DEFAULTED);
+  });
+
+  it('the lender may close an open listing (a declined application)', () => {
+    dir.as(BORROWER_SK).list(LOAN_A, LENDER_A_PK, 1_000n);
+    dir.as(LENDER_A_SK).updateStatus(LOAN_A, ListingStatus.CLOSED);
+    expect(statusOf(LOAN_A)).toBe(ListingStatus.CLOSED);
+  });
+
+  it('the borrower may withdraw an open listing, and do nothing else', () => {
+    dir.as(BORROWER_SK).list(LOAN_A, LENDER_A_PK, 1_000n).list(LOAN_B, LENDER_A_PK, 1_000n);
+    for (const s of [ListingStatus.ACTIVE, ListingStatus.DEFAULTED, ListingStatus.OPEN]) {
+      expect(() => dir.as(BORROWER_SK).updateStatus(LOAN_A, s)).toThrow(
+        /the borrower may only withdraw an open listing/,
+      );
+    }
     dir.as(BORROWER_SK).updateStatus(LOAN_A, ListingStatus.CLOSED);
-    expect(dir.ledger().listings.lookup(LOAN_A).status).toBe(ListingStatus.CLOSED);
+    expect(statusOf(LOAN_A)).toBe(ListingStatus.CLOSED);
+    // Not from ACTIVE: once the lender has moved it on, it is not the borrower's to close.
+    dir.as(LENDER_A_SK).updateStatus(LOAN_B, ListingStatus.ACTIVE);
+    expect(() => dir.as(BORROWER_SK).updateStatus(LOAN_B, ListingStatus.CLOSED)).toThrow(
+      /the borrower may only withdraw an open listing/,
+    );
+    expect(statusOf(LOAN_B)).toBe(ListingStatus.ACTIVE);
+  });
+
+  it('nobody sets REPAID by hand: not the borrower, not the lender', () => {
+    dir.as(BORROWER_SK).list(LOAN_A, LENDER_A_PK, 1_000n);
+    expect(() => dir.as(BORROWER_SK).updateStatus(LOAN_A, ListingStatus.REPAID)).toThrow(
+      /a repayment is recorded with recordRepaid, not set/,
+    );
+    dir.as(LENDER_A_SK).updateStatus(LOAN_A, ListingStatus.ACTIVE);
+    expect(() => dir.as(LENDER_A_SK).updateStatus(LOAN_A, ListingStatus.REPAID)).toThrow(
+      /a repayment is recorded with recordRepaid, not set/,
+    );
+    expect(statusOf(LOAN_A)).toBe(ListingStatus.ACTIVE);
+  });
+
+  it('refuses every other lender move', () => {
+    dir.as(BORROWER_SK).list(LOAN_A, LENDER_A_PK, 1_000n);
+    const lenderRefuses = (s: ListingStatus) =>
+      expect(() => dir.as(LENDER_A_SK).updateStatus(LOAN_A, s)).toThrow(
+        /the lender may only move OPEN to ACTIVE or CLOSED, or ACTIVE to DEFAULTED/,
+      );
+    // From OPEN: not straight to DEFAULTED, and not to OPEN again.
+    lenderRefuses(ListingStatus.DEFAULTED);
+    lenderRefuses(ListingStatus.OPEN);
+    dir.as(LENDER_A_SK).updateStatus(LOAN_A, ListingStatus.ACTIVE);
+    // From ACTIVE: not back to OPEN, not CLOSED, not ACTIVE again.
+    lenderRefuses(ListingStatus.OPEN);
+    lenderRefuses(ListingStatus.CLOSED);
+    lenderRefuses(ListingStatus.ACTIVE);
+    dir.as(LENDER_A_SK).updateStatus(LOAN_A, ListingStatus.DEFAULTED);
+    // DEFAULTED is final.
+    lenderRefuses(ListingStatus.ACTIVE);
+    lenderRefuses(ListingStatus.CLOSED);
+    expect(statusOf(LOAN_A)).toBe(ListingStatus.DEFAULTED);
+  });
+
+  it('a closed listing stays closed', () => {
+    dir.as(BORROWER_SK).list(LOAN_A, LENDER_A_PK, 1_000n).updateStatus(LOAN_A, ListingStatus.CLOSED);
+    expect(() => dir.as(LENDER_A_SK).updateStatus(LOAN_A, ListingStatus.ACTIVE)).toThrow(
+      /the lender may only move OPEN to ACTIVE or CLOSED, or ACTIVE to DEFAULTED/,
+    );
+    expect(() => dir.as(LENDER_A_SK).recordRepaid(LOAN_A)).toThrow(
+      /only an active listing can be recorded as repaid/,
+    );
   });
 
   it('refuses a status change from a stranger, or for an unlisted loan', () => {
@@ -89,6 +157,7 @@ describe('LoanDirectory — repayment record', () => {
   beforeEach(() => {
     dir = new LoanDirectorySimulator(BORROWER_SK);
     dir.as(BORROWER_SK).list(LOAN_A, LENDER_A_PK, 1_000n);
+    dir.as(LENDER_A_SK).updateStatus(LOAN_A, ListingStatus.ACTIVE);
   });
 
   it("the lender records a repaid loan as a leaf binding borrower, loan and lender", () => {
@@ -113,6 +182,17 @@ describe('LoanDirectory — repayment record', () => {
   it('refuses a record for an unlisted loan', () => {
     expect(() => dir.as(LENDER_A_SK).recordRepaid(LOAN_B)).toThrow(/loan is not listed/);
   });
+
+  it('refuses a record for a listing that is not ACTIVE: never activated, closed or defaulted', () => {
+    dir.as(BORROWER_SK).list(LOAN_B, LENDER_A_PK, 1_000n);
+    expect(() => dir.as(LENDER_A_SK).recordRepaid(LOAN_B)).toThrow(
+      /only an active listing can be recorded as repaid/,
+    );
+    dir.as(LENDER_A_SK).updateStatus(LOAN_A, ListingStatus.DEFAULTED);
+    expect(() => dir.recordRepaid(LOAN_A)).toThrow(/only an active listing can be recorded as repaid/);
+    expect(dir.ledger().recordedLoans.member(LOAN_B)).toBe(false);
+    expect(dir.ledger().repaid.firstFree()).toBe(0n);
+  });
 });
 
 describe('LoanDirectory — proving two repaid loans', () => {
@@ -136,8 +216,9 @@ describe('LoanDirectory — proving two repaid loans', () => {
     dir.as(BORROWER_SK).list(LOAN_B, LENDER_B_PK, 2_000n);
     dir.as(OTHER_BORROWER_SK).list(LOAN_OTHER, LENDER_A_PK, 5_000n);
     dir.as(BORROWER_SK).list(UNRECORDED, LENDER_A_PK, 3_000n);
-    dir.as(LENDER_A_SK).recordRepaid(LOAN_A).recordRepaid(LOAN_OTHER);
-    dir.as(LENDER_B_SK).recordRepaid(LOAN_B);
+    dir.as(LENDER_A_SK).updateStatus(LOAN_A, ListingStatus.ACTIVE).recordRepaid(LOAN_A);
+    dir.updateStatus(LOAN_OTHER, ListingStatus.ACTIVE).recordRepaid(LOAN_OTHER);
+    dir.as(LENDER_B_SK).updateStatus(LOAN_B, ListingStatus.ACTIVE).recordRepaid(LOAN_B);
     // The new application.
     dir.as(BORROWER_SK).list(APPLICATION, LENDER_B_PK, 10_000n);
   });
@@ -151,7 +232,7 @@ describe('LoanDirectory — proving two repaid loans', () => {
     const a = recordA();
     const b = recordB();
     dir.as(BORROWER_SK).list(loanAddr(0xf6), LENDER_A_PK, 1n);
-    dir.as(LENDER_A_SK).recordRepaid(loanAddr(0xf6));
+    dir.as(LENDER_A_SK).updateStatus(loanAddr(0xf6), ListingStatus.ACTIVE).recordRepaid(loanAddr(0xf6));
     dir.as(BORROWER_SK).proveTwoRepaid(APPLICATION, a, b);
     expect(dir.ledger().historyProofs.lookup(APPLICATION)).toBe(2n);
   });
@@ -192,7 +273,7 @@ describe('LoanDirectory — proving two repaid loans', () => {
   });
 
   it('refuses an application vouching for itself', () => {
-    dir.as(LENDER_B_SK).recordRepaid(APPLICATION);
+    dir.as(LENDER_B_SK).updateStatus(APPLICATION, ListingStatus.ACTIVE).recordRepaid(APPLICATION);
     const self = {
       loan: APPLICATION,
       lender: LENDER_B_PK,

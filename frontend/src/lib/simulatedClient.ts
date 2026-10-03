@@ -279,6 +279,8 @@ export class SimulatedKymiderClient implements KymiderClient {
   private readonly lenderPk = new Map<string, Uint8Array>();
   private readonly mine: Instance;
   private readonly listeners = new Set<() => void>();
+  /** The lender persona the lender console acts as (see `setMe`). */
+  private meId = 'harbor';
 
   constructor() {
     this.lenderList = LENDER_SEEDS.map(({ seed, ...rest }) => {
@@ -405,9 +407,21 @@ export class SimulatedKymiderClient implements KymiderClient {
     return this.mine.address;
   }
 
-  /** The lender console acts as Harbor Bank. */
+  /** The lender persona the lender console acts as; Harbor Bank by default. */
   me(): Lender {
-    return this.lenderList.find((l) => l.id === 'harbor')!;
+    return this.lenderList.find((l) => l.id === this.meId)!;
+  }
+
+  /**
+   * Act as another lender persona (the lender rail's picker). Every lender
+   * screen keys on `me()`, so a loan applied to any lender can be worked from
+   * that lender's seat. Simulation only: a wallet-backed client is one key.
+   */
+  setMe(lenderId: string): void {
+    if (!this.lenderList.some((l) => l.id === lenderId)) throw new Error(`no such lender: ${lenderId}`);
+    if (lenderId === this.meId) return;
+    this.meId = lenderId;
+    this.changed();
   }
 
   lenders(): Lender[] {
