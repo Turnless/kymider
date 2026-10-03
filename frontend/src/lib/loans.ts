@@ -144,6 +144,13 @@ export interface LoanDesk {
   loan(address: string): LoanView | null;
   quote(address: string, quote: QuoteRequest): Promise<void>;
   underwrite(address: string): Promise<{ tier: TierName; collateral: bigint }>;
+  /**
+   * Underwrite at a collateral figure the lender chose. The adversarial demo:
+   * the contract accepts only the exact collateral for the borrower's tier,
+   * so asking a VERIFIED borrower for 150% throws "collateral does not match
+   * the tier".
+   */
+  underwriteAt(address: string, collateral: bigint): Promise<void>;
   decline(address: string): Promise<void>;
   disburse(address: string): Promise<void>;
   markDefault(address: string): Promise<void>;
