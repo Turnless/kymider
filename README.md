@@ -113,9 +113,12 @@ measured and what changed.
 
 The review also found stale claims in this README and the submission
 materials, and this revision corrects them: test counts, "the lender learns
-one bit" (it is up to 3 answers per loan), an unsalted hash in the diagram,
-"private to you" wording for public listings, and an auditor described as
-revealing secrets when it checks integrity.
+one bit" (it is up to 3 answers per loan), an unsalted hash in the diagram, an
+unbacked mutation-testing figure, and the auditor described as revealing
+what the ledger cannot show when it checks integrity. The console's copy had
+the same kind of error ("Only you see this list" on public listings) and is
+corrected with the lifecycle change. <!-- VERIFY: console copy fixed in
+borrower/Loans.tsx, LoanDetail.tsx and Audit.tsx -->
 
 ---
 
