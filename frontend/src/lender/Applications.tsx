@@ -13,6 +13,7 @@ import { useLoans } from '../lib/useLoans';
 type AppsStage =
   | 'quote'
   | 'underwrite'
+  | 'offered'
   | 'disburse'
   | 'repaying'
   | 'pastGrace'
@@ -28,15 +29,21 @@ const APPS_STAGES: { id: AppsStage; label: string; heading: string; note: string
   },
   {
     id: 'underwrite',
-    label: 'Underwrite',
-    heading: 'Awaiting underwriting',
-    note: 'Quoted. Underwrite at whatever tier the borrower holds, or decline.',
+    label: 'Offer',
+    heading: 'Awaiting your offer',
+    note: "Quoted. Offer the collateral for whatever tier the borrower holds, or decline.",
+  },
+  {
+    id: 'offered',
+    label: 'Offered',
+    heading: 'Waiting for the borrower to accept',
+    note: "You offered the tier's figure. Nothing binds until the borrower accepts it.",
   },
   {
     id: 'disburse',
     label: 'Disburse',
     heading: 'To disburse',
-    note: 'Underwritten. Disbursing starts the repayment clock.',
+    note: 'Accepted by the borrower. Disbursing starts the repayment clock.',
   },
   {
     id: 'pastGrace',
@@ -68,6 +75,7 @@ const appsStageOf = (l: LoanView, now: bigint): AppsStage => {
   if (l.status === 'APPLIED') {
     return l.quote === null || l.quote.expiresAt <= now ? 'quote' : 'underwrite';
   }
+  if (l.status === 'OFFERED') return 'offered';
   if (l.status === 'ACTIVE') {
     if (!l.disbursed) return 'disburse';
     return l.defaultableFrom !== null && now >= l.defaultableFrom ? 'pastGrace' : 'repaying';
@@ -75,6 +83,9 @@ const appsStageOf = (l: LoanView, now: bigint): AppsStage => {
   if (l.status === 'REPAID' && !l.recorded) return 'record';
   return 'closed';
 };
+
+/** Waiting on the borrower (an offer, or a loan inside its schedule): not the lender's move. */
+const waiting = (s: AppsStage): boolean => s === 'offered' || s === 'repaying' || s === 'closed';
 
 const appsAmount = (n: bigint): string => n.toLocaleString('en-US');
 
@@ -89,13 +100,13 @@ export function LenderApplications() {
   const loans = desk.applications();
   const staged = loans.map((l) => ({ loan: l, stage: appsStageOf(l, now) }));
   const count = (s: AppsStage) => staged.filter((r) => r.stage === s).length;
-  const needsAction = staged.filter((r) => r.stage !== 'repaying' && r.stage !== 'closed').length;
+  const needsAction = staged.filter((r) => !waiting(r.stage)).length;
 
   const visible = staged.filter((r) =>
     filter === 'all'
       ? true
       : filter === 'action'
-        ? r.stage !== 'repaying' && r.stage !== 'closed'
+        ? !waiting(r.stage)
         : r.stage === filter,
   );
 
@@ -209,7 +220,7 @@ export function LenderApplications() {
                             <span className="text-[rgba(15,23,42,0.4)]">No history proof</span>
                           )}
                         </p>
-                        {stage !== 'repaying' && stage !== 'closed' && (
+                        {!waiting(stage) && (
                           <button
                             type="button"
                             className="btn btn-ink mt-3 w-full py-[9px] text-[12px]"
@@ -304,7 +315,7 @@ export function LenderApplications() {
                             <button
                               type="button"
                               className={`btn px-4 py-[7px] text-[12px] ${
-                                stage === 'repaying' || stage === 'closed' ? 'btn-quiet' : 'btn-ink'
+                                waiting(stage) ? 'btn-quiet' : 'btn-ink'
                               }`}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -336,7 +347,8 @@ export function LenderApplications() {
 
 const APPS_ACTION: Record<AppsStage, string> = {
   quote: 'Quote',
-  underwrite: 'Underwrite',
+  underwrite: 'Offer',
+  offered: 'Open',
   disburse: 'Disburse',
   repaying: 'Open',
   pastGrace: 'Review default',
@@ -362,6 +374,12 @@ function AppsTier({ loan: l, now }: { loan: LoanView; now: bigint }) {
   }
   if (l.status === 'DECLINED')
     return <span className="text-[11px] text-[rgba(15,23,42,0.4)]">n/a</span>;
+  if (l.status === 'OFFERED')
+    return l.offeredTier === 'VERIFIED' ? (
+      <span className="badge badge-pass">Offered 110%</span>
+    ) : (
+      <span className="badge badge-neutral">Offered 150%</span>
+    );
   return l.tier === 'VERIFIED' ? (
     <span className="badge badge-pass">Verified 110%</span>
   ) : (
@@ -394,10 +412,16 @@ function AppsStatusLine({
           )}
         </span>
       );
+    case 'offered':
+      return (
+        <span className="tnum">
+          Offered {appsAmount(l.offeredCollateral)} collateral · waiting for the borrower to accept
+        </span>
+      );
     case 'disburse':
       return (
         <span className="tnum">
-          Collateral {appsAmount(l.collateralRequired)} set, not disbursed
+          Accepted at {appsAmount(l.collateralRequired)} collateral, not disbursed
         </span>
       );
     case 'repaying':

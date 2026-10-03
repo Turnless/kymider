@@ -25,7 +25,19 @@ export function LoanPublicRecord({ loan, note }: { loan: LoanView; note?: ReactN
           tone={loan.factsBound ? 'ok' : 'warn'}
         />
         <Row label="Status" value={<LoanStatusBadge status={loan.status} dark />} />
-        <Row label="Tier" value={<TierBadge tier={loan.tier} live={loan.tierLive || loan.status !== 'APPLIED'} dark />} />
+        <Row
+          label="Tier"
+          value={
+            <TierBadge
+              tier={loan.tier}
+              live={loan.tierLive || (loan.status !== 'APPLIED' && loan.status !== 'OFFERED')}
+              dark
+            />
+          }
+        />
+        {loan.status === 'OFFERED' && (
+          <Row label="Collateral offered" value={money(loan.offeredCollateral)} />
+        )}
         <Row
           label="Collateral required"
           value={loan.collateralRequired > 0n ? money(loan.collateralRequired) : '—'}

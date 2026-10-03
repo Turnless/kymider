@@ -631,7 +631,11 @@ function LoanBody({ v }: { v: LoanView }) {
 }
 
 const collateralNote = (v: LoanView): string => {
-  if (v.collateralRequired === 0n || v.terms.principal === 0n) return 'Not underwritten';
+  if (v.status === 'OFFERED' && v.terms.principal > 0n) {
+    const offered = Number((v.offeredCollateral * 1000n) / v.terms.principal) / 10;
+    return `Offered ${v.offeredCollateral.toLocaleString('en-US')} (${offered}%), not yet accepted`;
+  }
+  if (v.collateralRequired === 0n || v.terms.principal === 0n) return 'Not accepted yet';
   const pct = Number((v.collateralRequired * 1000n) / v.terms.principal) / 10;
   return `${pct}% of principal`;
 };
@@ -642,7 +646,7 @@ function StatusPill({ status }: { status: string }) {
       ? 'badge-pass'
       : status === 'DEFAULTED' || status === 'DECLINED'
         ? 'badge-fail'
-        : status === 'APPLIED' || status === 'OPEN'
+        : status === 'APPLIED' || status === 'OFFERED' || status === 'OPEN'
           ? 'badge-pending'
           : 'badge-neutral';
   return <span className={`badge ${cls}`}>{status.toLowerCase()}</span>;

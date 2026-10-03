@@ -176,7 +176,7 @@ export function BorrowerLoans() {
           </div>
           <p className="mt-3 max-w-[460px] text-[11px] leading-[1.6] text-[rgba(15,23,42,0.5)]">
             {records.length >= 2
-              ? 'What you can prove on a new application: that two repaid loans exist under your key. The lender learns the count, not which loans, which lenders or how much.'
+              ? 'What you can prove on a new application: that two repaid loans exist under your key. The listings themselves are public and name your key; the proof hides which two back the application.'
               : 'Two are needed to prove a repayment history on an application. A loan counts once its lender records the repayment in the directory.'}
           </p>
         </div>
@@ -184,7 +184,9 @@ export function BorrowerLoans() {
           <div className="min-w-0 md:border-l md:border-[rgba(15,23,42,0.07)] md:pl-8">
             <p className="mb-3 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-[0.6px] text-[rgba(15,23,42,0.4)]">
               <span>The records</span>
-              <span className="badge badge-pending">Only you see this list</span>
+              <span className="badge badge-pending" title="Each directory listing is public and names your key">
+                Public under your key
+              </span>
             </p>
             <ul className="flex flex-col gap-[10px]">
               {records.map((r) => (
@@ -273,11 +275,15 @@ function LoanRow({ loan: l, now, onOpen }: { loan: LoanView; now: bigint; onOpen
       </td>
       <td className="tnum px-5 py-[13px] text-right text-[13px] font-semibold">{money(l.terms.principal)}</td>
       <td className="px-5 py-[13px]">
-        <TierBadge tier={l.tier} live={l.tierLive || l.status !== 'APPLIED'} />
+        <TierBadge tier={l.tier} live={l.tierLive || (l.status !== 'APPLIED' && l.status !== 'OFFERED')} />
       </td>
       <td className="tnum px-5 py-[13px] text-right text-[12px]">
         {l.collateralRequired > 0n ? (
           <span className="font-semibold">{money(l.collateralRequired)}</span>
+        ) : l.status === 'OFFERED' ? (
+          <span className="font-semibold text-accent" title="Offered by the lender; binding only once you accept">
+            {money(l.offeredCollateral)} offered
+          </span>
         ) : l.status === 'APPLIED' ? (
           <span className="text-[rgba(15,23,42,0.5)]" title="110% with a live verified tier, 150% otherwise">
             {money(l.collateralIfVerified)} or {money(l.collateralIfStandard)}
@@ -330,8 +336,11 @@ function LoanCard({ loan: l, now, onOpen }: { loan: LoanView; now: bigint; onOpe
         </span>
       </div>
       <div className="tnum mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-[36px] text-[11px] text-[rgba(15,23,42,0.5)]">
-        <TierBadge tier={l.tier} live={l.tierLive || l.status !== 'APPLIED'} />
+        <TierBadge tier={l.tier} live={l.tierLive || (l.status !== 'APPLIED' && l.status !== 'OFFERED')} />
         {l.collateralRequired > 0n && <span>Collateral {money(l.collateralRequired)}</span>}
+        {l.status === 'OFFERED' && (
+          <span className="font-semibold text-accent">Offered {money(l.offeredCollateral)} · yours to accept</span>
+        )}
         {repaying && (
           <span style={{ color: overdue ? '#d97706' : undefined }}>
             {money(l.amountDue)} due {blockDate(l.nextDueAt).slice(0, 10)}

@@ -4,7 +4,7 @@ import { blockDate, type LoanView } from '../lib/loans';
 /**
  * The loan's lifecycle as a timeline, read entirely off the public ledger:
  *
- *   Applied → Quoted → Tier proven → Underwritten → Disbursed → Repaying → Repaid
+ *   Applied → Quoted → Tier proven → Offered → Accepted → Disbursed → Repaying → Repaid
  *
  * Horizontal from `lg`, vertical below it. A declined loan skips what it never
  * reached; a default ends the line in red. Neither side's private data is
@@ -16,7 +16,9 @@ export type LoanStep = { key: string; label: string; caption: string; state: Loa
 
 function loanSteps(loan: LoanView, now: bigint): LoanStep[] {
   const { status, quote, tier, tierLive, disbursed } = loan;
+  // Accepted by the borrower: the offer is binding from here on.
   const underwritten = status === 'ACTIVE' || status === 'REPAID' || status === 'DEFAULTED';
+  const offered = status === 'OFFERED' || underwritten;
   const declined = status === 'DECLINED';
   const paid = Number(loan.paymentsMade);
   const late = Number(loan.latePayments);
@@ -59,9 +61,31 @@ function loanSteps(loan: LoanView, now: bigint): LoanStep[] {
   );
   add(
     {
-      key: 'underwritten',
-      label: 'Underwritten',
-      caption: underwritten ? `${money(loan.collateralRequired)} collateral` : declined ? 'Declined' : 'Lender accepts',
+      key: 'offered',
+      label: 'Offered',
+      caption:
+        status === 'OFFERED'
+          ? `${money(loan.offeredCollateral)} · ${loan.offeredTier === 'VERIFIED' ? '110%' : '150%'}`
+          : underwritten
+            ? `${money(loan.collateralRequired)} · ${tier === 'VERIFIED' ? '110%' : '150%'}`
+            : declined
+              ? 'Declined'
+              : "Lender offers the tier's figure",
+    },
+    offered,
+    declined,
+  );
+  add(
+    {
+      key: 'accepted',
+      label: 'Accepted',
+      caption: underwritten
+        ? `${money(loan.collateralRequired)} collateral`
+        : status === 'OFFERED'
+          ? 'The borrower decides'
+          : declined
+            ? 'Declined'
+            : 'Only the borrower can',
     },
     underwritten,
     declined,

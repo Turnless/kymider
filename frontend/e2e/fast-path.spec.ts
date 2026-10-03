@@ -1,4 +1,5 @@
 import {
+  acceptOffer,
   applyForLoan,
   button,
   dollars,
@@ -16,7 +17,8 @@ import {
  * The README's "Judge fast path", end to end, in one browser session:
  *
  *   borrower applies and proves a tier → lender asks for 150% and the contract
- *   refuses → lender underwrites at 110% → disburse → borrower repays every
+ *   refuses → lender tries to re-quote the tier away and the contract refuses →
+ *   lender offers 110% → borrower accepts → disburse → borrower repays every
  *   installment, one of them late → lender records the repayment → borrower
  *   proves two repaid loans on a new application → borrower discloses the
  *   history → the auditor verifies it, and a tampered copy is rejected.
@@ -76,7 +78,7 @@ test('judge fast path, end to end', async ({ page }) => {
   await expect(page.getByText('Your step · Prove tier')).toBeVisible();
   await expect(page.getByText('Your committed facts clear the bar')).toBeVisible();
   await button(page, 'Prove tier').click();
-  await expect(page.getByRole('heading', { name: 'Tier recorded. Waiting for Harbor Bank to underwrite' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tier recorded. Waiting for Harbor Bank to make an offer' })).toBeVisible();
   await expect(page.getByText('On the ledger now:')).toContainText('Verified · 110%');
 
   // 5–6. As the lender: the tier and the collateral it fixes, none of the
@@ -97,12 +99,26 @@ test('judge fast path, end to end', async ({ page }) => {
   const refusal = desk.getByRole('alert');
   await expect(refusal).toContainText('Refused · the guarantee held');
   await expect(refusal).toContainText('The contract refused: collateral does not match the tier.');
-  await expect(refusal).toContainText(`${grouped(AT_110)} at 110% is the only collateral this borrower can be asked for`);
+  await expect(refusal).toContainText(`${grouped(AT_110)} at 110% is the only collateral you can offer this borrower`);
 
-  await button(desk, `Underwrite at 110% · ${grouped(AT_110)}`).click();
-  await expect(desk).toContainText(`Underwritten at 110%: collateral ${grouped(AT_110)} recorded on the loan.`);
+  // The other way round it: quote again to wipe the tier. Refused while it is live.
+  await button(desk, 'Replace quote').click();
+  await expect(desk.getByRole('alert')).toContainText('The contract refused: a verified tier is live until it lapses');
+  await expect(desk.getByText('Verified', { exact: true })).toBeVisible();
+
+  await button(desk, `Offer at 110% · ${grouped(AT_110)}`).click();
+  await expect(desk).toContainText(`Offered at 110%: collateral ${grouped(AT_110)}. Nothing binds until the borrower accepts.`);
+  await expect(desk).toContainText('Waiting for the borrower to accept');
+  // Nothing to disburse until the borrower makes the offer binding.
+  await expect(button(desk, 'Disburse')).toHaveCount(0);
+
+  // 6b. The borrower accepts: only the borrower can make the offer binding.
+  await acceptOffer(page, loan, { lender: 'Harbor Bank', collateral: dollars(AT_110), ratio: '110%' });
 
   // 7. Disburse, then repay every installment as the borrower, one of them late.
+  await switchRole(page, 'lender');
+  await openLenderLoan(page, loan);
+  await expect(desk).toContainText('Accepted by the borrower');
   await button(desk, 'Disburse').click();
   await expect(desk).toContainText('Disbursed. The first installment clock is running.');
   await expect(desk).toContainText(`${grouped(OWED)}`);

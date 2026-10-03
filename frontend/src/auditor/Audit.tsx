@@ -296,8 +296,10 @@ function PublicLedger({
             />
           </dl>
           <p className="mt-5 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.42)]">
-            Counts and one hash. On its own the ledger cannot say which payments were late or what each
-            one was; the disclosure opens that, and the hash proves the opening is the whole truth.
+            Counts and one hash. The payments are not secret: each repay transaction shows its amount,
+            and the late count moves on the late one. What the disclosure adds is one record you can
+            check offline, bound to this on-chain head, instead of replaying every transaction; the
+            hash proves the opening is the whole history.
           </p>
         </>
       )}
