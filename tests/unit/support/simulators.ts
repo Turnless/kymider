@@ -240,6 +240,7 @@ export class LoanSimulator {
   readonly address: ContractAddress;
   private readonly contract: LoanContract<LoanPrivateState>;
   private ctx: CircuitContext<LoanPrivateState>;
+  private readonly log: { amount: bigint; onTime: boolean }[] = [];
   now: bigint = T0;
 
   constructor(
@@ -314,7 +315,25 @@ export class LoanSimulator {
   }
 
   repay(amount: bigint): this {
-    return this.run((c) => this.contract.impureCircuits.repay(c, amount));
+    const lateBefore = this.ledger().latePayments;
+    this.run((c) => this.contract.impureCircuits.repay(c, amount));
+    // Reached only if the circuit accepted the payment. The lateness is the
+    // contract's own verdict, read off its counter, not the test's guess.
+    this.log.push({ amount, onTime: this.ledger().latePayments === lateBefore });
+    return this;
+  }
+
+  /**
+   * The borrower's private record of accepted repayments, in order, as the
+   * borrower's machine would keep it (an auditor disclosure is built from it).
+   */
+  paymentLog(): { amount: bigint; onTime: boolean }[] {
+    return this.log.map((p) => ({ ...p }));
+  }
+
+  /** The borrower's history seed, from the private state the witnesses read. */
+  historySeed(): Uint8Array {
+    return this.ctx.currentPrivateState.historySeed;
   }
 
   markDefault(): this {
