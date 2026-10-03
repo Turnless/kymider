@@ -373,12 +373,13 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
   (the full flow, every transaction recorded) and `npm run verify:onchain`
   (re-reads each claim and transaction through the indexer). The record is
   uploaded as the `proof-local` artifact of that run.
-- **First full green run:** [run 34](https://github.com/Turnless/kymider/actions/runs/37092735681)
-  passed every job on commit `5a56372`, including the devnet simulation,
-  `prove:onchain` (27 transactions) and `verify:onchain` ("All 40 checks
-  PASS"). That run predates the salted commitment and the consent step; the
-  current flow adds the borrower's `accept` transactions, and its counts are
-  in each later run's `proof-local` artifact.
+- **On the final contracts:** [run 38](https://github.com/Turnless/kymider/actions/runs/37098203726)
+  (commit `b815b26`: salted commitment, quote cap, consent step, listing
+  lockdown) proved the full flow in **31 transactions** and `verify:onchain`
+  passed **45 of 45 checks**: Loan A offered and accepted at 110% (1,100 on
+  1,000), Loan B at 150% (3,000 on 2,000), both repaid and recorded, Loan C
+  carrying a two-loan history proof. Every address and transaction hash is in
+  [DEVNET-PROOF.md](./DEVNET-PROOF.md), labelled as a local devnet.
 - **Preprod: pending the owner's wallet.** [`preprod.yml`](./.github/workflows/preprod.yml)
   runs the same proof on Preprod when dispatched with a funded wallet secret
   and commits `PROOF.md` and `frontend/public/deployments/preprod.json`.
