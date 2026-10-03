@@ -14,11 +14,25 @@ import CompactStandardLibrary;
 //
 // Lifecycle:
 //
-//   APPLIED --quote (at most 3)--> (borrower proveTier, once per quote) --underwrite--> ACTIVE
-//   APPLIED --decline--> DECLINED
+//   APPLIED --quoteTerms (lender, at most 3)--> APPLIED, quoted
+//   APPLIED --proveTier (borrower, once per quote)--> APPLIED, tier VERIFIED or STANDARD
+//   APPLIED --underwrite (lender: the tier's figure, nothing else)--> OFFERED
+//   OFFERED --accept (borrower)--> ACTIVE          (only the borrower makes an offer binding)
+//   OFFERED --declineOffer (borrower)--> APPLIED   (the offer is cleared; the lender may offer again)
+//   APPLIED or OFFERED --decline (lender)--> DECLINED
 //   ACTIVE  --disburse--> balanceOwed set, first installment due
 //   ACTIVE  --repay x N--> REPAID
 //   ACTIVE  --markDefault (after due + grace)--> DEFAULTED
+//
+// Why the borrower accepts: the lender controls the quote, so a contract that
+// only priced "the current tier" would let the lender choose that tier (by
+// re-quoting, which resets it, or by a quote that lapses in seconds). Three
+// rules close that off. A live VERIFIED tier cannot be re-quoted away. A quote
+// must hold at least minQuoteSeconds(), so the borrower has time to prove and
+// the tier has time to be used. And an offer is only an offer: the lender can
+// offer the tier's exact figure and nothing else, and the loan becomes binding
+// only when the borrower accepts it. A borrower offered 150% can decline, prove
+// (or wait for the next quote) and be offered 110%.
 //
 // Facts: `factsCommitment` is copied from the borrower's SolvencyProof instance
 // at deploy. Midnight has no cross-contract reads, so the lender checks that it
@@ -38,7 +52,8 @@ import CompactStandardLibrary;
 //
 // Time: block time in seconds since the Unix epoch.
 
-export enum LoanStatus { APPLIED, ACTIVE, REPAID, DEFAULTED, DECLINED }
+// OFFERED is appended, not inserted, so the earlier values keep their numbers.
+export enum LoanStatus { APPLIED, ACTIVE, REPAID, DEFAULTED, DECLINED, OFFERED }
 export enum Tier { NONE, VERIFIED, STANDARD }
 
 export struct LoanTerms {
@@ -67,7 +82,12 @@ export ledger quotesIssued: Counter;         // quotes made on this loan, capped
 export ledger tierProven: Boolean;           // a tier was proven against the current quote
 export ledger tier: Tier;
 export ledger tierExpiresAt: Uint<64>;
-export ledger collateralRequired: Uint<64>;  // principal * tier ratio
+export ledger collateralRequired: Uint<64>;  // principal * tier ratio, binding once the borrower accepts
+
+// The lender's standing offer while status is OFFERED: the collateral and the
+// tier it was priced at. Cleared when the borrower declines.
+export ledger offeredCollateral: Uint<64>;
+export ledger offeredTier: Tier;
 
 export ledger balanceOwed: Uint<64>;
 export ledger installmentAmount: Uint<64>;
@@ -96,6 +116,9 @@ pure circuit graceSeconds(): Uint<64> { return 259200; } // 3 days
 // Quotes a lender may make on one loan. Exported so clients read the cap from
 // the contract rather than restating it.
 export pure circuit quoteLimit(): Uint<64> { return 3; }
+// The shortest life a quote may have, in seconds (30 minutes). A tier proven
+// against a quote that lapses in seconds would be useless to the borrower.
+export pure circuit minQuoteSeconds(): Uint<64> { return 1800; }
 
 export pure circuit getDappPubKey(sk: Bytes<32>): Bytes<32> {
   return persistentHash<Vector<2, Bytes<32>>>([pad(32, "kymider:pk:"), sk]);
@@ -144,21 +167,26 @@ constructor(lenderPk: Bytes<32>, loanTerms: LoanTerms, commitment: Bytes<32>) {
   quoted = false;
   tierProven = false;
   tier = Tier.NONE;
+  offeredTier = Tier.NONE;
   historyCommitment = persistentHash<Vector<1, Bytes<32>>>([pad(32, "kymider:loan:history:")]);
 }
 
 // --- lender ---------------------------------------------------------------
 
 // Name the bar for the verified tier, and how long a proof against it holds.
-// Quoting again replaces the bar and clears any tier proven against the old one.
+// Quoting again replaces the bar and clears any tier proven against the old one,
+// but never a live VERIFIED tier: that stands until its quote lapses.
 // At most quoteLimit() quotes per loan: each one buys the lender a yes/no answer
 // about the private facts, so an unbounded number would let it search for them.
 export circuit quoteTerms(thresholdNetWorth: Uint<64>, maxDti: Uint<64>, expiresAt: Uint<64>): [] {
   assert(getDappPubKey(localSk()) == lender, "only the lender may quote");
   assert(status == LoanStatus.APPLIED, "loan is no longer open to quotes");
   assert(quotesIssued.lessThan(quoteLimit()), "quote limit reached");
+  assert(!(tier == Tier.VERIFIED && blockTimeLt(tierExpiresAt)), "a verified tier is live until it lapses");
   assert(maxDti <= 10000, "max DTI limit too high");
-  assert(blockTimeLt(disclose(expiresAt)), "quote would already have expired");
+  const exp = disclose(expiresAt);
+  assert(exp >= minQuoteSeconds() && blockTimeLte((exp - minQuoteSeconds()) as Uint<64>),
+    "quote must hold at least 30 minutes");
   quote = disclose(Quote { thresholdNetWorth: thresholdNetWorth, maxDti: maxDti, expiresAt: expiresAt });
   quoted = true;
   quotesIssued.increment(1);
@@ -167,25 +195,27 @@ export circuit quoteTerms(thresholdNetWorth: Uint<64>, maxDti: Uint<64>, expires
   collateralRequired = 0;
 }
 
-// Accept the loan at whatever tier the borrower holds. Underwriting without a
-// live verified tier is allowed — it simply means 150% collateral.
-// `collateral` is the lender's arithmetic. The circuit accepts it only if it is
-// exactly the tier's ratio of the principal, so a verified borrower cannot be
-// quietly asked for more.
+// Offer the loan at whatever tier the borrower holds. Offering without a live
+// verified tier is allowed — it simply means 150% collateral.
+// `collateral` is the lender's arithmetic. The circuit takes it only if it is
+// exactly the tier's ratio of the principal: while a VERIFIED tier is live the
+// only figure the lender can offer is 110%. The offer binds nobody until the
+// borrower accepts it.
 export circuit underwrite(collateral: Uint<64>): [] {
   assert(getDappPubKey(localSk()) == lender, "only the lender may underwrite");
   assert(status == LoanStatus.APPLIED, "loan is not awaiting underwriting");
   const verified = tier == Tier.VERIFIED && blockTimeLt(tierExpiresAt);
   const ratio = verified ? verifiedRatioBps() : standardRatioBps();
   assert(isFloorOfBps(disclose(collateral), terms.principal, ratio), "collateral does not match the tier");
-  tier = verified ? Tier.VERIFIED : Tier.STANDARD;
-  collateralRequired = disclose(collateral);
-  status = LoanStatus.ACTIVE;
+  offeredTier = verified ? Tier.VERIFIED : Tier.STANDARD;
+  offeredCollateral = disclose(collateral);
+  status = LoanStatus.OFFERED;
 }
 
+// Refuse the application, or withdraw an offer the borrower has not accepted.
 export circuit decline(): [] {
   assert(getDappPubKey(localSk()) == lender, "only the lender may decline");
-  assert(status == LoanStatus.APPLIED, "loan is not awaiting underwriting");
+  assert(status == LoanStatus.APPLIED || status == LoanStatus.OFFERED, "loan is not awaiting underwriting");
   status = LoanStatus.DECLINED;
 }
 
@@ -217,6 +247,26 @@ export circuit markDefault(): [] {
 }
 
 // --- borrower -------------------------------------------------------------
+
+// Make the lender's offer binding: the loan is ACTIVE at the offered tier and
+// collateral, and the lender may disburse.
+export circuit accept(): [] {
+  assert(getDappPubKey(localSk()) == borrower, "only the borrower may accept an offer");
+  assert(status == LoanStatus.OFFERED, "there is no offer to accept");
+  tier = offeredTier;
+  collateralRequired = offeredCollateral;
+  status = LoanStatus.ACTIVE;
+}
+
+// Turn the offer down. The application is open again: the borrower may prove
+// a tier (if the current quote allows one) and the lender may offer again.
+export circuit declineOffer(): [] {
+  assert(getDappPubKey(localSk()) == borrower, "only the borrower may decline an offer");
+  assert(status == LoanStatus.OFFERED, "there is no offer to decline");
+  offeredCollateral = 0;
+  offeredTier = Tier.NONE;
+  status = LoanStatus.APPLIED;
+}
 
 // Prove the committed facts clear the lender's quote. The verdict lands on the
 // ledger; the facts do not. A FAIL is recorded as STANDARD, which is a usable

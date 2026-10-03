@@ -25,6 +25,8 @@ export const VERIFIED_RATIO_BPS = 11_000n; // 110%
 export const STANDARD_RATIO_BPS = 15_000n; // 150%
 export const GRACE_SECONDS = 259_200n; // 3 days
 export const MAX_PRINCIPAL = 1n << 40n;
+/** The shortest life a quote may have (Loan.minQuoteSeconds): 30 minutes. */
+export const MIN_QUOTE_SECONDS = 1_800n;
 
 // floor(principal * ratioBps / 10000), the circuit's isFloorOfBps.
 const floorOfBps = (principal: bigint, ratioBps: bigint): bigint => (principal * ratioBps) / 10_000n;
@@ -48,6 +50,21 @@ export const amountDue = (state: Pick<LoanLedger, 'balanceOwed' | 'installmentAm
 /** Whether the tier proven on a loan still holds at `now` (seconds). */
 export const tierIsLive = (state: Pick<LoanLedger, 'tier' | 'tierExpiresAt'>, now: bigint): boolean =>
   state.tier === Tier.VERIFIED && now < state.tierExpiresAt;
+
+/**
+ * Why a lender may not quote this loan now, in the contract's own words, or
+ * null if quoteTerms would go through on these grounds (the cap is checked
+ * separately). `expiresAt` is the quote's proposed expiry.
+ */
+export const quoteRefusal = (
+  state: Pick<LoanLedger, 'tier' | 'tierExpiresAt'>,
+  expiresAt: bigint,
+  now: bigint,
+): string | null => {
+  if (tierIsLive(state, now)) return 'a verified tier is live until it lapses';
+  if (expiresAt < now + MIN_QUOTE_SECONDS) return 'quote must hold at least 30 minutes';
+  return null;
+};
 
 /** The first second at which the lender may call a default. */
 export const defaultableFrom = (state: Pick<LoanLedger, 'nextDueAt'>): bigint =>

@@ -12,7 +12,9 @@ import {
   collateralFor,
   defaultableFrom,
   installmentFor,
+  MIN_QUOTE_SECONDS,
   owedFor,
+  quoteRefusal,
   tierIsLive,
 } from '../../client/proof/loanMath.js';
 import { LoanSimulator, T0, TEST_SALT, commitFacts, pubKeyOf, skFrom } from './support/simulators.js';
@@ -42,6 +44,7 @@ describe('loanMath — figures the circuit accepts', () => {
     const verified = open(terms).as(BORROWER_SK).proveTier(FACTS);
     expect(verified.ledger().tier).toBe(Tier.VERIFIED);
     verified.as(LENDER_SK).underwrite(collateralFor(terms.principal, Tier.VERIFIED));
+    verified.as(BORROWER_SK).accept().as(LENDER_SK);
 
     // Never proved: 150%.
     open(terms).underwrite(collateralFor(terms.principal, Tier.STANDARD));
@@ -65,6 +68,9 @@ describe('loanMath — figures the circuit accepts', () => {
     const owed = owedFor(terms);
     const sim = open(terms)
       .underwrite(collateralFor(terms.principal, Tier.STANDARD))
+      .as(BORROWER_SK)
+      .accept()
+      .as(LENDER_SK)
       .disburse(T0, owed, installmentFor(owed, terms.installments))
       .as(BORROWER_SK);
     sim.repay(2n).repay(2n).repay(1n);
@@ -86,6 +92,29 @@ describe('loanMath — reading the ledger', () => {
     expect(amountDue({ balanceOwed: 366n, installmentAmount: 367n })).toBe(366n);
   });
 
+  it('quoteRefusal gives the contract\'s words: a live VERIFIED tier, or under 30 minutes', () => {
+    const none = { tier: Tier.NONE, tierExpiresAt: 0n };
+    const live = { tier: Tier.VERIFIED, tierExpiresAt: T0 + 10n };
+    expect(quoteRefusal(none, T0 + MIN_QUOTE_SECONDS, T0)).toBeNull();
+    expect(quoteRefusal(none, T0 + MIN_QUOTE_SECONDS - 1n, T0)).toBe('quote must hold at least 30 minutes');
+    expect(quoteRefusal(live, T0 + 86_400n, T0)).toBe('a verified tier is live until it lapses');
+    expect(quoteRefusal(live, T0 + 86_400n, T0 + 10n)).toBeNull();
+  });
+
+  it('quoteRefusal agrees with the circuit at the 30-minute boundary', () => {
+    const terms = SWEEP[2]!;
+    const fresh = () =>
+      new LoanSimulator(BORROWER_SK, pubKeyOf(LENDER_SK), terms, commitFacts(FACTS, TEST_SALT), new Uint8Array(32)).as(
+        LENDER_SK,
+      );
+    const state = fresh().ledger();
+    for (const ttl of [0n, 1n, MIN_QUOTE_SECONDS - 1n, MIN_QUOTE_SECONDS, MIN_QUOTE_SECONDS + 1n]) {
+      const refusal = quoteRefusal(state, T0 + ttl, T0);
+      if (refusal) expect(() => fresh().quoteTerms(1n, 40n, T0 + ttl)).toThrow(refusal);
+      else expect(fresh().quoteTerms(1n, 40n, T0 + ttl).ledger().quoted).toBe(true);
+    }
+  });
+
   it('a tier is live strictly before its expiry, and only if VERIFIED', () => {
     expect(tierIsLive({ tier: Tier.VERIFIED, tierExpiresAt: 100n }, 99n)).toBe(true);
     expect(tierIsLive({ tier: Tier.VERIFIED, tierExpiresAt: 100n }, 100n)).toBe(false);
@@ -97,6 +126,9 @@ describe('loanMath — reading the ledger', () => {
     const owed = owedFor(terms);
     const sim = open(terms)
       .underwrite(collateralFor(terms.principal, Tier.STANDARD))
+      .as(BORROWER_SK)
+      .accept()
+      .as(LENDER_SK)
       .disburse(T0, owed, installmentFor(owed, terms.installments));
     const from = defaultableFrom(sim.ledger());
     expect(() => sim.at(from - 1n).markDefault()).toThrow(/not past its grace period/);

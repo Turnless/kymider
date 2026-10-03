@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { useKymider } from '../lib/useKymider';
 
 /**
  * The console frame: a warm-dark rail carried over from the landing, so
@@ -49,7 +50,32 @@ export function Console({
   surface?: 'cream' | 'sand';
 }) {
   const navigate = useNavigate();
+  const { client } = useKymider();
   const nav = role === 'borrower' ? BORROWER_NAV : role === 'lender' ? LENDER_NAV : AUDITOR_NAV;
+
+  // The lender console acts as one lender persona at a time. A borrower may
+  // apply to any of them, so the lender rail lets the demo sit in that seat.
+  const setMe = client.setMe?.bind(client);
+  const lenderPicker =
+    role === 'lender' && setMe ? (
+      <label className="block">
+        <span className="mb-[5px] block px-1 text-[10px] font-semibold uppercase tracking-[0.6px] text-[rgba(255,247,235,0.4)]">
+          Acting as
+        </span>
+        <select
+          aria-label="Acting as lender"
+          value={client.me().id}
+          onChange={(e) => setMe(e.target.value)}
+          className="w-full rounded-[10px] border border-[rgba(255,247,235,0.14)] bg-[rgba(255,247,235,0.07)] px-2 py-[7px] text-[12px] font-semibold text-cream outline-none focus:border-accent"
+        >
+          {client.lenders().map((l) => (
+            <option key={l.id} value={l.id} className="text-espresso">
+              {l.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    ) : null;
 
   const switchTo = (next: Role) => {
     onRole(next);
@@ -119,9 +145,11 @@ export function Console({
               </NavLink>
             ))}
           </nav>
+          {lenderPicker && <div className="px-4 pb-3 lg:hidden">{lenderPicker}</div>}
         </div>
 
         <div className="hidden lg:block">
+          {lenderPicker && <div className="mb-4">{lenderPicker}</div>}
           {roleToggle}
           <p className="mt-3 flex items-center gap-[6px] px-1 text-[10px] text-[rgba(255,247,235,0.35)]">
             <span className="size-[5px] rounded-full bg-accent" />

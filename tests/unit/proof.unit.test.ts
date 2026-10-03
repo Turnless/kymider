@@ -45,7 +45,7 @@ vi.mock('@midnight-ntwrk/midnight-js-contracts', () => ({
   }),
 }));
 
-import { Tier } from '../../contracts/index.js';
+import { ListingStatus, Tier } from '../../contracts/index.js';
 import { KymiderClient } from '../../client/index.js';
 import { LoanClient } from '../../client/loans.js';
 import { TxLog, emitReceipt, receiptOf, type TxReceipt } from '../../client/txlog.js';
@@ -120,6 +120,8 @@ type WorldOptions = {
   historyC?: boolean;
   /** The Registry row points at a different instance. */
   registryElsewhere?: boolean;
+  /** Loan A's borrower accepts the 110% offer (default true); if not, A stops at OFFERED. */
+  acceptA?: boolean;
 };
 
 function repayAll(loan: LoanSimulator): LoanSimulator {
@@ -128,16 +130,24 @@ function repayAll(loan: LoanSimulator): LoanSimulator {
   return loan;
 }
 
-function runLoan(terms: typeof TERMS_A, lenderSk: Uint8Array, proveTier: boolean, facts = FACTS): LoanSimulator {
+function runLoan(
+  terms: typeof TERMS_A,
+  lenderSk: Uint8Array,
+  proveTier: boolean,
+  facts = FACTS,
+  accept = true,
+): LoanSimulator {
   const loan = new LoanSimulator(BORROWER_SK, pubKeyOf(lenderSk), terms, commitmentOf(facts), SEED);
   loan.as(lenderSk).quoteTerms(QUOTE.thresholdNetWorth, QUOTE.maxDti, T0 + QUOTE.ttlSeconds);
   if (proveTier) loan.as(BORROWER_SK).proveTier(facts);
   const tier = proveTier && loan.ledger().tier === Tier.VERIFIED ? Tier.VERIFIED : Tier.STANDARD;
   const owed = owedFor(terms);
+  loan.as(lenderSk).advance(30n).underwrite(collateralFor(terms.principal, tier));
+  if (!accept) return loan;
   loan
+    .as(BORROWER_SK)
+    .accept()
     .as(lenderSk)
-    .advance(30n)
-    .underwrite(collateralFor(terms.principal, tier))
     .disburse(loan.now, owed, installmentFor(owed, terms.installments));
   return repayAll(loan);
 }
@@ -162,7 +172,7 @@ function world(opts: WorldOptions = {}): { deployments: Deployments; states: Onc
   const pointsAt = opts.registryElsewhere ? new SolvencySimulator(facts, BORROWER_SK).address : sp.address;
   registry.as(BORROWER_SK).register(encodeContractAddress(pointsAt), sp.ledger().commitment);
 
-  const a = runLoan(TERMS_A, LENDER_A_SK, opts.proveTierA ?? true, facts);
+  const a = runLoan(TERMS_A, LENDER_A_SK, opts.proveTierA ?? true, facts, opts.acceptA ?? true);
   const b = runLoan(TERMS_B, LENDER_B_SK, false, facts);
   const c = new LoanSimulator(BORROWER_SK, LENDER_A_PK, TERMS_C, commitmentOf(facts), SEED);
   const [addrA, addrB, addrC] = [a, b, c].map((l) => encodeContractAddress(l.address));
@@ -171,9 +181,12 @@ function world(opts: WorldOptions = {}): { deployments: Deployments; states: Onc
   dir.as(BORROWER_SK).list(addrA!, LENDER_A_PK, TERMS_A.principal);
   dir.as(BORROWER_SK).list(addrB!, LENDER_B_PK, TERMS_B.principal);
   dir.as(BORROWER_SK).list(addrC!, LENDER_A_PK, TERMS_C.principal);
-  dir.as(LENDER_A_SK).recordRepaid(addrA!);
+  // Each lender marks its listing ACTIVE (as prove:onchain does once the
+  // borrower accepts); a repayment can be recorded only from ACTIVE.
+  if (opts.acceptA ?? true) dir.as(LENDER_A_SK).updateStatus(addrA!, ListingStatus.ACTIVE).recordRepaid(addrA!);
+  dir.as(LENDER_B_SK).updateStatus(addrB!, ListingStatus.ACTIVE);
   if (opts.recordB ?? true) dir.as(LENDER_B_SK).recordRepaid(addrB!);
-  if ((opts.historyC ?? true) && (opts.recordB ?? true)) {
+  if ((opts.historyC ?? true) && (opts.recordB ?? true) && (opts.acceptA ?? true)) {
     dir.as(BORROWER_SK).proveTwoRepaid(
       addrC!,
       { loan: addrA!, lender: LENDER_A_PK, path: dir.pathFor(repaidLeaf(BORROWER_PK, addrA!, LENDER_A_PK)) },
@@ -404,8 +417,21 @@ describe('verify:onchain claim checks, on states from the compiled contracts', (
   it('loan A without a tier proof is held to 150%, and the 110% claim fails', () => {
     const { deployments, states } = world({ proveTierA: false });
     const rows = checkClaims(deployments, states);
-    expect(failing(rows)).toEqual(['Loan A: tier VERIFIED, collateral 110% of principal']);
+    expect(failing(rows)).toEqual(['Loan A: tier VERIFIED, collateral 110% of principal, accepted by the borrower']);
     expect(byClaim(rows, 'Loan A: tier VERIFIED').actual).toMatch(/^STANDARD, 1500 on 1000/);
+  });
+
+  it('an offer at 110% the borrower never accepted does not pass for the 110% loan', () => {
+    const { deployments, states } = world({ acceptA: false });
+    const rows = checkClaims(deployments, states);
+    expect(failing(rows)).toEqual([
+      'Loan A: tier VERIFIED, collateral 110% of principal, accepted by the borrower',
+      'Loan A: REPAID in full, no late payments',
+      'LoanDirectory: loans A and B are recorded as repaid',
+      'LoanDirectory: Loan C carries a history proof of 2 repaid loans',
+    ]);
+    expect(states.loans[0]!.offeredCollateral).toBe(1_100n);
+    expect(states.loans[0]!.collateralRequired).toBe(0n);
   });
 
   it('facts that miss the bar give a FAIL attestation, and the claim fails', () => {

@@ -149,3 +149,27 @@ export async function openLenderLoan(page: Page, address: string): Promise<void>
   await page.getByText(new RegExp(`^${short(address, 8)}`)).filter({ visible: true }).first().click();
   await expect(page).toHaveURL(new RegExp(`/app/loan/${address}$`));
 }
+
+/**
+ * Borrower → the loan → Accept the lender's offer. The offer step names the
+ * lender, the collateral and the ratio; the loan is ACTIVE once accepted.
+ */
+export async function acceptOffer(
+  page: Page,
+  address: string,
+  offer: { lender: string; collateral: string; ratio: string },
+): Promise<void> {
+  await switchRole(page, 'borrower');
+  await openBorrowerLoan(page, address);
+  await expect(page.getByText('Your step · Accept or decline')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: `${offer.lender} offers ${offer.collateral} collateral (${offer.ratio})` }),
+  ).toBeVisible();
+  await button(page, /^Accept$/).click();
+  await expect(page.getByRole('heading', { name: `Accepted. Waiting for ${offer.lender} to disburse` })).toBeVisible();
+}
+
+/** The lender rail's persona picker: the lender console acts as `name`. */
+export async function actAsLender(page: Page, name: string): Promise<void> {
+  await page.getByLabel('Acting as lender').filter({ visible: true }).selectOption({ label: name });
+}

@@ -76,7 +76,8 @@ const COIN_PUBLIC_KEY = '0'.repeat(64);
 const DAY = 86_400n;
 const HOUR = 3_600n;
 
-const STATUS_NAMES: readonly LoanStatusName[] = ['APPLIED', 'ACTIVE', 'REPAID', 'DEFAULTED', 'DECLINED'];
+// Compact declaration order: OFFERED was appended after DECLINED.
+const STATUS_NAMES: readonly LoanStatusName[] = ['APPLIED', 'ACTIVE', 'REPAID', 'DEFAULTED', 'DECLINED', 'OFFERED'];
 const TIER_NAMES: readonly TierName[] = ['NONE', 'VERIFIED', 'STANDARD'];
 const LISTING_NAMES: readonly ListingStatusName[] = ['OPEN', 'ACTIVE', 'REPAID', 'DEFAULTED', 'CLOSED'];
 /** The contract's own cap on quotes per loan (an exported pure circuit). */
@@ -227,6 +228,9 @@ export class SimulatedLoanDesk implements LoanDesk {
     // Seeding ran each loan's history at its own past block times; the demo
     // opens at the wall clock.
     this.clock = start;
+    // The lender console acts as `client.me()`; when the lender rail picks
+    // another persona, every lender list and action follows, so re-render.
+    client.subscribe(() => this.changed());
   }
 
   // --- clock --------------------------------------------------------------
@@ -377,25 +381,44 @@ export class SimulatedLoanDesk implements LoanDesk {
   private doUnderwrite(loan: DeskLoan, lenderSk: Uint8Array): { tier: TierName; collateral: bigint } {
     const led = this.ledgerOf(loan);
     // The circuit's own test: a VERIFIED tier counts only while block time is
-    // before its expiry. Anything else is underwritten at 150%.
+    // before its expiry. Anything else is offered at 150%.
     const verified = tierIsLive(led, this.clock);
     const collateral = collateralFor(led.terms.principal, verified ? Tier.VERIFIED : Tier.STANDARD);
     return { tier: this.doUnderwriteAt(loan, lenderSk, collateral), collateral };
   }
 
-  /** Underwrite at a figure the caller chose; the circuit decides if it is the right one. */
+  /**
+   * Offer at a figure the caller chose; the circuit decides if it is the right
+   * one. The loan is OFFERED: the listing stays OPEN until the lender disburses.
+   */
   private doUnderwriteAt(loan: DeskLoan, lenderSk: Uint8Array, collateral: bigint): TierName {
     this.run(loan, lenderSk, (c, ctx) => c.underwrite(ctx, collateral));
-    this.directory.call(lenderSk, this.clock, (c, ctx) => c.updateStatus(ctx, loan.bytes, ListingStatus.ACTIVE));
-    return TIER_NAMES[this.ledgerOf(loan).tier];
+    return TIER_NAMES[this.ledgerOf(loan).offeredTier];
   }
 
+  /** The loan's borrower makes the offer binding. */
+  private doAccept(loan: DeskLoan): { tier: TierName; collateral: bigint } {
+    this.run(loan, loan.borrowerSk, (c, ctx) => c.accept(ctx));
+    const led = this.ledgerOf(loan);
+    return { tier: TIER_NAMES[led.tier], collateral: led.collateralRequired };
+  }
+
+  private doDeclineOffer(loan: DeskLoan): void {
+    this.run(loan, loan.borrowerSk, (c, ctx) => c.declineOffer(ctx));
+  }
+
+  /**
+   * Start the clock, and mark the listing ACTIVE: the directory lets only the
+   * listing's lender make that move, and only from OPEN. A repayment can be
+   * recorded later only from ACTIVE.
+   */
   private doDisburse(loan: DeskLoan, lenderSk: Uint8Array): void {
     const terms = this.ledgerOf(loan).terms;
     const owed = owedFor(terms);
     const installment = installmentFor(owed, terms.installments);
     const start = this.clock;
     this.run(loan, lenderSk, (c, ctx) => c.disburse(ctx, start, owed, installment));
+    this.directory.call(lenderSk, this.clock, (c, ctx) => c.updateStatus(ctx, loan.bytes, ListingStatus.ACTIVE));
   }
 
   private doRepay(loan: DeskLoan): bigint {
@@ -463,6 +486,7 @@ export class SimulatedLoanDesk implements LoanDesk {
     this.doProveTier(a);
     at(-118n * DAY);
     this.doUnderwrite(a, harbor.sk);
+    this.doAccept(a);
     this.doDisburse(a, harbor.sk); // due -88, -58, -28 days
     for (const d of [-90n, -59n, -30n]) {
       at(d * DAY);
@@ -483,6 +507,7 @@ export class SimulatedLoanDesk implements LoanDesk {
     this.doProveTier(b);
     at(-78n * DAY);
     this.doUnderwrite(b, atlas.sk);
+    this.doAccept(b);
     this.doDisburse(b, atlas.sk); // due -64, -50, -36, -22 days
     // The second payment lands two days after its due date: late, on the record.
     for (const d of [-65n, -48n, -37n, -23n]) {
@@ -514,6 +539,7 @@ export class SimulatedLoanDesk implements LoanDesk {
       this.doQuote(l, me.sk, { thresholdNetWorth: 400_000n, maxDti: 40n, ttlSeconds: 7n * DAY });
       at(-73n * DAY);
       this.doUnderwrite(l, me.sk);
+      this.doAccept(l); // chose 150% over proving
       this.doDisburse(l, me.sk); // due -43, -13 days
       for (const d of [-44n, -14n]) {
         at(d * DAY);
@@ -537,6 +563,7 @@ export class SimulatedLoanDesk implements LoanDesk {
       this.doProveTier(l);
       at(-58n * DAY);
       this.doUnderwrite(l, me.sk);
+      this.doAccept(l);
       this.doDisburse(l, me.sk); // due -44, -30 days
       at(-45n * DAY);
       this.doRepay(l);
@@ -559,6 +586,7 @@ export class SimulatedLoanDesk implements LoanDesk {
       this.doProveTier(l);
       at(-38n * DAY);
       this.doUnderwrite(l, me.sk);
+      this.doAccept(l);
       this.doDisburse(l, me.sk); // due -24, -10, +4 days
       for (const d of [-25n, -11n]) {
         at(d * DAY);
@@ -566,7 +594,25 @@ export class SimulatedLoanDesk implements LoanDesk {
       }
     }
 
-    // APPLIED, quoted and proven VERIFIED: ready to underwrite at 110%.
+    // OFFERED at 110% yesterday: proven VERIFIED, the lender made the offer,
+    // and it waits on the borrower's acceptance before anything binds.
+    {
+      const o = other(1);
+      at(-6n * DAY);
+      const l = this.deploy(o.sk, o.address, o.facts, me.pk, {
+        principal: 750_000n,
+        interestBps: 700n,
+        installments: 4n,
+        periodSeconds: 30n * DAY,
+      });
+      at(-5n * DAY);
+      this.doQuote(l, me.sk, { thresholdNetWorth: 500_000n, maxDti: 50n, ttlSeconds: 14n * DAY });
+      this.doProveTier(l);
+      at(-1n * DAY);
+      this.doUnderwrite(l, me.sk);
+    }
+
+    // APPLIED, quoted and proven VERIFIED: ready to offer at 110%.
     {
       const o = other(4);
       at(-3n * DAY);
@@ -628,6 +674,8 @@ export class SimulatedLoanDesk implements LoanDesk {
       tierExpiresAt: led.tierExpiresAt,
       tierLive: tierIsLive(led, now),
       collateralRequired: led.collateralRequired,
+      offeredCollateral: led.offeredCollateral,
+      offeredTier: TIER_NAMES[led.offeredTier],
       collateralIfVerified: collateralFor(terms.principal, Tier.VERIFIED),
       collateralIfStandard: collateralFor(terms.principal, Tier.STANDARD),
       disbursed: led.disbursed,
@@ -685,6 +733,21 @@ export class SimulatedLoanDesk implements LoanDesk {
     const tier = this.asMyBorrower(loan, () => this.doProveTier(loan));
     this.changed();
     return tier;
+  }
+
+  async accept(address: string): Promise<{ tier: TierName; collateral: bigint }> {
+    const loan = this.get(address);
+    // Under this browser's key: on someone else's loan the contract refuses
+    // ("only the borrower may accept an offer").
+    const result = this.asMyBorrower(loan, () => this.doAccept(loan));
+    this.changed();
+    return result;
+  }
+
+  async declineOffer(address: string): Promise<void> {
+    const loan = this.get(address);
+    this.asMyBorrower(loan, () => this.doDeclineOffer(loan));
+    this.changed();
   }
 
   async repay(address: string): Promise<bigint> {

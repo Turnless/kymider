@@ -82,13 +82,22 @@ export const refusalOf = (err: unknown): string => {
  */
 const HINTS: Record<string, string> = {
   'collateral does not match the tier':
-    'The circuit accepts only the exact ratio for the tier on record (110% verified, 150% otherwise), so a verified borrower cannot be quietly asked for more.',
+    'The circuit takes only the exact ratio for the tier on record (110% verified, 150% otherwise): the lender can only offer the tier\'s figure, and only the borrower can accept it.',
+  'a verified tier is live until it lapses':
+    'A proven VERIFIED tier stands until its quote expires. Quoting again would wipe it, so the contract refuses.',
+  'quote must hold at least 30 minutes':
+    'A quote that lapses in seconds would leave the borrower no time to prove or to use the tier.',
+  'there is no offer to accept': 'The lender has not made an offer, or it was already answered.',
+  'there is no offer to decline': 'The lender has not made an offer, or it was already answered.',
+  'loan is not awaiting underwriting':
+    'An offer is already standing, or the loan is past that stage. The borrower answers an offer before another can be made.',
   'quote has expired':
     'A tier proof only counts against a live quote. The lender has to quote again before you can prove.',
   'the lender has not quoted yet': 'There is no bar to prove against until the lender names one.',
   'facts do not match committed facts':
     'A proof must use the statement your solvency instance committed when you applied. Different figures cannot produce a tier.',
-  'loan is no longer open to proofs': 'The tier is fixed once the loan is underwritten or declined.',
+  'loan is no longer open to proofs':
+    'The tier is fixed while an offer stands and once the loan is accepted or declined. Decline the offer to prove again.',
   'repay exactly the installment due':
     'Each repayment is the installment, or the remainder if smaller. Nothing else is accepted.',
   'loan is not active': 'This loan is not in a state that takes this action.',

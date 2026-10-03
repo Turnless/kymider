@@ -1,4 +1,6 @@
 import {
+  acceptOffer,
+  actAsLender,
   addressFromUrl,
   applyForLoan,
   button,
@@ -7,6 +9,7 @@ import {
   nav,
   open,
   openBorrowerLoan,
+  openLenderLoan,
   routeTo,
   short,
   switchRole,
@@ -59,8 +62,11 @@ test.describe('default before and after the grace period', () => {
     await page.getByRole('button', { name: /^All/ }).click();
     await page.locator('main').getByText(new RegExp(`^${short(loan, 8)}`)).filter({ visible: true }).first().click();
     const desk = page.locator('section.card-dark', { hasText: 'Underwriting desk' });
-    // No quote, no tier: the only figure on offer is 150%.
-    await button(desk, `Underwrite at 150% · ${grouped(7_500)}`).click();
+    // No quote, no tier: the only figure on offer is 150%. The borrower takes it.
+    await button(desk, `Offer at 150% · ${grouped(7_500)}`).click();
+    await acceptOffer(page, loan, { lender: 'Harbor Bank', collateral: '$7,500', ratio: '150%' });
+    await switchRole(page, 'lender');
+    await openLenderLoan(page, loan);
     await button(desk, 'Disburse').click();
     await expect(desk).toContainText('Disbursed. The first installment clock is running.');
 
@@ -90,7 +96,7 @@ test.describe('wrong-party actions', () => {
   test('the borrower is offered no lender action, and the lender desk no repayment', async ({ page }) => {
     await open(page, '/app/overview');
     const loan = await applyForLoan(page, { principal: '10,000', interest: '10', installments: '3' });
-    for (const name of [/^Send quote/, /^Underwrite/, /^Disburse/, /^Mark default/, /^Decline/, /^Record repayment/]) {
+    for (const name of [/^Send quote/, /^Offer at/, /^Disburse/, /^Mark default/, /^Decline/, /^Record repayment/]) {
       await expect(button(page, name)).toHaveCount(0);
     }
 
@@ -98,7 +104,7 @@ test.describe('wrong-party actions', () => {
     await page.getByRole('button', { name: /^All/ }).click();
     await page.locator('main').getByText(new RegExp(`^${short(loan, 8)}`)).filter({ visible: true }).first().click();
     await expect(page).toHaveURL(new RegExp(`/app/loan/${loan}$`));
-    for (const name of [/^Prove tier/, /^Repay/, /^Prove two repaid loans/, /^Open history to an auditor/]) {
+    for (const name of [/^Prove tier/, /^Accept$/, /^Repay/, /^Prove two repaid loans/, /^Open history to an auditor/]) {
       await expect(button(page, name)).toHaveCount(0);
     }
   });
@@ -125,8 +131,17 @@ test.describe('wrong-party actions', () => {
     const desk = page.locator('section.card-dark', { hasText: 'Underwriting desk' });
     await button(desk, 'Send quote').click();
     await expect(desk.getByRole('alert')).toContainText('The contract refused: only the lender may quote');
-    await button(desk, /^Underwrite at 150%/).click();
+    await button(desk, /^Offer at 150%/).click();
     await expect(desk.getByRole('alert')).toContainText('only the lender may underwrite');
+
+    await expect(page.locator('main')).not.toContainText('Atlas Lending (you)');
+
+    // From Atlas Lending's seat (the lender rail's picker) it is listed, and the quote goes through.
+    await actAsLender(page, 'Atlas Lending');
+    await openLenderLoan(page, loan);
+    await expect(page.locator('main')).toContainText('Atlas Lending (you)');
+    await button(desk, 'Send quote').click();
+    await expect(desk.getByText(/^On the ledger\. Expires /)).toBeVisible();
   });
 
   test("the contract refuses this browser's proof on another borrower's loan", async ({ page }) => {
@@ -158,5 +173,82 @@ test.describe('wrong-party actions', () => {
     // A history proof needs records other than this loan; with two seeded, the
     // proof button waits for exactly two picks.
     await expect(button(page, 'Prove two repaid loans')).toBeDisabled();
+  });
+});
+
+/**
+ * The bypass a review found in the previous contract: after the borrower
+ * proved VERIFIED, the lender re-quoted (which reset the tier) and then
+ * underwrote at 150%; or quoted with a 2-second expiry so the tier lapsed.
+ * Each is now refused by the contract, and an offer binds only once the
+ * borrower accepts it.
+ */
+test.describe('a lender cannot impose 150% on a verified borrower', () => {
+  test('re-quoting after VERIFIED is refused, 150% is refused, and a short quote is refused', async ({ page }) => {
+    await open(page, '/app/overview');
+    const loan = await applyForLoan(page, { principal: '10,000', interest: '10', installments: '3' });
+
+    await switchRole(page, 'lender');
+    await openLenderLoan(page, loan);
+    const desk = page.locator('section.card-dark', { hasText: 'Underwriting desk' });
+
+    // A quote that would lapse within minutes: refused before any proof exists.
+    await desk.getByLabel('Valid for').fill('0');
+    await button(desk, 'Send quote').click();
+    await expect(desk.getByRole('alert')).toContainText('The contract refused: quote must hold at least 30 minutes');
+    await desk.getByLabel('Valid for').fill('72');
+    await button(desk, 'Send quote').click();
+    await expect(desk.getByText(/^On the ledger\. Expires /)).toBeVisible();
+
+    await switchRole(page, 'borrower');
+    await openBorrowerLoan(page, loan);
+    await button(page, 'Prove tier').click();
+    await expect(page.getByText('On the ledger now:')).toContainText('Verified · 110%');
+
+    // The two-click bypass: Replace quote, then 150%. Both refused; the tier stands.
+    await switchRole(page, 'lender');
+    await openLenderLoan(page, loan);
+    await button(desk, 'Replace quote').click();
+    await expect(desk.getByRole('alert')).toContainText('The contract refused: a verified tier is live until it lapses');
+    await expect(desk.getByText('Verified', { exact: true })).toBeVisible();
+    await button(desk, `Ask for 150% anyway · ${grouped(15_000)}`).click();
+    await expect(desk.getByRole('alert')).toContainText('collateral does not match the tier');
+    await expect(button(desk, `Offer at 110% · ${grouped(11_000)}`)).toBeVisible();
+    await expect(page.getByText('Quote 1 of 3')).toBeVisible();
+  });
+
+  test('a 150% offer made before the proof binds no one: the borrower declines, proves, and is offered 110%', async ({
+    page,
+  }) => {
+    await open(page, '/app/overview');
+    const loan = await applyForLoan(page, { principal: '10,000', interest: '10', installments: '3' });
+
+    // The lender quotes and offers 150% at once, before the borrower can prove.
+    await switchRole(page, 'lender');
+    await openLenderLoan(page, loan);
+    const desk = page.locator('section.card-dark', { hasText: 'Underwriting desk' });
+    await button(desk, 'Send quote').click();
+    await expect(desk.getByText(/^On the ledger\. Expires /)).toBeVisible();
+    await button(desk, `Offer at 150% · ${grouped(15_000)}`).click();
+    await expect(desk).toContainText('Waiting for the borrower to accept');
+    await expect(button(desk, 'Disburse')).toHaveCount(0);
+
+    // The borrower declines it, then proves against the still-live quote.
+    await switchRole(page, 'borrower');
+    await openBorrowerLoan(page, loan);
+    await expect(page.getByRole('heading', { name: 'Harbor Bank offers $15,000 collateral (150%)' })).toBeVisible();
+    await expect(page.getByText('only you can make it binding')).toBeVisible();
+    await button(page, /^Decline$/).click();
+    await expect(page.getByText('Your step · Prove tier')).toBeVisible();
+    await button(page, 'Prove tier').click();
+    await expect(page.getByText('On the ledger now:')).toContainText('Verified · 110%');
+
+    // Now 110% is the only figure the lender can offer, and the borrower accepts it.
+    await switchRole(page, 'lender');
+    await openLenderLoan(page, loan);
+    await expect(button(desk, `Offer at 110% · ${grouped(11_000)}`)).toBeVisible();
+    await button(desk, `Offer at 110% · ${grouped(11_000)}`).click();
+    await acceptOffer(page, loan, { lender: 'Harbor Bank', collateral: '$11,000', ratio: '110%' });
+    await expect(page.getByText('$11,000', { exact: true }).first()).toBeVisible();
   });
 });

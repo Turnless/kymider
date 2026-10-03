@@ -2,14 +2,18 @@
 //
 // Drives LoanClient through real transactions with real ZK proofs:
 //
-//   Loan A: the borrower proves the tier and is underwritten at 110%,
+//   Loan A: the borrower proves the tier, the lender offers 110% (a re-quote
+//           that would wipe the tier is refused), the borrower accepts,
 //           repays two installments, and the lender records the repayment.
-//   Loan B: no proof, so 150%; one installment; recorded by a second lender.
+//   Loan B: no proof, so a 150% offer the borrower accepts; one installment;
+//           recorded by a second lender.
 //   Loan C: a new application. The borrower proves two repaid loans to the
 //           directory without saying which, and the directory records "2".
 //
-// Plus the refusals that matter on-chain: a lender cannot repay, a borrower
-// cannot disburse, and the same repaid loan cannot be counted twice.
+// Plus the refusals that matter on-chain: a lender cannot re-quote away a live
+// VERIFIED tier or disburse before the borrower accepts, a lender cannot
+// repay, a borrower cannot disburse, and the same repaid loan cannot be
+// counted twice.
 //
 // Requires the devnet: `npm run env:up`. Run with `npm run test:simulation`.
 
@@ -72,9 +76,17 @@ describe(`Kymider Wave 2 simulation (${network})`, () => {
     return loan;
   };
 
-  // Disburse, repay every installment, record. Lender identity must already
-  // be bound to the loan, and to the directory for the record.
+  // The lender marks the listing ACTIVE once the borrower has accepted: only
+  // the listing's lender may, and a repayment is recorded only from ACTIVE.
+  const activateListing = async (loan: ContractAddress, lenderSk: Uint8Array): Promise<void> => {
+    await lender.bindLoanDirectoryPrivateState(directory, createLoanDirectoryPrivateState(lenderSk));
+    await lender.updateListingStatus(directory, loan, ListingStatus.ACTIVE);
+  };
+
+  // Mark the listing ACTIVE, disburse, repay every installment, record. Lender
+  // identity must already be bound to the loan.
   const repayInFull = async (loan: ContractAddress, lenderSk: Uint8Array): Promise<void> => {
+    await activateListing(loan, lenderSk);
     await lender.disburse(loan);
     while ((await borrower.loanState(loan)).status === LoanStatus.ACTIVE) {
       await borrower.repay(loan);
@@ -115,7 +127,7 @@ describe(`Kymider Wave 2 simulation (${network})`, () => {
     expect(rows.map((r) => r.loan)).toContain(loanA);
   });
 
-  it('a verified borrower is underwritten at 110%', async () => {
+  it('a verified borrower is offered 110%, and the tier cannot be re-quoted away', async () => {
     await lender.quote(loanA, QUOTE);
     expect(await borrower.proveTier(loanA, FACTS)).toBe(Tier.VERIFIED);
     expect((await borrower.loanState(loanA)).quotesIssued).toBe(1n);
@@ -125,15 +137,32 @@ describe(`Kymider Wave 2 simulation (${network})`, () => {
       borrower.callLoan(loanA, 'proveTier', [FACTS.balance, FACTS.debts, FACTS.income]),
     ).rejects.toThrow();
 
+    // A live VERIFIED tier stands: the client refuses first, and so does the
+    // circuit when the raw call goes out anyway.
+    await expect(lender.quote(loanA, QUOTE)).rejects.toThrow(/a verified tier is live until it lapses/);
+    await expect(
+      lender.callLoan(loanA, 'quoteTerms', [QUOTE.thresholdNetWorth, QUOTE.maxDti, (await lender.loanState(loanA)).quote.expiresAt]),
+    ).rejects.toThrow();
+    expect((await borrower.loanState(loanA)).tier).toBe(Tier.VERIFIED);
+
     const { tier, collateral } = await lender.underwrite(loanA);
     expect(tier).toBe(Tier.VERIFIED);
     expect(collateral).toBe(1_100n);
-    const state = await lender.loanState(loanA);
+    let state = await lender.loanState(loanA);
+    expect(state.status).toBe(LoanStatus.OFFERED);
+    expect(state.offeredCollateral).toBe(1_100n);
+    expect(state.collateralRequired).toBe(0n);
+
+    // Nothing binds until the borrower accepts.
+    await expect(lender.disburse(loanA)).rejects.toThrow();
+    expect(await borrower.acceptOffer(loanA)).toEqual({ tier: Tier.VERIFIED, collateral: 1_100n });
+    state = await lender.loanState(loanA);
     expect(state.status).toBe(LoanStatus.ACTIVE);
     expect(state.collateralRequired).toBe(1_100n);
   });
 
   it('refuses a borrower disbursing, and a lender repaying', async () => {
+    await activateListing(loanA, lenderASk);
     await expect(borrower.disburse(loanA)).rejects.toThrow();
     await lender.disburse(loanA);
     await expect(lender.repay(loanA)).rejects.toThrow();
@@ -153,12 +182,13 @@ describe(`Kymider Wave 2 simulation (${network})`, () => {
     expect(listing?.status).toBe(ListingStatus.REPAID);
   });
 
-  it('loan B, with no tier proof, is underwritten at 150% and repaid', async () => {
+  it('loan B, with no tier proof, is offered 150%, accepted and repaid', async () => {
     loanB = await openLoan(lenderBSk, TERMS_B);
     await lender.quote(loanB, QUOTE);
     const { tier, collateral } = await lender.underwrite(loanB);
     expect(tier).toBe(Tier.STANDARD);
     expect(collateral).toBe(3_000n);
+    await borrower.acceptOffer(loanB);
     await repayInFull(loanB, lenderBSk);
     expect((await borrower.loanState(loanB)).status).toBe(LoanStatus.REPAID);
   });

@@ -28,6 +28,7 @@ const PENDING_DARK = {
 
 const STATUS_LABEL: Record<LoanStatusName, string> = {
   APPLIED: 'Applied',
+  OFFERED: 'Offered',
   ACTIVE: 'Active',
   REPAID: 'Repaid',
   DEFAULTED: 'Defaulted',
@@ -39,6 +40,7 @@ export function LoanStatusBadge({ status, dark = false }: { status: LoanStatusNa
   const label = STATUS_LABEL[status];
   switch (status) {
     case 'APPLIED':
+    case 'OFFERED':
       return (
         <span className={`badge ${dark ? '' : 'badge-pending'}`} style={dark ? PENDING_DARK : undefined}>
           {label}

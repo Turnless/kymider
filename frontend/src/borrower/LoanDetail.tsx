@@ -56,7 +56,10 @@ export function BorrowerLoanDetail() {
               {shortHex('0x' + loan.address, 10, 4)}
             </h1>
             <LoanStatusBadge status={loan.status} />
-            <TierBadge tier={loan.tier} live={loan.tierLive || loan.status !== 'APPLIED'} />
+            <TierBadge
+              tier={loan.tier}
+              live={loan.tierLive || (loan.status !== 'APPLIED' && loan.status !== 'OFFERED')}
+            />
           </div>
           <p className="tnum mt-1 text-[12px] text-[rgba(15,23,42,0.5)]">
             {money(loan.terms.principal)} from {loan.lender.name}
@@ -72,7 +75,9 @@ export function BorrowerLoanDetail() {
       <div className="mb-5 grid gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
         <div className="flex min-w-0 flex-col gap-5">
           <NextStep loan={loan} now={now} act={act} />
-          {loan.status === 'APPLIED' && <HistoryProof loan={loan} act={act} />}
+          {(loan.status === 'APPLIED' || loan.status === 'OFFERED') && (
+            <HistoryProof loan={loan} act={act} />
+          )}
         </div>
         <TermsCard loan={loan} />
       </div>
@@ -125,7 +130,7 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
     return (
       <Panel
         kicker="Your step · Prove tier"
-        title={proven ? `Tier recorded. Waiting for ${lender} to underwrite` : `Clear ${lender}'s bar for 110% collateral`}
+        title={proven ? `Tier recorded. Waiting for ${lender} to make an offer` : `Clear ${lender}'s bar for 110% collateral`}
       >
         <div className="rounded-[13px] bg-[rgba(255,247,235,0.05)] px-4 py-3">
           <p className="label-dark mb-1">
@@ -156,6 +161,11 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
         {proven && (
           <p className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-[rgba(255,247,235,0.6)]">
             On the ledger now: <TierBadge tier={loan.tier} live={loan.tierLive} dark />
+          </p>
+        )}
+        {loan.tierLive && (
+          <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.45)]">
+            While it is live the lender cannot quote it away, and can only offer you 110%.
           </p>
         )}
 
@@ -204,9 +214,13 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
     );
   }
 
+  if (loan.status === 'OFFERED') {
+    return <OfferStep loan={loan} now={now} act={act} />;
+  }
+
   if (loan.status === 'ACTIVE' && !loan.disbursed) {
     return (
-      <Panel kicker="Waiting on the lender" title={`Underwritten. Waiting for ${lender} to disburse`}>
+      <Panel kicker="Waiting on the lender" title={`Accepted. Waiting for ${lender} to disburse`}>
         <p className="tnum text-[12px] leading-[1.6] text-[rgba(255,247,235,0.6)]">
           Accepted at {loan.tier === 'VERIFIED' ? 'the verified tier' : 'the standard tier'} with{' '}
           <span className="font-semibold text-cream">{money(loan.collateralRequired)}</span>{' '}
@@ -309,6 +323,86 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
         Nothing was disbursed and no collateral was set. The lender saw only the tier, if one was
         proven; your figures were never part of the application.
       </p>
+    </Panel>
+  );
+}
+
+/**
+ * The lender's offer, and the borrower's answer. The contract only let the
+ * lender offer the tier's exact figure; nothing binds until the borrower
+ * accepts. Declining reopens the application.
+ */
+function OfferStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act }) {
+  const { desk } = useLoans();
+  const lender = loan.lender.name;
+  const verified = loan.offeredTier === 'VERIFIED';
+  const ratio = verified ? '110%' : '150%';
+  // Offered 150% while a proof could still buy 110%: say so before the borrower accepts.
+  const quoteLive = loan.quote !== null && now < loan.quote.expiresAt;
+  const couldProve = !verified && quoteLive && !loan.tierProven;
+  return (
+    <Panel kicker="Your step · Accept or decline" title={`${lender} offers ${money(loan.offeredCollateral)} collateral (${ratio})`}>
+      <div className="rounded-[13px] bg-[rgba(255,247,235,0.05)] px-4 py-3">
+        <p className="label-dark mb-1">The offer on the ledger</p>
+        <p className="tnum text-[15px] font-semibold text-cream">
+          {money(loan.offeredCollateral)} on {money(loan.terms.principal)} ·{' '}
+          {verified ? 'Verified · 110%' : 'Standard · 150%'}
+        </p>
+        <p className="tnum mt-1 text-[11px] text-[rgba(255,247,235,0.45)]">
+          {verified
+            ? `150% would be ${money(loan.collateralIfStandard)}: you post ${money(loan.collateralIfStandard - loan.collateralIfVerified)} less.`
+            : `A live verified tier would make it ${money(loan.collateralIfVerified)} (110%).`}
+        </p>
+      </div>
+
+      <p className="mt-4 flex items-start gap-2 text-[12px] font-semibold leading-[1.5] text-cream">
+        <LockIcon />
+        The contract only lets the lender offer the tier's figure, and only you can make it binding.
+      </p>
+      <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.45)]">
+        Accepting makes the loan active at this collateral, and {lender} can then disburse.
+        Declining clears the offer and reopens the application.
+        {couldProve &&
+          ' The quote is still live and you have not proved against it: decline, prove your tier, and a passing proof leaves 110% as the only figure the lender can offer.'}
+      </p>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          className="btn btn-accent w-full py-[13px] sm:w-auto sm:px-[30px]"
+          style={{ boxShadow: '0 0 34px rgba(212,109,37,0.28)' }}
+          onClick={() => act.run('accept', () => desk.accept(loan.address))}
+          disabled={act.busy !== null}
+        >
+          {act.busy === 'accept' ? (
+            <>
+              <LoanSpinner /> Accepting
+            </>
+          ) : (
+            'Accept'
+          )}
+        </button>
+        <button
+          type="button"
+          className="btn w-full py-[13px] sm:w-auto sm:px-[30px]"
+          style={{ background: 'rgba(255,247,235,0.1)', color: 'var(--color-cream)' }}
+          onClick={() => act.run('declineOffer', () => desk.declineOffer(loan.address))}
+          disabled={act.busy !== null}
+        >
+          {act.busy === 'declineOffer' ? (
+            <>
+              <LoanSpinner /> Declining
+            </>
+          ) : (
+            'Decline'
+          )}
+        </button>
+      </div>
+      <LoanRefusal
+        message={act.refusalFor('accept') ?? act.refusalFor('declineOffer')}
+        onDismiss={act.clear}
+        dark
+      />
     </Panel>
   );
 }
@@ -429,8 +523,9 @@ function HistoryProof({ loan, act }: { loan: LoanView; act: Act }) {
 
       {records.length >= 2 && (
         <>
-          <p className="mt-3 text-[11px] text-[rgba(15,23,42,0.45)]">
-            This list is private to you. Only the proof that two of them exist is published.
+          <p className="mt-3 text-[11px] leading-[1.5] text-[rgba(15,23,42,0.45)]">
+            Not secret: each directory listing is public and names your key, so anyone can count
+            your repaid listings. What the proof hides is which two loans back this application.
           </p>
           <button
             type="button"
@@ -464,7 +559,9 @@ function TermsCard({ loan }: { loan: LoanView }) {
   const applies: TierName | undefined =
     loan.collateralRequired > 0n
       ? loan.tier
-      : loan.status === 'APPLIED' && loan.tier === 'VERIFIED' && loan.tierLive
+      : loan.status === 'OFFERED'
+        ? loan.offeredTier
+        : loan.status === 'APPLIED' && loan.tier === 'VERIFIED' && loan.tierLive
         ? 'VERIFIED'
         : loan.status === 'APPLIED' && loan.tier !== 'NONE'
           ? 'STANDARD'
@@ -485,7 +582,13 @@ function TermsCard({ loan }: { loan: LoanView }) {
         <div className="mb-4 flex items-baseline justify-between gap-3">
           <p className="label">Collateral</p>
           <span className="text-[11px] text-[rgba(15,23,42,0.45)]">
-            {loan.collateralRequired > 0n ? 'Set at underwriting' : loan.status === 'DECLINED' ? 'Never set' : 'Set when underwritten'}
+            {loan.collateralRequired > 0n
+              ? 'Set when you accepted'
+              : loan.status === 'OFFERED'
+                ? 'Offered, not yet accepted'
+                : loan.status === 'DECLINED'
+                  ? 'Never set'
+                  : 'Set when you accept an offer'}
           </span>
         </div>
         <LoanCollateralCompare principal={t.principal} applies={applies} />

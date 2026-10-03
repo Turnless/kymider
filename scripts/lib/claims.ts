@@ -184,7 +184,7 @@ function loanClaims(d: Deployments, s: OnchainStates): ClaimResult[] {
   }
 
   // Loan A: the headline. VERIFIED, exactly 110%, repaid.
-  const tierA = `${name(0)}: tier VERIFIED, collateral 110% of principal`;
+  const tierA = `${name(0)}: tier VERIFIED, collateral 110% of principal, accepted by the borrower`;
   if (!a) {
     out.push(missing(tierA, '110%', name(0)));
   } else {
@@ -194,13 +194,17 @@ function loanClaims(d: Deployments, s: OnchainStates): ClaimResult[] {
         tierA,
         `VERIFIED, ${want} on ${a.terms.principal}`,
         `${tierLabel(a.tier)}, ${a.collateralRequired} on ${a.terms.principal} (150% would be ${collateralFor(a.terms.principal, Tier.STANDARD)})`,
-        a.tier === Tier.VERIFIED && a.collateralRequired === want && want > 0n,
+        a.tier === Tier.VERIFIED &&
+          a.offeredTier === Tier.VERIFIED &&
+          a.collateralRequired === want &&
+          a.offeredCollateral === want &&
+          want > 0n,
       ),
     );
   }
 
   // Loan B: the counterfactual. No proof, STANDARD, exactly 150%.
-  const tierB = `${name(1)}: tier STANDARD, collateral 150% of principal`;
+  const tierB = `${name(1)}: tier STANDARD, collateral 150% of principal, accepted by the borrower`;
   if (!b) {
     out.push(missing(tierB, '150%', name(1)));
   } else {
@@ -210,7 +214,11 @@ function loanClaims(d: Deployments, s: OnchainStates): ClaimResult[] {
         tierB,
         `STANDARD, ${want} on ${b.terms.principal}`,
         `${tierLabel(b.tier)}, ${b.collateralRequired} on ${b.terms.principal}`,
-        b.tier === Tier.STANDARD && b.collateralRequired === want && want > 0n,
+        b.tier === Tier.STANDARD &&
+          b.offeredTier === Tier.STANDARD &&
+          b.collateralRequired === want &&
+          b.offeredCollateral === want &&
+          want > 0n,
       ),
     );
   }

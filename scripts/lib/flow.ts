@@ -16,7 +16,8 @@ export const CLAIM = { thresholdNetWorth: 500_000n, maxDti: 40n };
 
 /**
  * The same bar quoted on each loan. Two hours, so a slow public network still
- * underwrites well inside it (the tier proof and underwriting land in minutes).
+ * offers and accepts well inside it (the tier proof and the offer land in
+ * minutes). The contract refuses a quote that holds less than 30 minutes.
  */
 export const QUOTE = { ...CLAIM, ttlSeconds: 7_200n };
 
@@ -118,9 +119,19 @@ export const STEPS = {
     'Balance, debts and income. Only the tier reaches the ledger.',
   ),
   underwriteA: step(
-    'Lender underwrites loan A at 110% collateral (1,100)',
-    'The circuit accepts only the exact 110% figure for a live VERIFIED tier; 150% would be 1,500.',
+    'Lender offers loan A at 110% collateral (1,100)',
+    'The circuit takes only the exact 110% figure while the VERIFIED tier is live; 150% would be 1,500, and the tier cannot be re-quoted away.',
     'Why the borrower qualified.',
+  ),
+  acceptA: step(
+    'Borrower accepts the offer on loan A',
+    'Only the borrower can make the offer binding: loan A is ACTIVE at 110% collateral.',
+    'The borrower\'s secret key.',
+  ),
+  activateA: step(
+    'Lender marks loan A ACTIVE in the LoanDirectory',
+    'Only the listing\'s lender may move it from OPEN to ACTIVE; a repayment can be recorded only from ACTIVE.',
+    'The lender\'s secret key.',
   ),
   disburseA: step(
     'Lender disburses loan A',
@@ -153,9 +164,19 @@ export const STEPS = {
     'The lender\'s secret key.',
   ),
   underwriteB: step(
-    'Lender underwrites loan B at 150% collateral (3,000): no tier proof',
-    'Without a live VERIFIED tier the circuit accepts only the 150% figure.',
+    'Lender offers loan B at 150% collateral (3,000): no tier proof',
+    'Without a live VERIFIED tier the circuit takes only the 150% figure.',
     'Nothing: the borrower chose not to prove.',
+  ),
+  acceptB: step(
+    'Borrower accepts the offer on loan B',
+    'The borrower chose 150% over proving; the loan is ACTIVE only because the borrower accepted.',
+    'The borrower\'s secret key.',
+  ),
+  activateB: step(
+    'Lender marks loan B ACTIVE in the LoanDirectory',
+    'Only the listing\'s lender may move it from OPEN to ACTIVE.',
+    'The lender\'s secret key.',
   ),
   disburseB: step(
     'Lender disburses loan B',

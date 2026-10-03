@@ -52,6 +52,9 @@ const disbursedLoan = (seed: Uint8Array, terms: Terms = TERMS): LoanSimulator =>
     .proveTier(FACTS)
     .as(LENDER_SK)
     .underwrite(collateralFor(terms.principal, Tier.VERIFIED))
+    .as(BORROWER_SK)
+    .accept()
+    .as(LENDER_SK)
     .disburse(T0, owed, installmentFor(owed, terms.installments))
     .as(BORROWER_SK);
 };

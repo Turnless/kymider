@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import type { Locator, Page } from '@playwright/test';
 import {
+  acceptOffer,
   applyForLoan,
   button,
   expect,
@@ -116,11 +117,14 @@ test('deck screenshots @shots', async ({ page }) => {
   await button(desk, 'Ask for 150% anyway · 15,000').click();
   const refusal = desk.getByRole('alert');
   await expect(refusal).toContainText('collateral does not match the tier');
-  const pitch = desk.locator('div', { has: page.getByText('3 · Underwrite') }).last();
+  const pitch = desk.locator('div', { has: page.getByText('3 · Offer') }).last();
   await crop(page, '05-refusal-150.jpg', [pitch]);
 
-  // Underwrite, disburse, repay all three (one late), record.
-  await button(desk, 'Underwrite at 110% · 11,000').click();
+  // Offer, the borrower accepts, disburse, repay all three (one late), record.
+  await button(desk, 'Offer at 110% · 11,000').click();
+  await acceptOffer(page, loan, { lender: 'Harbor Bank', collateral: '$11,000', ratio: '110%' });
+  await switchRole(page, 'lender');
+  await openLenderLoan(page, loan);
   await button(desk, 'Disburse').click();
   await switchRole(page, 'borrower');
   await openBorrowerLoan(page, loan);

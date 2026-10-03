@@ -200,6 +200,7 @@ export function Portfolio() {
 
 function BookStatus({ loan: l, now }: { loan: LoanView; now: bigint }) {
   if (l.status === 'APPLIED') return <span className="badge badge-pending">Applied</span>;
+  if (l.status === 'OFFERED') return <span className="badge badge-pending">Offered</span>;
   if (l.status === 'ACTIVE') {
     if (!l.disbursed) return <span className="badge badge-pending">To disburse</span>;
     if (l.defaultableFrom !== null && now >= l.defaultableFrom)

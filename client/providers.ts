@@ -34,6 +34,8 @@ export type RegistryCircuits = 'register' | 'updateCommitment' | 'suspend';
 export type LoanCircuits =
   | 'quoteTerms'
   | 'underwrite'
+  | 'accept'
+  | 'declineOffer'
   | 'decline'
   | 'disburse'
   | 'markDefault'

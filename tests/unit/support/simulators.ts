@@ -339,6 +339,16 @@ export class LoanSimulator {
     return this.run((c) => this.contract.impureCircuits.underwrite(c, collateral));
   }
 
+  /** The borrower makes the lender's offer binding (OFFERED -> ACTIVE). */
+  accept(): this {
+    return this.run((c) => this.contract.impureCircuits.accept(c));
+  }
+
+  /** The borrower turns the offer down (OFFERED -> APPLIED). */
+  declineOffer(): this {
+    return this.run((c) => this.contract.impureCircuits.declineOffer(c));
+  }
+
   decline(): this {
     return this.run((c) => this.contract.impureCircuits.decline(c));
   }

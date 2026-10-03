@@ -2,12 +2,13 @@ import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { money, shortHex } from '../lib/client';
 import { blockDate, DAY, duration, percentOfBps, type LoanView } from '../lib/loans';
+import { useKymider } from '../lib/useKymider';
 import { useLoans } from '../lib/useLoans';
 
 /**
- * The underwriting desk for one loan: quote, underwrite at the tier the
- * borrower proved, disburse, watch repayment, call a default or record the
- * repayment. Everything here is read off the public Loan ledger. The facts
+ * The underwriting desk for one loan: quote, offer the collateral for the tier
+ * the borrower proved, wait for the borrower to accept, disburse, watch
+ * repayment, call a default or record the repayment. Everything here is read off the public Loan ledger. The facts
  * behind the tier never reach this screen, and the panel on the left says so.
  */
 
@@ -96,11 +97,11 @@ function DeskLoan({ address }: { address: string }) {
       ? quoteLive
         ? 2
         : 1
-      : l.status === 'ACTIVE'
-        ? l.disbursed
+      : l.status === 'OFFERED'
+        ? 3
+        : l.status === 'ACTIVE'
           ? 4
-          : 3
-        : 5;
+          : 5;
   const closed = step === 5;
 
   return (
@@ -155,7 +156,7 @@ function DeskLoan({ address }: { address: string }) {
                 <DeskNotice tone="fail" title="Facts do not match">
                   This loan's facts commitment does not match the borrower's SolvencyProof instance.
                   A tier proven here would not be about the statement you know. Decline it, or
-                  underwrite only at 150%.
+                  offer only 150%.
                 </DeskNotice>
               )}
 
@@ -189,9 +190,12 @@ function DeskLoan({ address }: { address: string }) {
               </div>
               <p className="mt-3 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.42)]">
                 The borrower proves, in zero knowledge, that their committed facts clear this bar.
-                You receive a tier, not the figures. A proof lapses when the quote does.
+                You receive a tier, not the figures. A proof lapses when the quote does, and a
+                quote must hold at least 30 minutes.
                 {l.quote !== null &&
-                  ' Quoting again replaces the bar and clears any tier proven against the old one.'}
+                  (l.tierLive
+                    ? ' A live VERIFIED tier stands: the contract refuses a new quote until it lapses.'
+                    : ' Quoting again replaces the bar and clears a STANDARD tier proven against the old one.')}
                 {` Each quote asks the borrower's facts one yes/no question, so the contract allows ${l.quoteLimit} per loan and one proof per quote.`}
               </p>
               <button
@@ -203,6 +207,7 @@ function DeskLoan({ address }: { address: string }) {
                     : undefined
                 }
                 disabled={busy !== null}
+                title={l.tierLive ? 'Expected to be refused: a verified tier is live' : undefined}
                 onClick={() =>
                   run('quote', () =>
                     desk.quote(l.address, {
@@ -253,13 +258,13 @@ function DeskLoan({ address }: { address: string }) {
                   onClick={() =>
                     run('underwrite', async () => {
                       const r = await desk.underwrite(l.address);
-                      return `Underwritten at ${r.tier === 'VERIFIED' ? '110%' : '150%'}: collateral ${desk$(r.collateral)} recorded on the loan.`;
+                      return `Offered at ${r.tier === 'VERIFIED' ? '110%' : '150%'}: collateral ${desk$(r.collateral)}. Nothing binds until the borrower accepts.`;
                     })
                   }
                 >
                   {busy === 'underwrite'
-                    ? 'Underwriting…'
-                    : `Underwrite at ${l.tierLive ? '110%' : '150%'} · ${desk$(
+                    ? 'Offering…'
+                    : `Offer at ${l.tierLive ? '110%' : '150%'} · ${desk$(
                         l.tierLive ? l.collateralIfVerified : l.collateralIfStandard,
                       )}`}
                 </button>
@@ -279,7 +284,30 @@ function DeskLoan({ address }: { address: string }) {
             </>
           )}
 
-          {l.status !== 'APPLIED' && l.status !== 'DECLINED' && <DeskUnderwritten loan={l} />}
+          {l.status === 'OFFERED' && (
+            <>
+              <DeskOffered loan={l} />
+              <button
+                type="button"
+                className="btn mt-5 w-full py-[12px]"
+                style={{ background: 'rgba(255,247,235,0.1)', color: 'var(--color-cream)' }}
+                disabled={busy !== null}
+                onClick={() =>
+                  run('decline', async () => {
+                    await desk.decline(l.address);
+                    return 'Offer withdrawn and the application declined.';
+                  })
+                }
+              >
+                {busy === 'decline' ? 'Withdrawing…' : 'Withdraw offer and decline'}
+              </button>
+              {refusal?.action === 'decline' && <DeskRefused message={refusal.message} />}
+            </>
+          )}
+
+          {l.status !== 'APPLIED' && l.status !== 'OFFERED' && l.status !== 'DECLINED' && (
+            <DeskUnderwritten loan={l} />
+          )}
 
           {l.status === 'ACTIVE' && !l.disbursed && <DeskDisburse loan={l} now={now} />}
           {l.status === 'ACTIVE' && !l.disbursed && (
@@ -422,7 +450,7 @@ function DeskHero({
   const tierRefusal = refusal !== null && /collateral does not match the tier/i.test(refusal);
   return (
     <div className="mt-6 border-t border-[rgba(255,247,235,0.08)] pt-5">
-      <p className="label-dark mb-3">3 · Underwrite</p>
+      <p className="label-dark mb-3">3 · Offer</p>
       <p className="text-[11px] font-semibold text-[rgba(255,247,235,0.55)]">
         Collateral at this tier
       </p>
@@ -456,9 +484,10 @@ function DeskHero({
           Enforced by the contract
         </p>
         <p className="text-[11px] leading-[1.55] text-[rgba(255,247,235,0.6)]">
-          <span className="mono">underwrite</span> accepts exactly one collateral figure: 110% of
-          the principal while a VERIFIED tier is live, 150% otherwise. A lender cannot quietly ask a
-          verified borrower for 150%.
+          <span className="mono">underwrite</span> takes exactly one collateral figure: 110% of the
+          principal while a VERIFIED tier is live, 150% otherwise, and a live VERIFIED tier cannot
+          be re-quoted away. You can only offer the tier's figure, and only the borrower can accept
+          it.
         </p>
 
         {verified && (
@@ -497,11 +526,11 @@ function DeskHero({
             </p>
             <p className="mt-2 text-[14px] font-semibold leading-[1.45] text-cream">
               The contract refused: <span className="mono text-[#F09484]">{refusal}</span>.
-              {tierRefusal && ' A verified borrower cannot be asked for more than 110%.'}
+              {tierRefusal && ' A verified borrower can only be offered 110%.'}
             </p>
             <p className="tnum mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.55)]">
               Nothing was written. The loan is still open; {desk$(l.collateralIfVerified)} at 110%
-              is the only collateral this borrower can be asked for while the tier holds.
+              is the only collateral you can offer this borrower while the tier holds.
             </p>
           </div>
         )}
@@ -514,7 +543,8 @@ function DeskTierLine({ loan: l, now }: { loan: LoanView; now: bigint }) {
   if (l.quote === null) {
     return (
       <p className="text-[12px] text-[rgba(255,247,235,0.5)]">
-        Nothing to prove against until you quote. Underwriting now takes 150%.
+        Nothing to prove against until you quote. An offer now is 150%, which the borrower may
+        decline.
       </p>
     );
   }
@@ -542,8 +572,8 @@ function DeskTierLine({ loan: l, now }: { loan: LoanView; now: bigint }) {
           Verified, lapsed
         </span>
         <p className="tnum mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.5)]">
-          Lapsed {blockDate(l.tierExpiresAt)}. Underwriting now takes 150%. Quote again and the
-          borrower can prove once more.
+          Lapsed {blockDate(l.tierExpiresAt)}. An offer now is 150%. Quote again and the borrower
+          can prove once more.
         </p>
       </div>
     );
@@ -563,9 +593,38 @@ function DeskTierLine({ loan: l, now }: { loan: LoanView; now: bigint }) {
   }
   return (
     <p className="text-[12px] text-[rgba(255,247,235,0.5)]">
-      The borrower has not proved against this quote yet. Underwriting now takes 150%; wait for the
-      proof to offer 110%.
+      The borrower has not proved against this quote yet. An offer now is 150%, which the borrower
+      may decline; wait for the proof to offer 110%.
     </p>
+  );
+}
+
+/** The offer stands on the ledger; only the borrower can make it binding. */
+function DeskOffered({ loan: l }: { loan: LoanView }) {
+  const verified = l.offeredTier === 'VERIFIED';
+  return (
+    <div>
+      <p className="label-dark mb-3">3 · Offer made</p>
+      <p className="text-[20px] font-bold leading-tight text-cream">
+        Waiting for the borrower to accept
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <span
+          className={`badge ${verified ? 'badge-pass-dark' : ''}`}
+          style={verified ? undefined : DESK_NEUTRAL_DARK}
+        >
+          {verified ? 'Verified' : 'Standard'}
+        </span>
+        <span className="tnum text-[13px] font-semibold text-cream">
+          Offered collateral {desk$(l.offeredCollateral)} ({verified ? '110%' : '150%'})
+        </span>
+      </div>
+      <p className="mt-3 text-[11px] leading-[1.55] text-[rgba(255,247,235,0.55)]">
+        The contract only let you offer the tier's figure, and only the borrower can make it
+        binding. Until they accept, the loan cannot be disbursed; if they decline, the application
+        reopens and you may offer again.
+      </p>
+    </div>
   );
 }
 
@@ -573,7 +632,7 @@ function DeskUnderwritten({ loan: l }: { loan: LoanView }) {
   const verified = l.tier === 'VERIFIED';
   return (
     <div>
-      <p className="label-dark mb-3">Underwritten</p>
+      <p className="label-dark mb-3">Accepted by the borrower</p>
       <div className="flex flex-wrap items-center gap-3">
         <span
           className={`badge ${verified ? 'badge-pass-dark' : ''}`}
@@ -707,13 +766,16 @@ function DeskDefault({
 // --- left column --------------------------------------------------------------
 
 function DeskRecord({ loan: l }: { loan: LoanView }) {
+  // The console acts as one lender persona; a loan reached by address may name another.
+  const { client } = useKymider();
+  const mine = l.lender.id === client.me().id;
   return (
     <section className="card p-6">
       <p className="label mb-4">Public record</p>
       <dl className="flex flex-col gap-[10px] text-[11px]">
         <DeskRow label="Loan instance" value={shortHex('0x' + l.address, 10, 4)} mono />
         <DeskRow label="Borrower key" value={shortHex(l.borrower, 10, 4)} mono />
-        <DeskRow label="Lender" value={`${l.lender.name} (you)`} />
+        <DeskRow label="Lender" value={mine ? `${l.lender.name} (you)` : l.lender.name} />
         <DeskRow label="Principal" value={desk$(l.terms.principal)} />
         <DeskRow label="Interest, flat" value={percentOfBps(l.terms.interestBps)} />
         <DeskRow
@@ -902,8 +964,9 @@ function DeskClock({ now, onAdvance }: { now: bigint; onAdvance: (s: bigint) => 
 
 function DeskStatusBadge({ loan: l, now }: { loan: LoanView; now: bigint }) {
   if (l.status === 'APPLIED') return <span className="badge badge-pending">Applied</span>;
+  if (l.status === 'OFFERED') return <span className="badge badge-pending">Offered</span>;
   if (l.status === 'ACTIVE') {
-    if (!l.disbursed) return <span className="badge badge-pending">Underwritten</span>;
+    if (!l.disbursed) return <span className="badge badge-pending">Accepted</span>;
     if (l.defaultableFrom !== null && now >= l.defaultableFrom)
       return <span className="badge badge-fail">Past grace</span>;
     return <span className="badge badge-pass">Repaying</span>;

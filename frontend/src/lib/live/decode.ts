@@ -85,7 +85,7 @@ export type ContractKind = keyof StateCodec<unknown>['ledgers'];
 export type AttestationLabel = 'NONE' | 'PASS' | 'FAIL';
 export type ClaimLabel = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type BorrowLabel = 'UNREGISTERED' | 'ACTIVE' | 'SUSPENDED';
-export type LoanStatusLabel = 'APPLIED' | 'ACTIVE' | 'REPAID' | 'DEFAULTED' | 'DECLINED';
+export type LoanStatusLabel = 'APPLIED' | 'ACTIVE' | 'REPAID' | 'DEFAULTED' | 'DECLINED' | 'OFFERED';
 export type TierLabel = 'NONE' | 'VERIFIED' | 'STANDARD';
 export type ListingLabel = 'OPEN' | 'ACTIVE' | 'REPAID' | 'DEFAULTED' | 'CLOSED';
 
@@ -101,6 +101,8 @@ export const LOAN_STATUS_LABELS: readonly LoanStatusLabel[] = [
   'REPAID',
   'DEFAULTED',
   'DECLINED',
+  // Appended in the contract, after DECLINED: the lender's offer awaiting the borrower.
+  'OFFERED',
 ];
 export const TIER_LABELS: readonly TierLabel[] = ['NONE', 'VERIFIED', 'STANDARD'];
 export const LISTING_LABELS: readonly ListingLabel[] = [
@@ -154,7 +156,11 @@ export type LoanView = {
   quotesIssued: bigint;
   /** A tier was proven against the current quote (one proof per quote). */
   tierProven: boolean;
+  /** Binding collateral: set when the borrower accepts the offer. */
   collateralRequired: bigint;
+  /** The lender's standing offer (status OFFERED); 0 / NONE otherwise. */
+  offeredCollateral: bigint;
+  offeredTier: TierLabel;
   balanceOwed: bigint;
   installmentAmount: bigint;
   /** Unix seconds; 0 until disbursed. */
@@ -236,6 +242,8 @@ export function loanView(l: LoanLedger): LoanView {
     quotesIssued: l.quotesIssued,
     tierProven: l.tierProven,
     collateralRequired: l.collateralRequired,
+    offeredCollateral: l.offeredCollateral,
+    offeredTier: label(TIER_LABELS, l.offeredTier, 'offered tier'),
     balanceOwed: l.balanceOwed,
     installmentAmount: l.installmentAmount,
     nextDueAt: l.nextDueAt,
