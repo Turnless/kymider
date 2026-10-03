@@ -414,8 +414,7 @@ function Simulated() {
     ],
     [
       'Real proofs',
-      // VERIFY: Preprod run done (PROOF.md exists). Until then: "Preprod pending; devnet proofs in CI".
-      `${DEVNET_CASES} devnet cases prove and submit in CI on every push. Public-testnet transactions are listed in PROOF.md and read back in the console's Live chain view.`,
+      `${DEVNET_CASES} devnet cases prove and submit in CI on every push, and the full loan flow is proven on that devnet and read back. Preprod: pending; until it runs, the console's Live chain view says it is not deployed.`,
     ],
     [
       'Money',

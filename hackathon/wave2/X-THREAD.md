@@ -6,8 +6,8 @@ Drafts for the owner to post. Nothing here has been posted. Each post is under
 not read as spam. Attach the named image where one is suggested; the paths are
 the deck screenshots in `hackathon/wave2/deck/shots/`.
 
-Items that depend on unfinished work are marked `<!-- VERIFY -->`; do not post
-them until they are true.
+Post 2 waits for the Preprod run, which is pending the owner's wallet. Post 3,
+5/7 says "Preprod: pending"; change that line once `PROOF.md` exists.
 
 ---
 
@@ -28,7 +28,8 @@ Image: `03-prove-tier.jpg`, or slide 3 of the deck.
 
 ## 2. Milestone post (after the Preprod deploy)
 
-<!-- VERIFY: Preprod deploy done; replace {{PREPROD_TX}} with an explorer link -->
+Do not post until the Preprod run is done. Replace `{{PREPROD_TX}}` with an
+explorer link to one transaction from `PROOF.md`.
 
 > Kymider's Loan contract is on Midnight Preprod.
 >
@@ -73,7 +74,7 @@ Image: `03-prove-tier.jpg`.
 >
 > What the contract enforces: collateral = exactly floor(principal × 110%).
 > Ask a verified borrower for 150% and it's refused. The offer binds only
-> when the borrower accepts. <!-- VERIFY: accept step merged -->
+> when the borrower accepts.
 
 Image: `04-lender-underwrite.jpg`, then `05-refusal-150.jpg`.
 
@@ -94,7 +95,7 @@ Image: `06-repaid-history.jpg`.
 > - 302 offline tests on the compiled contracts
 > - 46 browser tests of the console
 > - 18 devnet cases with real ZK proofs, every push
-> - Preprod hashes in PROOF.md <!-- VERIFY -->
+> - Preprod: pending
 >
 > https://github.com/Turnless/kymider
 
@@ -129,7 +130,6 @@ Image: `07-auditor.jpg`.
 - **"Can't the lender just re-quote?"** Not while a verified tier is live,
   and any figure the lender names is only an offer until the borrower accepts.
   A review found that gap in our first version; we closed it in the contract.
-  <!-- VERIFY: merged -->
 - **"Is the payment history private?"** No. Each repayment amount is public on
   the ledger. The history proof hides which loans back it, not that a key has
   repaid loans. The auditor check proves the history is complete and unaltered.

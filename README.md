@@ -23,7 +23,7 @@ never enter a transaction.
 
 | Live console | Video | Deck | On-chain proof | Tests | What is simulated |
 |---|---|---|---|---|---|
-| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | [{{VIDEO_URL}}]({{VIDEO_URL}}) | [DECK.html](./hackathon/wave2/DECK.html) · [PDF]({{DECK_PDF_URL}}) | [PROOF.md](./PROOF.md) <!-- VERIFY: PROOF.md exists and lists the Preprod tx hashes; until then link the green CI devnet run instead --> | 302 offline, 46 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
+| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | [{{VIDEO_URL}}]({{VIDEO_URL}}) | [DECK.html](./hackathon/wave2/DECK.html) · [PDF]({{DECK_PDF_URL}}) | Devnet in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 302 offline, 46 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
 
 ---
 
@@ -33,17 +33,15 @@ Five minutes, no keys, nothing to install. Every refusal you see below is the
 contract's own `assert` message, raised by the compiled `Loan` and
 `LoanDirectory` contracts running in your browser.
 
-<!-- VERIFY: wave2 merged to main so GitHub Pages (which deploys only from
-     main) serves the Wave 2 console. -->
-
 1. **Open** <https://turnless.github.io/kymider/> and click **Open the console**.
    You start as the borrower. **Private facts** holds your balance, debts and
    income; only their salted commitment is on the ledger.
 2. **Apply.** Borrower → **Loans**. In the form, set principal **10,000**,
    interest **10**% (the form starts at 8), **3** installments. Beside it:
    collateral **$11,000** with a solvency proof (110%), **$15,000** without
-   (150%). Keep the lender as **Harbor Bank**: the console's Lender role is
-   Harbor Bank, so an application to another lender does not reach it. Click
+   (150%). Keep the lender as **Harbor Bank**: the lender console acts as
+   Harbor Bank unless you pick another lender under **Acting as** in the lender
+   rail, and it lists only the applications made to that lender. Click
    **Apply to Harbor Bank**: this deploys a `Loan` instance bound to your facts
    commitment and lists it in the `LoanDirectory`.
 3. **Quote.** Switch to **Lender** (role switch: bottom-left on desktop,
@@ -57,14 +55,14 @@ contract's own `assert` message, raised by the compiled `Loan` and
    desk shows **11,000 (110%)**; under "What you can see, and what you cannot",
    balance, debts and income are listed as never leaving the borrower. Click
    **Ask for 150% anyway · 15,000**: the contract refuses with
-   `collateral does not match the tier`. Replacing the quote to clear the tier
-   is refused too while the verified tier is live.
-   <!-- VERIFY: the console's "Replace quote" control and the contract's refusal
-        message for a re-quote while VERIFIED is live. -->
-6. **Offer, then accept.** **Offer at 110% · 11,000**
-   <!-- VERIFY: button label --> records the lender's offer; nothing binds yet.
-   Switch to **Borrower** → the loan → **Accept** <!-- VERIFY: button label -->:
-   the loan is now **Active**. Switch back to **Lender** → **Disburse**: 11,000
+   `collateral does not match the tier`. Click **Replace quote** to try to
+   clear the tier: refused too, with `a verified tier is live until it lapses`.
+6. **Offer, then accept.** **Offer at 110% · 11,000** records the lender's
+   offer; the desk reads "Waiting for the borrower to accept" and nothing binds
+   yet. Switch to **Borrower** → the loan. Under "Your step · Accept or
+   decline", "Harbor Bank offers $11,000 collateral (110%)": click **Accept**
+   (the `accept` circuit); **Decline** would run `declineOffer` and reopen the
+   application. The loan is now **Active**. Switch back to **Lender** → **Disburse**: 11,000
    owed in installments of 3,667, 3,667 and 3,666.
 7. **Repay, once late.** As the borrower, on the loan: **+31 days** (the demo
    block clock), then **Repay $3,667**. It is recorded late, by block time, not
@@ -85,12 +83,10 @@ contract's own `assert` message, raised by the compiled `Loan` and
    repaid". Change one amount in the JSON and verify again: **Rejected**. This
    is an integrity check, not a disclosure of secrets
    ([why](#the-auditor-preview-integrity-not-secrecy)).
-10. **On chain.** **Live chain** reads deployed instances through the indexer,
-    and [PROOF.md](./PROOF.md) lists the transaction hashes from the Preprod run.
-    <!-- VERIFY: Preprod run done (PROOF.md and
-    frontend/public/deployments/preprod.json committed). Until then Live shows
-    "Not deployed to Preprod yet"; every CI run carries a local-devnet proof as
-    the proof-local artifact. -->
+10. **On chain.** **Live chain** reads deployed instances through the
+    indexer. Preprod is not deployed yet, so today it shows "Not deployed to
+    Preprod yet". The proven run is in CI on a local devnet
+    ([on-chain evidence](#on-chain-evidence-devnet-now-preprod-pending)).
 
 This exact path runs in CI as a Playwright test at desktop and phone width
 ([`frontend/e2e/fast-path.spec.ts`](./frontend/e2e/fast-path.spec.ts)).
@@ -106,19 +102,19 @@ measured and what changed.
 
 | Finding | What was measured | Change | Status |
 |---|---|---|---|
-| **The 150% bypass.** The contract refused 150% for a verified borrower, but the lender could clear the tier first | In the shipped console: after **Verified · 110%**, the lender clicked **Replace quote**, then **Underwrite at 150% · 15,000**, and the contract accepted it. `quoteTerms` reset the tier to `NONE`. Two more paths, confirmed against the compiled `Loan`: a quote expiring 2 s later let the tier lapse, and the lender could underwrite at 150% before the borrower proved anything. The loan went `ACTIVE` with no borrower action | `underwrite` is now an offer at exactly the tier's collateral. The borrower accepts (→ `ACTIVE`) or declines. `quoteTerms` is refused while a `VERIFIED` tier is live. A quote must stand for at least 30 minutes | <!-- VERIFY: merged, with circuit names, assert messages and test names --> In progress |
-| **Unsalted facts commitment** | `persistentHash([balance, debts, income])` was public. A dictionary of multiples of 50,000 recovered the demo facts after 193,826 hashes in 4.3 s on one core. The reviewer recovered round-thousand facts in 37 s (1.7 M hashes) <!-- VERIFY: the brief cites a 0.15 s recovery; no log in the repo shows that figure, so the two measured figures above are used --> | `persistentHash([pad(32, "kymider:facts:v2"), H(balance, debts, income), salt])`, with a 32-byte salt that stays in private state | Done ([privacy hardening](#privacy-hardening-in-wave-2)) |
+| **The 150% bypass.** The contract refused 150% for a verified borrower, but the lender could clear the tier first | In the console as it then shipped: after **Verified · 110%**, the lender clicked **Replace quote**, then **Underwrite at 150% · 15,000**, and the contract accepted it. `quoteTerms` reset the tier to `NONE`. Two more paths, confirmed against the compiled `Loan`: a quote expiring 2 s later let the tier lapse, and the lender could underwrite at 150% before the borrower proved anything. The loan went `ACTIVE` with no borrower action | `underwrite` now records an offer (status `OFFERED`) at exactly the tier's collateral. The borrower's `accept` makes it `ACTIVE`; `declineOffer` returns it to `APPLIED`. `quoteTerms` is refused while a `VERIFIED` tier is live (`a verified tier is live until it lapses`) and needs a quote of at least 30 minutes (`quote must hold at least 30 minutes`). Tests: `Loan — a lender cannot impose 150% on a verified borrower` and `Loan — borrower consent` in [`loan.contract.test.ts`](./tests/unit/loan.contract.test.ts) | Done |
+| **Unsalted facts commitment** | `persistentHash([balance, debts, income])` was public. A dictionary search recovered the demo facts after 3,973 hashes in 0.15 s (multiples of 100,000 up to 2,000,000), 193,826 hashes in 4.28 s (multiples of 50,000 up to 5,000,000) and 3,999,730 hashes in 84 s (multiples of 10,000 up to 2,000,000), on one core | `persistentHash([pad(32, "kymider:facts:v2"), H(balance, debts, income), salt])`, with a 32-byte salt that stays in private state | Done ([privacy hardening](#privacy-hardening-in-wave-2)) |
 | **Seed prefix in a log line** | The wallet logged the first 8 characters of the master seed. Actions logs on a public repository are public | The line no longer logs any part of the seed (`2bee4e6`). The Preprod job had not run yet, so only devnet wallets had reached a log | Done |
-| **Forgeable listings** | `LoanDirectory.updateStatus` let either party set any status, so a borrower could mark their own listing `REPAID`. `recordRepaid` did not check the listing's status | `REPAID` only through the lender's `recordRepaid` on an `ACTIVE` listing; the borrower can only withdraw an `OPEN` listing | <!-- VERIFY: merged, with test names --> In progress |
+| **Forgeable listings** | `LoanDirectory.updateStatus` let either party set any status, so a borrower could mark their own listing `REPAID`. `recordRepaid` did not check the listing's status | `REPAID` only through the lender's `recordRepaid` on an `ACTIVE` listing (`only an active listing can be recorded as repaid`); `updateStatus` refuses `REPAID` (`a repayment is recorded with recordRepaid, not set`); the borrower can only withdraw an `OPEN` listing. Tests in [`loanDirectory.contract.test.ts`](./tests/unit/loanDirectory.contract.test.ts): `nobody sets REPAID by hand: not the borrower, not the lender`, `the borrower may withdraw an open listing, and do nothing else`, `refuses a record for a listing that is not ACTIVE: never activated, closed or defaulted` | Done |
 
 The review also found stale claims in this README and the submission
 materials, and this revision corrects them: test counts, "the lender learns
 one bit" (it is up to 3 answers per loan), an unsalted hash in the diagram, an
 unbacked mutation-testing figure, and the auditor described as revealing
 what the ledger cannot show when it checks integrity. The console's copy had
-the same kind of error ("Only you see this list" on public listings) and is
-corrected with the lifecycle change. <!-- VERIFY: console copy fixed in
-borrower/Loans.tsx, LoanDetail.tsx and Audit.tsx -->
+the same kind of error ("Only you see this list" on public listings); that
+line is gone from `frontend/src`, and the copy was revised with the lifecycle
+change.
 
 ---
 
@@ -140,14 +136,14 @@ Sep 27 and Oct 17, 2026, on the [`wave2`](https://github.com/Turnless/kymider/tr
 | Devnet simulation | 11 cases, 2 wallets | 18 cases (+7 Wave 2 lifecycle), run in CI on every push |
 | Client | `KymiderClient` | + [`LoanClient`](./client/loans.ts), `npm run loan:deploy`, `npm run loan:demo`, `prove:onchain` / `verify:onchain` |
 | Console | Solvency screens | + loan screens for borrower and lender, portfolio, auditor preview, Live chain view |
-| Chain | Local devnet only | Preprod deployment, indexer-backed Live view <!-- VERIFY: Preprod deploy done; else "Preprod pending; devnet proofs in CI" --> |
-| AKINDO record | Repo not connected, product private, tagged "Base" | Repo connected, public, tagged Midnight <!-- VERIFY: owner applied the AKINDO fixes --> |
+| Chain | Local devnet only | Local devnet in CI on every push, with every transaction recorded and re-read; indexer-backed Live view. Preprod: workflow ready, run pending the owner's wallet |
+| AKINDO record | Repo not connected, product private, tagged "Base" | Pending, owner only: connect the repo, make the product public, tag Midnight |
 
 What Wave 1 judges asked entries for, and where it is now
 ([analysis](./hackathon/wave1-results.md)): *say exactly which parts need privacy* (see
 the [dual-ledger table](#the-dual-ledger-what-is-private-what-is-public));
 *add audio to the video* (the Wave 2 video is narrated); *show a public-testnet
-transaction* ([PROOF.md](./PROOF.md) <!-- VERIFY -->).
+transaction* (pending: [on-chain evidence](#on-chain-evidence-devnet-now-preprod-pending)).
 
 ---
 
@@ -190,7 +186,7 @@ sequenceDiagram
     L-->>L: assert commitment matches<br/>tier = VERIFIED or STANDARD (disclosed)
     K->>L: underwrite(collateral) = an offer
     L-->>L: assert collateral == floor(principal × 110% or 150%)
-    B->>L: accept → ACTIVE (or decline)
+    B->>L: accept → ACTIVE (or declineOffer → APPLIED)
     K->>L: disburse(now, owed, installment)
     loop each installment
         B->>L: repay(amount) → historyCommitment = hash(prev, amount, onTime, nonce)
@@ -198,8 +194,6 @@ sequenceDiagram
     K->>D: recordRepaid(loan) on an ACTIVE listing → leaf in HistoricMerkleTree
     B->>D: proveTwoRepaid(newLoan, private paths) → historyProofs[newLoan] = 2
 ```
-
-<!-- VERIFY: the accept / decline circuit names in the diagram match loan.compact. -->
 
 The full state machine is in [`contracts/loan.compact`](./contracts/loan.compact)
 (header comment) and [`docs/architecture-wave2.md`](./docs/architecture-wave2.md).
@@ -319,7 +313,10 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
   ([`frontend/e2e/`](./frontend/e2e/)).
 - **18 devnet cases** with real ZK proofs, two wallets, Midnight node + indexer
   + proof server in Docker, on every push
-  ([`tests/simulation/`](./tests/simulation/)). <!-- VERIFY: link one green CI run id here -->
+  ([`tests/simulation/`](./tests/simulation/)). First full green run:
+  [run 34](https://github.com/Turnless/kymider/actions/runs/37092735681), on
+  commit `5a56372`, before the salted commitment and the consent step
+  ([scope](#on-chain-evidence-devnet-now-preprod-pending)).
 
 ### Product & Vision (15%)
 
@@ -334,7 +331,7 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 - A console that runs the real contracts with no install, for borrower, lender
   and auditor.
 - A Live view that reads deployed instances through the indexer. Connecting
-  Lace is built but untested on Preprod. <!-- VERIFY: owner tried Lace on Preprod -->
+  Lace is built but untested on Preprod (pending the Preprod deployment).
 - Works at phone width; the Playwright suite checks every route at 390 px for
   horizontal scroll.
 
@@ -360,11 +357,32 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 | Part | Status |
 |---|---|
 | Contracts, circuits, asserts | Real. Compiled by CI; the same modules run in tests, the console and the client |
-| ZK proofs | Real on the devnet simulation (CI) and on Preprod <!-- VERIFY: Preprod -->. **Not** generated in the browser console: it executes circuits with `compact-runtime` and skips proving |
-| Console chain | Simulated in-browser ledger with a controllable block clock. The Live view reads Preprod <!-- VERIFY --> |
+| ZK proofs | Real on the local devnet in CI (simulation, `prove:onchain`). Preprod: pending. **Not** generated in the browser console: it executes circuits with `compact-runtime` and skips proving |
+| Console chain | Simulated in-browser ledger with a controllable block clock. The Live view reads Preprod's indexer; nothing is deployed there yet, and it says so |
 | Money | **Simulated.** Collateral, principal and balances are figures in contract state. No token is minted, locked or moved |
 | Financial facts | Self-reported. The circuit proves arithmetic on committed figures; it cannot know they are true |
-| Lace wallet | Live view only, untested on Preprod <!-- VERIFY -->; the console's simulated mode needs no wallet |
+| Lace wallet | Live view only, untested on Preprod; the console's simulated mode needs no wallet |
+
+---
+
+## On-chain evidence: devnet now, Preprod pending
+
+- **Every CI run** ([workflow](https://github.com/Turnless/kymider/actions/workflows/ci.yml),
+  job "Devnet simulation") starts a local Midnight devnet in Docker, runs the
+  18 simulation cases with real ZK proofs, then `npm run prove:onchain`
+  (the full flow, every transaction recorded) and `npm run verify:onchain`
+  (re-reads each claim and transaction through the indexer). The record is
+  uploaded as the `proof-local` artifact of that run.
+- **First full green run:** [run 34](https://github.com/Turnless/kymider/actions/runs/37092735681)
+  passed every job on commit `5a56372`, including the devnet simulation,
+  `prove:onchain` (27 transactions) and `verify:onchain` ("All 40 checks
+  PASS"). That run predates the salted commitment and the consent step; the
+  current flow adds the borrower's `accept` transactions, and its counts are
+  in each later run's `proof-local` artifact.
+- **Preprod: pending the owner's wallet.** [`preprod.yml`](./.github/workflows/preprod.yml)
+  runs the same proof on Preprod when dispatched with a funded wallet secret
+  and commits `PROOF.md` and `frontend/public/deployments/preprod.json`.
+  Neither exists yet, so the Live view shows "Not deployed to Preprod yet".
 
 ---
 
@@ -373,9 +391,9 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 | Attack | Defence | Evidence |
 |---|---|---|
 | Lender asks a verified borrower for 150% | `underwrite` accepts only `floor(principal × ratio)` for the live tier | `Loan — underwriting` tests; e2e `fast-path.spec.ts` |
-| Lender re-quotes to wipe a `VERIFIED` tier, then asks 150% | `quoteTerms` is refused while a `VERIFIED` tier is live | <!-- VERIFY: assert message and test name --> |
-| Lender quotes with a 2-second expiry so the tier lapses before underwriting | A quote must stand for at least 30 minutes | <!-- VERIFY: assert message and test name --> |
-| Lender underwrites at 150% before the borrower proves | `underwrite` only records an offer; the loan is `ACTIVE` only after the borrower accepts, and the borrower can decline | <!-- VERIFY: test names for accept / decline --> |
+| Lender re-quotes to wipe a `VERIFIED` tier, then asks 150% | `quoteTerms` is refused while a `VERIFIED` tier is live: `a verified tier is live until it lapses` | `a live VERIFIED tier cannot be re-quoted away, up to its last second`; `re-quoting after a VERIFIED proof is refused, so the tier stands and 150% is refused` |
+| Lender quotes with a 2-second expiry so the tier lapses before underwriting | A quote must stand for at least 30 minutes: `quote must hold at least 30 minutes` | `refuses a quote that holds less than 30 minutes, to the second`; `a quote short enough to lapse before underwriting is refused` |
+| Lender underwrites at 150% before the borrower proves | `underwrite` only records an offer; the loan is `ACTIVE` only after the borrower's `accept`, and `declineOffer` refuses it | `a 150% offer before the borrower can prove binds no one: decline, prove, be offered 110%`; `refuses a disbursement before the borrower accepts`; e2e `refusals.spec.ts` |
 | Borrower proves with figures other than the committed ones | `proveTier` recomputes the salted commitment in-circuit | `refuses facts that do not match the commitment` |
 | Dictionary attack on the public facts commitment | 32-byte salt in private state ([details](#privacy-hardening-in-wave-2)) | `privacy.contract.test.ts` |
 | Lender narrows net worth by re-quoting | At most 3 quotes per loan, one proof per quote | `Loan — re-quote cap` tests |
@@ -385,7 +403,7 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 | Lender back- or forward-dates disbursement | Start must satisfy `now ≤ block time < now + 1 h` | `refuses a start time in the future or more than an hour old` |
 | Anyone acts in another's role | Every circuit checks `getDappPubKey(localSk())` against `borrower` or `lender` | auth-negative tests in every `describe` block |
 | Leaking the facts through control flow | `proveTier` reads the quote before the private predicate (a ledger read inside a short-circuit `&&` would leak) | [`loan.compact`](./contracts/loan.compact) comment; caught by the compiler |
-| Borrower marks their own listing `REPAID` | `REPAID` only through the lender's `recordRepaid` on an `ACTIVE` listing; the borrower can only withdraw an `OPEN` listing | <!-- VERIFY: test names --> |
+| Borrower marks their own listing `REPAID` | `REPAID` only through the lender's `recordRepaid` on an `ACTIVE` listing; the borrower can only withdraw an `OPEN` listing | `nobody sets REPAID by hand: not the borrower, not the lender`; `the borrower may withdraw an open listing, and do nothing else`; `refuses a record for a listing that is not ACTIVE: never activated, closed or defaulted` |
 | Forged or borrowed repayment record | Leaf includes the borrower's key; `checkRoot` against the directory's root history; distinct loans; not the application itself | `LoanDirectory` tests (forged path, someone else's record, same loan twice, self-vouching) |
 | Facts commitment from a different `SolvencyProof` | No cross-contract reads on Midnight; the lender checks `factsMatchSolvencyProof` before quoting | [`client/loans.ts`](./client/loans.ts) |
 | Wallet seed in public CI logs | No part of a seed is logged | commit `2bee4e6` |
@@ -401,7 +419,7 @@ Two leaks in the first version, both closed in the contracts:
 
 | Leak | Before | After | Evidence |
 |---|---|---|---|
-| Dictionary attack on the public facts commitment | `persistentHash([balance, debts, income])`, unsalted. Trying round figures (multiples of 50,000 up to 5,000,000, 1,010,000 candidates) recovered the demo facts 1,000,000 / 300,000 / 1,000,000 after 193,826 hashes in **4.3 s** on one core of a cloud VM, in Node with the Compact runtime's own `persistentHash` (about 45,000 hashes/s); multiples of 10,000 up to 2,000,000 took 84 s | `persistentHash([pad(32, "kymider:facts:v2"), hash(facts), salt])` with a 32-byte random salt per commitment, held in private state and read through the `factsSalt` witness, never a transaction input. The same search now also has to guess 2^256 salts | [`privacy.contract.test.ts`](./tests/unit/privacy.contract.test.ts): a grid search finds the facts without the salt and not with it; a wrong salt is refused (`facts do not match committed facts`); an all-zero salt is refused (`facts salt must be set`) |
+| Dictionary attack on the public facts commitment | `persistentHash([balance, debts, income])`, unsalted. Trying round figures recovered the demo facts 1,000,000 / 300,000 / 1,000,000 on one core, in Node with the Compact runtime's own `persistentHash`: multiples of 100,000 up to 2,000,000 after 3,973 hashes in **0.15 s**; multiples of 50,000 up to 5,000,000 after 193,826 hashes in 4.28 s; multiples of 10,000 up to 2,000,000 after 3,999,730 hashes in 84 s (about 45,000 hashes/s) | `persistentHash([pad(32, "kymider:facts:v2"), hash(facts), salt])` with a 32-byte random salt per commitment, held in private state and read through the `factsSalt` witness, never a transaction input. The same search now also has to guess 2^256 salts | [`privacy.contract.test.ts`](./tests/unit/privacy.contract.test.ts): a grid search finds the facts without the salt and not with it; a wrong salt is refused (`facts do not match committed facts`); an all-zero salt is refused (`facts salt must be set`) |
 | Re-quote binary search | A lender could re-quote a loan without limit; each quote plus tier proof answers one yes/no question about net worth against a bar the lender picks | At most 3 quotes per loan (`quotesIssued`, `quote limit reached`) and one `proveTier` per quote (`tierProven`, `already proven against this quote`): at most 3 answers, counted on the public ledger. Bisecting net worth over [0, 2^20) stops with 131,072 values still possible | `Loan — re-quote cap` tests; the console shows "Quote n of 3" |
 
 `updateFacts` draws a fresh salt every time, so a new commitment cannot be
@@ -476,7 +494,7 @@ Preprod when dispatched with a funded wallet secret.
 | `npm run test:simulation` | Wave 1 + Wave 2 devnet simulation |
 | `npm run deploy` / `npm run demo` | Wave 1: deploy + register; end-to-end solvency demo |
 | `npm run loan:deploy` | Deploy the shared `LoanDirectory`, write `.midnight-loans.json` |
-| `npm run loan:demo` | Open, prove, offer, accept, disburse and repay one loan; from the third run, also prove two repaid loans <!-- VERIFY: loan-demo.ts calls the borrower's accept step --> |
+| `npm run loan:demo` | Open, prove, offer, accept, disburse and repay one loan; from the third run, also prove two repaid loans |
 | `npm run check-balance` | Print a wallet's balances |
 | `npm run prove:onchain` / `npm run verify:onchain` | Run the flow on the configured network and record every transaction (devnet in CI, Preprod via `preprod.yml`, written to `PROOF.md`); re-read the record through the indexer. `verify:preprod` checks the Preprod record |
 
@@ -548,9 +566,9 @@ all of it on every push.
   borrower's `SolvencyProof` runs in the client, not in a circuit.
 - **Browser console skips proving.** It executes the circuits; it does not
   generate proofs or use a wallet.
-- **Preprod** <!-- VERIFY: replace with tx links, or keep -->: deployment runs
-  from a manual CI job once the owner's funded wallet secret is added; until
-  then on-chain evidence is the CI devnet run.
+- **Preprod: pending.** Deployment runs from a manual CI job once the owner's
+  funded wallet secret is added; until then on-chain evidence is the CI devnet
+  run ([on-chain evidence](#on-chain-evidence-devnet-now-preprod-pending)).
 
 ---
 

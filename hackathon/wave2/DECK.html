@@ -203,8 +203,7 @@
     <div class="cards" style="max-width:70vw">
       <div class="card"><p class="k">Live console</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">turnless.github.io/kymider</p></div>
       <div class="card"><p class="k">Repository</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">github.com/Turnless/kymider</p></div>
-      <!-- VERIFY: PROOF.md with Preprod hashes exists -->
-      <div class="card"><p class="k">On-chain proof</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">PROOF.md &middot; Preprod</p></div>
+      <div class="card"><p class="k">On-chain proof</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">CI devnet job &middot; Preprod pending</p></div>
     </div>
   </section>
 
@@ -269,8 +268,7 @@
       <div class="step local"><span class="n">PROVE</span><span class="t"><code>proveTier</code> &nbsp; Facts are private circuit inputs; the circuit checks them against the commitment and writes <code>VERIFIED</code> or <code>STANDARD</code>.</span></div>
       <div class="step"><span class="n">CHAIN</span><span class="t"><code>underwrite(collateral)</code> &nbsp; An offer, accepted only if <code>collateral = floor(principal &times; 110% or 150%)</code>.</span></div>
       <div class="step refuse"><span class="n">REFUSED</span><span class="t">A 150% ask on a verified borrower: <code>collateral does not match the tier</code>.</span></div>
-      <!-- VERIFY: circuit name of the borrower's accept step -->
-      <div class="step local"><span class="n">ACCEPT</span><span class="t">The borrower accepts the offer, and only then is the loan <code>ACTIVE</code>. Or declines it.</span></div>
+      <div class="step local"><span class="n">ACCEPT</span><span class="t"><code>accept</code> &nbsp; The borrower accepts the offer, and only then is the loan <code>ACTIVE</code>. Or <code>declineOffer</code>: back to <code>APPLIED</code>.</span></div>
       <div class="step"><span class="n">CHAIN</span><span class="t"><code>disburse</code>, <code>repay &times; N</code>, <code>markDefault</code> after a 3-day grace. Lateness is block time.</span></div>
       <div class="step local"><span class="n">PROVE</span><span class="t"><code>proveTwoRepaid</code> &nbsp; Two private Merkle paths, <code>checkRoot</code> against the directory. Public result: &ldquo;2 repaid loans&rdquo;.</span></div>
     </div>
@@ -298,8 +296,6 @@
   </section>
 
   <!-- 6 · DEMO A ....................................................... -->
-  <!-- VERIFY: re-capture 01 (new landing) and 04 (the lender's offer button)
-       with `cd frontend && npm run shots` after the offer / accept change. -->
   <section class="slide">
     <p class="eyebrow">Live console &middot; the borrower and the lender</p>
     <div class="shots">
@@ -323,8 +319,6 @@
   </section>
 
   <!-- 7 · DEMO B ....................................................... -->
-  <!-- VERIFY: 08 shows "Not deployed to Preprod yet" until the Preprod run;
-       re-capture it after. -->
   <section class="slide">
     <p class="eyebrow">Live console &middot; refusal, history, auditor, chain</p>
     <div class="shots">
@@ -333,16 +327,16 @@
         <div class="cap"><span class="num fail">5</span><span class="txt"><b>150% refused.</b> &ldquo;collateral does not match the tier&rdquo;, the contract&rsquo;s own assert.</span></div>
       </div>
       <div class="shotcell">
-        <div class="shot" data-file="deck/shots/06-repaid-history.jpg"><img src="deck/shots/06-repaid-history.jpg" alt="Repaid loan and a two-repaid-loans history proof" onerror="this.remove()"></div>
-        <div class="cap"><span class="num pass">6</span><span class="txt"><b>Repaid, then proven.</b> &ldquo;2 repaid loans&rdquo; on a new application; which loans stays private.</span></div>
+        <div class="shot" data-file="deck/shots/06-repaid-history.jpg"><img src="deck/shots/06-repaid-history.jpg" alt="Repaid loan: the private payment log beside the public record" onerror="this.remove()"></div>
+        <div class="cap"><span class="num pass">6</span><span class="txt"><b>Repaid, 1 of 3 late.</b> The payment log stays on the device; the ledger holds counts, the balance and one history hash.</span></div>
       </div>
       <div class="shotcell">
         <div class="shot" data-file="deck/shots/07-auditor.jpg"><img src="deck/shots/07-auditor.jpg" alt="Auditor verifies a payment-history disclosure" onerror="this.remove()"></div>
         <div class="cap"><span class="num">7</span><span class="txt"><b>Auditor (Wave 3 preview).</b> The exported history lands exactly on the on-chain hash: complete and unaltered.</span></div>
       </div>
       <div class="shotcell">
-        <div class="shot" data-file="deck/shots/08-live.jpg"><img src="deck/shots/08-live.jpg" alt="Live view reading Preprod through the indexer" onerror="this.remove()"></div>
-        <div class="cap"><span class="num">8</span><span class="txt"><b>Live.</b> The deployed Preprod instances, read through the indexer. Hashes in PROOF.md.</span></div>
+        <div class="shot" data-file="deck/shots/08-live.jpg"><img src="deck/shots/08-live.jpg" alt="Live view: not deployed to Preprod yet" onerror="this.remove()"></div>
+        <div class="cap"><span class="num">8</span><span class="txt"><b>Live.</b> Reads Preprod through the indexer. Today it says &ldquo;Not deployed to Preprod yet&rdquo;: the Preprod run is pending.</span></div>
       </div>
     </div>
   </section>
@@ -412,11 +406,9 @@
         <tr><td>What a proof buys</td><td>PASS / FAIL</td><td class="pub">110% vs 150% collateral, enforced in-circuit, binding on the borrower&rsquo;s acceptance</td></tr>
         <tr><td>Compact features</td><td>Witness, commitments, Map/Set, Counter</td><td class="pub">+ block time, HistoricMerkleTree + checkRoot, salt and nonce witnesses, division-free quotient checks</td></tr>
         <tr><td>Offline / browser tests / devnet cases</td><td>49 / 0 / 11</td><td class="pub">302 / 46 / 18</td></tr>
-        <!-- VERIFY: Preprod deploy done and PROOF.md published; else "Preprod: pending" -->
-        <tr><td>On-chain</td><td>Local devnet</td><td class="pub">Preprod, hashes in PROOF.md</td></tr>
+        <tr><td>On-chain</td><td>Local devnet</td><td class="pub">Local devnet in CI on every push (proven transactions, re-read and checked). Preprod: pending</td></tr>
         <tr><td>Console</td><td>Solvency screens</td><td class="pub">+ loan desk, portfolio, auditor preview, Live view</td></tr>
-        <!-- VERIFY: owner applied the AKINDO record fixes -->
-        <tr><td>AKINDO record</td><td>Repo unlinked, private, tagged Base</td><td class="pub">Repo connected, public, tagged Midnight</td></tr>
+        <tr><td>AKINDO record</td><td>Repo unlinked, private, tagged Base</td><td class="pub">Fix pending: connect the repo, make it public, tag Midnight</td></tr>
       </tbody>
     </table>
   </section>
