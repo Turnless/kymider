@@ -13,7 +13,6 @@
 //
 // A secret's value is never logged or echoed in an error.
 
-import * as Rx from 'rxjs';
 import type { Logger } from 'pino';
 import type { WalletSecret } from '../../client/wallet.js';
 import type { MidnightWalletProvider } from '../../client/wallet.js';
@@ -97,9 +96,13 @@ export function resolveProveWallets(network: string, env: Env = process.env): Pr
 }
 
 /**
- * Wait until the wallet holds at least `minDust` DUST. Registration (done by
- * testkit's waitForFunds) only starts accrual; the balance can still be zero
- * when it returns, which is the failure scripts/wait-for-dust.ts documents.
+ * Wait until the wallet holds at least `minDust` DUST *at the indexer tip's
+ * time*, which is the clock the wallet SDK balances fees against (see
+ * client/wallet.ts). Registration (done by testkit's waitForFunds) only starts
+ * accrual, and measuring on this machine's clock instead let the wait pass
+ * while the chain still saw no DUST: the first deploy then failed with
+ * `could not balance dust`. Each transaction also waits for its own fee to be
+ * payable (MidnightWalletProvider.balanceTx), so this is the early, loud check.
  */
 export async function waitForDust(
   logger: Logger,
@@ -108,26 +111,19 @@ export async function waitForDust(
   timeoutMs: number,
   pollMs = 2_000,
 ): Promise<bigint> {
-  let latest = await Rx.firstValueFrom(wallet.wallet.state());
-  const subscription = wallet.wallet.state().subscribe((state) => {
-    latest = state;
-  });
-  try {
-    const deadline = Date.now() + timeoutMs;
-    let dust = latest.dust.balance(new Date());
-    while (dust < minDust) {
-      if (Date.now() > deadline) {
-        throw new Error(
-          `DUST balance still ${dust} after ${timeoutMs} ms (need >= ${minDust}). ` +
-            'Is the wallet funded with NIGHT, and is the chain producing blocks?',
-        );
-      }
-      await new Promise((resolve) => setTimeout(resolve, pollMs));
-      dust = latest.dust.balance(new Date());
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const { tip, dust } = await wallet.dustAtChainTip();
+    if (dust >= minDust) {
+      logger.info(`DUST balance: ${dust} at block #${tip.height} (${tip.time.toISOString()})`);
+      return dust;
     }
-    logger.info(`DUST balance: ${dust}`);
-    return dust;
-  } finally {
-    subscription.unsubscribe();
+    if (Date.now() > deadline) {
+      throw new Error(
+        `DUST balance still ${dust} at block #${tip.height} after ${timeoutMs} ms (need >= ${minDust}). ` +
+          'Is the wallet funded with NIGHT, and is the chain producing blocks?',
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
 }

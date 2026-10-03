@@ -12,13 +12,21 @@
 // when it returns, which is why a green "Wait for NIGHT + DUST" step could be
 // followed immediately by `Wallet.InsufficientFunds: could not balance dust`
 // on the very first deploy. So we wait for the balance ourselves.
+//
+// And we read it on the chain's clock. The SDK balances a fee at the time of
+// the indexer's latest block; reading the balance at this machine's time let
+// this step pass (full balance at wall-clock time) while the indexed tip was
+// still at or next to the block that created the DUST, where it is worth
+// nothing — and the first deploy failed exactly as above. scripts/lib/wallets.ts
+// has the shared wait; every transaction also waits for its own fee to be
+// payable (client/wallet.ts), since this step runs in a separate process.
 
 import '../client/env.js';
 
-import * as Rx from 'rxjs';
 import pino from 'pino';
 import { waitForFunds } from '@midnight-ntwrk/testkit-js';
 import { connectWallet } from '../client/context.js';
+import { waitForDust } from './lib/wallets.js';
 
 const logger = pino({
   level: process.env['LOG_LEVEL'] ?? 'info',
@@ -34,9 +42,9 @@ const seed =
 // until the job timeout.
 const dustTimeoutMs = Number(process.env['KYMIDER_DUST_TIMEOUT_MS'] ?? 180_000);
 const pollMs = 2_000;
-// Any dust at all clears the failure we actually hit (a balance of exactly
-// zero). Raise it without a code change if a deploy ever fails to balance on a
-// non-zero balance — the amount is logged below to inform that choice.
+// Any dust at the chain tip shows accrual has reached the chain. Whether it
+// covers a particular fee is checked per transaction, against that fee, in
+// MidnightWalletProvider.balanceTx; raise this only for an earlier failure.
 const minDust = BigInt(process.env['KYMIDER_MIN_DUST'] ?? '1');
 
 const { env, wallet } = await connectWallet(logger, { kind: 'seed', value: seed });
@@ -45,34 +53,15 @@ logger.info('Waiting for NIGHT...');
 const nightBalance = await waitForFunds(wallet.wallet, env, true, wallet.unshieldedKeystore);
 logger.info(`NIGHT balance: ${nightBalance}`);
 
-// Track the newest state rather than re-querying: the balance is a function of
-// both the synced state and the current time, and a live subscription cannot
-// stall the way a fresh `firstValueFrom` on a quiet stream could.
-let latest = await Rx.firstValueFrom(wallet.wallet.state());
-const subscription = wallet.wallet.state().subscribe((state) => {
-  latest = state;
-});
-
-logger.info(`Waiting for DUST to accrue (need >= ${minDust})...`);
-const deadline = Date.now() + dustTimeoutMs;
-let dust = latest.dust.balance(new Date());
-
-while (dust < minDust) {
-  if (Date.now() > deadline) {
-    subscription.unsubscribe();
-    await wallet.stop();
-    logger.error(
-      `DUST balance was still ${dust} after ${dustTimeoutMs}ms. ` +
-        'NIGHT is present but not generating dust — check that the node is producing blocks.',
-    );
-    process.exit(1);
-  }
-  await new Promise((resolve) => setTimeout(resolve, pollMs));
-  dust = latest.dust.balance(new Date());
+logger.info(`Waiting for DUST at the chain tip (need >= ${minDust})...`);
+try {
+  await waitForDust(logger, wallet, minDust, dustTimeoutMs, pollMs);
+} catch (err) {
+  logger.error(err instanceof Error ? err.message : String(err));
+  await wallet.stop();
+  process.exit(1);
 }
+logger.info('The wallet can pay for transactions.');
 
-logger.info(`DUST balance: ${dust} — the wallet can pay for transactions.`);
-
-subscription.unsubscribe();
 await wallet.stop();
 process.exit(0);
