@@ -23,7 +23,7 @@ never enter a transaction.
 
 | Live console | Video | Deck | On-chain proof | Tests | What is simulated |
 |---|---|---|---|---|---|
-| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | [{{VIDEO_URL}}]({{VIDEO_URL}}) | [DECK.html](./hackathon/wave2/DECK.html) · [PDF]({{DECK_PDF_URL}}) | Devnet in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 302 offline, 46 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
+| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | [{{VIDEO_URL}}]({{VIDEO_URL}}) | [DECK.html](./hackathon/wave2/DECK.html) · [PDF]({{DECK_PDF_URL}}) | Devnet in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 307 offline, 46 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
 
 ---
 
@@ -131,7 +131,7 @@ Sep 27 and Oct 17, 2026, on the [`wave2`](https://github.com/Turnless/kymider/tr
 | Lifecycle | Claim → verdict | Apply → quote → prove tier → lender offers → borrower accepts → disburse → repay / default |
 | Time | None | Block time: quote expiry, a minimum quote life, due dates, late flags, a 3-day grace period before default |
 | History | None | Payment-history hash chain per loan; two-repaid-loans proof over a `HistoricMerkleTree` |
-| Offline tests | 49 | 302 in 11 files |
+| Offline tests | 49 | 307 in 12 files |
 | Browser tests | None | 46 Playwright tests at 1440 and 390 px, in CI |
 | Devnet simulation | 11 cases, 2 wallets | 18 cases (+7 Wave 2 lifecycle), run in CI on every push |
 | Client | `KymiderClient` | + [`LoanClient`](./client/loans.ts), `npm run loan:deploy`, `npm run loan:demo`, `prove:onchain` / `verify:onchain` |
@@ -304,7 +304,7 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 
 ### Quality Assurance & Reliability (15%)
 
-- **302 offline tests** in 11 files that drive the
+- **307 offline tests** in 12 files that drive the
   compiled contracts through simulators ([`tests/unit/`](./tests/unit/)),
   including every refusal, time edge cases to the second, and a byte-for-byte
   rebuild of the history chain from the seed.
@@ -456,7 +456,7 @@ a real selective disclosure; that needs token settlement and is not built.
 ## Tests and scripts
 
 Totals are from `npm run test:unit` and `cd frontend && npm run e2e` on this
-branch: 302 offline tests in 11 files, and
+branch: 307 offline tests in 12 files, and
 46 browser tests. Per-file counts: `npx vitest run tests/unit --reporter=verbose`.
 
 | Suite | Drives |
@@ -485,7 +485,7 @@ Preprod when dispatched with a funded wallet secret.
 
 | Command | What it does |
 |---|---|
-| `npm run test:unit` | 302 offline tests, no Docker |
+| `npm run test:unit` | 307 offline tests, no Docker |
 | `npm run typecheck` | `tsc --noEmit` |
 | `cd frontend && npm run e2e` | 46 Playwright tests on the production build |
 | `npm run build:contracts` | Compile all 4 contracts (Linux-only compiler) |

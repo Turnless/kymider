@@ -91,7 +91,7 @@ prior loans repaid" on a new application without naming the loans, lenders or
 amounts.
 
 Evidence: 4 Compact contracts (22 circuits) compiled in CI on
-toolchain 0.31.1; 302 offline tests on the compiled contracts;
+toolchain 0.31.1; 307 offline tests on the compiled contracts;
 46 browser tests of the console; an 18-case devnet simulation with
 real proofs on every push, followed by the full flow proven and re-read on
 that devnet. Preprod deployment: pending.
@@ -122,7 +122,7 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch
    `HistoricMerkleTree<10>`, and `proveTwoRepaid`, which checks two private
    Merkle paths with `checkRoot`. The borrower can only withdraw an open
    listing; no one can set `REPAID` through `updateStatus`.
-3. **302 offline tests** in 11 files, all driving
+3. **307 offline tests** in 12 files, all driving
    the compiled contracts (Wave 1 had 49), plus **46 Playwright
    tests** that run the README's judge path and each refusal at 1440 and 390 px
    in CI.
@@ -156,7 +156,7 @@ the borrower must accept.
 
 - Contracts: 2 → 4 (+ `Loan`, `LoanDirectory`); circuits 9 → 22.
   https://github.com/Turnless/kymider/blob/wave2/contracts/loan.compact
-- Offline tests: 49 → 302; browser tests: 0 → 46.
+- Offline tests: 49 → 307; browser tests: 0 → 46.
   https://github.com/Turnless/kymider/tree/wave2/tests/unit
 - Devnet simulation: 11 → 18 cases.
   https://github.com/Turnless/kymider/tree/wave2/tests/simulation

@@ -140,7 +140,7 @@ checks PASS").
 `underwrite` transactions, then to the verify step's PASS line.
 
 > In CI, the same contracts run on a Midnight devnet with real proofs, on
-> every push. Every transaction is recorded and read back. 302 offline tests
+> every push. Every transaction is recorded and read back. 307 offline tests
 > and 46 browser tests back every step.
 
 *After the Preprod run (owner):* show `PROOF.md` on GitHub instead, click one

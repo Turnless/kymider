@@ -56,7 +56,7 @@ owner). Do not claim they were missing.
 | 3 | Build script, `.gitignore` and CI sync updated for both contracts | Done |
 | 4 | Compile both; commit `compiled/loan*/contract` | Done (2026-10-03, compiled locally) |
 | 5 | Export both from `contracts/index.ts`; witnesses in `contracts/witnesses.ts` (`localSk`, `paymentNonce`) | Done |
-| 6 | Offline tests in `tests/unit/` with simulators | Done: 302 tests in 11 files (64 Loan, 24 LoanDirectory, 24 privacy) |
+| 6 | Offline tests in `tests/unit/` with simulators | Done: 307 tests in 12 files (64 Loan, 24 LoanDirectory, 24 privacy) |
 | 7 | Client: `client/` lifecycle ops and CLI (`deploy`, `demo`) for loans | Done: `client/loans.ts`, `npm run loan:deploy`, `npm run loan:demo`; devnet run in CI |
 | 8 | Console: borrower loan view (apply, prove tier, accept, repay) and lender view (quote, offer, disburse, default, record, portfolio) | Done (`frontend/src/borrower/`, `frontend/src/lender/`) |
 | 9 | `prove:onchain` / `verify:onchain` scripts; CI runs both on the devnet; `preprod.yml` `workflow_dispatch` job writes `PROOF.md` | Scripts and workflow done; Preprod run **pending the owner's wallet secret** |
