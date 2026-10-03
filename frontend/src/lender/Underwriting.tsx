@@ -183,7 +183,9 @@ export function Underwriting() {
           <p className="mt-3 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.42)]">
             {step === 1
               ? 'The borrower is asked only whether both conditions hold. Neither figure behind the answer is transmitted.'
-              : 'The network verified the proof before recording it. This result cannot be produced from figures that do not match the committed statement.'}
+              : step === 2
+                ? 'The claim is on the ledger. The borrower answers it by generating a proof on their own machine.'
+                : 'The network verified the proof before recording it. This result cannot be produced from figures that do not match the committed statement.'}
           </p>
 
           <button
@@ -203,7 +205,9 @@ export function Underwriting() {
                 ? 'Request claim'
                 : decided
                   ? 'Claim closed'
-                  : 'Claim answered'}
+                  : step === 2
+                    ? "Waiting for the borrower's proof"
+                    : 'Claim answered'}
           </button>
 
           {step === 3 && (

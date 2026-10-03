@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { useKymider } from '../lib/useKymider';
 
 /**
  * The console frame: a warm-dark rail carried over from the landing, so
@@ -9,18 +10,33 @@ import type { ReactNode } from 'react';
  * screen — with the section links scrolling horizontally under the brand.
  */
 
-export type Role = 'borrower' | 'lender';
+export type Role = 'borrower' | 'lender' | 'auditor';
 
 const BORROWER_NAV = [
   { to: '/app/overview', label: 'Overview' },
   { to: '/app/facts', label: 'Private facts' },
   { to: '/app/claims', label: 'Claims' },
+  { to: '/app/loans', label: 'Loans' },
+  { to: '/app/live', label: 'Live chain' },
 ];
 
 const LENDER_NAV = [
-  { to: '/app/directory', label: 'Directory' },
+  { to: '/app/applications', label: 'Applications' },
   { to: '/app/portfolio', label: 'Portfolio' },
+  { to: '/app/directory', label: 'Solvency claims' },
+  { to: '/app/live', label: 'Live chain' },
 ];
+
+const AUDITOR_NAV = [
+  { to: '/app/audit', label: 'Verify a history' },
+  { to: '/app/live', label: 'Live chain' },
+];
+
+const HOME: Record<Role, string> = {
+  borrower: '/app/overview',
+  lender: '/app/applications',
+  auditor: '/app/audit',
+};
 
 export function Console({
   role,
@@ -34,23 +50,48 @@ export function Console({
   surface?: 'cream' | 'sand';
 }) {
   const navigate = useNavigate();
-  const nav = role === 'borrower' ? BORROWER_NAV : LENDER_NAV;
+  const { client } = useKymider();
+  const nav = role === 'borrower' ? BORROWER_NAV : role === 'lender' ? LENDER_NAV : AUDITOR_NAV;
+
+  // The lender console acts as one lender persona at a time. A borrower may
+  // apply to any of them, so the lender rail lets the demo sit in that seat.
+  const setMe = client.setMe?.bind(client);
+  const lenderPicker =
+    role === 'lender' && setMe ? (
+      <label className="block">
+        <span className="mb-[5px] block px-1 text-[10px] font-semibold uppercase tracking-[0.6px] text-[rgba(255,247,235,0.4)]">
+          Acting as
+        </span>
+        <select
+          aria-label="Acting as lender"
+          value={client.me().id}
+          onChange={(e) => setMe(e.target.value)}
+          className="w-full rounded-[10px] border border-[rgba(255,247,235,0.14)] bg-[rgba(255,247,235,0.07)] px-2 py-[7px] text-[12px] font-semibold text-cream outline-none focus:border-accent"
+        >
+          {client.lenders().map((l) => (
+            <option key={l.id} value={l.id} className="text-espresso">
+              {l.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    ) : null;
 
   const switchTo = (next: Role) => {
     onRole(next);
-    navigate(next === 'borrower' ? '/app/overview' : '/app/directory');
+    navigate(HOME[next]);
   };
 
   const roleToggle = (
     <div className="flex rounded-[10px] bg-[rgba(255,247,235,0.07)] p-[3px]">
-      {(['borrower', 'lender'] as const).map((r) => (
+      {(['borrower', 'lender', 'auditor'] as const).map((r) => (
         <button
           key={r}
           type="button"
           onClick={() => switchTo(r)}
           aria-pressed={role === r}
           className={[
-            'flex-1 rounded-[8px] px-3 py-[6px] text-[11px] font-semibold capitalize transition-colors',
+            'flex-1 rounded-[8px] px-[3px] py-[6px] text-[10px] font-semibold capitalize tracking-[-0.01em] transition-colors',
             role === r
               ? 'bg-cream text-espresso'
               : 'text-[rgba(255,247,235,0.5)] hover:text-[rgba(255,247,235,0.8)]',
@@ -104,9 +145,11 @@ export function Console({
               </NavLink>
             ))}
           </nav>
+          {lenderPicker && <div className="px-4 pb-3 lg:hidden">{lenderPicker}</div>}
         </div>
 
         <div className="hidden lg:block">
+          {lenderPicker && <div className="mb-4">{lenderPicker}</div>}
           {roleToggle}
           <p className="mt-3 flex items-center gap-[6px] px-1 text-[10px] text-[rgba(255,247,235,0.35)]">
             <span className="size-[5px] rounded-full bg-accent" />

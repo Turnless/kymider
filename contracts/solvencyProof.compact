@@ -9,9 +9,14 @@ import CompactStandardLibrary;
 //   - Financial facts (balance, debts, income) are NEVER stored on-chain. They are
 //     held by the borrower's client (private state store) and passed into circuits as
 //     private witness inputs.
-//   - The on-chain `commitment` is a persistent hash of the current facts. Every
-//     provable transition recomputes that hash in-circuit and asserts it matches, so
-//     facts cannot be silently swapped.
+//   - The on-chain `commitment` is a salted (blinded) hash of the current facts:
+//     see commitFacts. Every provable transition recomputes it in-circuit and
+//     asserts it matches, so facts cannot be silently swapped.
+//   - The 32-byte salt is drawn at random by the borrower's client for every
+//     commitment and reaches circuits only through the `factsSalt` witness. An
+//     unsalted hash of three round figures can be reversed by trying plausible
+//     values (about a million guesses, seconds on one CPU core); with the salt the
+//     same search has to guess 256 random bits as well.
 //   - The ZK proof is verified by the Midnight network at submission. A lender can
 //     additionally verify the attested result off-chain against `verifierKey`.
 //
@@ -49,6 +54,10 @@ export ledger openClaims: Set<Bytes<32>>;
 
 // --- private witness ------------------------------------------------------
 witness localSk(): Bytes<32>;
+// The blinding salt of the facts being committed or proven. For updateFacts it
+// is the NEW salt: the client stages the new facts and a fresh salt in private
+// state before submitting (see KymiderClient.updateFacts).
+witness factsSalt(): Bytes<32>;
 
 constructor(initialBalance: Uint<64>, initialDebts: Uint<64>, initialIncome: Uint<64>) {
   const sk = localSk();
@@ -58,8 +67,10 @@ constructor(initialBalance: Uint<64>, initialDebts: Uint<64>, initialIncome: Uin
   assert(initialDebts <= 1125899906842624, "debts exceed supported range");
   assert(initialIncome <= 1125899906842624, "income exceeds supported range");
   assert(initialIncome > 0, "income must be non-zero");
+  const salt = factsSalt();
+  assert(salt != default<Bytes<32>>, "facts salt must be set");
   owner = disclose(getDappPubKey(sk));
-  commitment = disclose(commitFacts(initialBalance, initialDebts, initialIncome));
+  commitment = disclose(commitFacts(initialBalance, initialDebts, initialIncome, salt));
   verifierKey = disclose(kymiderVerifierKey());
 }
 
@@ -76,8 +87,21 @@ pure circuit kymiderVerifierKey(): Bytes<32> {
   return persistentHash<Vector<1, Bytes<32>>>([pad(32, "kymider:sp:vk:")]);
 }
 
-pure circuit commitFacts(balance: Uint<64>, debts: Uint<64>, income: Uint<64>): Bytes<32> {
-  return persistentHash<Vector<3, Uint<64>>>([balance, debts, income]);
+// The facts commitment: H(tag, H(balance, debts, income), salt).
+//   - `salt` is 32 random bytes, so the commitment hides the figures even when
+//     they are round numbers a dictionary would guess.
+//   - The tag separates it from every other three-hash Kymider computes (the
+//     loan payment nonce has the same shape) and from the unsalted v1 encoding.
+//   - The inner hash keeps the vector homogeneous (all Bytes<32>).
+// Loan.commitFacts is identical, so a Loan's factsCommitment equals this
+// instance's commitment; contracts/loanMath.ts#commitFacts computes the same
+// bytes off-chain.
+pure circuit commitFacts(balance: Uint<64>, debts: Uint<64>, income: Uint<64>, salt: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([
+    pad(32, "kymider:facts:v2"),
+    persistentHash<Vector<3, Uint<64>>>([balance, debts, income]),
+    salt,
+  ]);
 }
 
 // --- borrower-only transitions -------------------------------------------
@@ -90,6 +114,8 @@ export circuit addLender(lender: Bytes<32>): [] {
 
 // The borrower updates their facts by committing to a new hash. Once updated,
 // old facts no longer match the commitment, so future proofs use the new facts.
+// The salt comes from the witness and is fresh per commitment, so the new
+// commitment is not linkable to the old one even if the figures are unchanged.
 export circuit updateFacts(balance: Uint<64>, debts: Uint<64>, income: Uint<64>): [] {
   const sk = localSk();
   assert(getDappPubKey(sk) == owner, "only the borrower may update facts");
@@ -97,19 +123,21 @@ export circuit updateFacts(balance: Uint<64>, debts: Uint<64>, income: Uint<64>)
   assert(debts <= 1125899906842624, "debts exceed supported range");
   assert(income <= 1125899906842624, "income exceeds supported range");
   assert(income > 0, "income must be non-zero");
-  commitment = disclose(commitFacts(balance, debts, income));
+  const salt = factsSalt();
+  assert(salt != default<Bytes<32>>, "facts salt must be set");
+  commitment = disclose(commitFacts(balance, debts, income, salt));
 }
 
 // Borrower proves solvency against the CURRENT committed facts for a lender's
 // pending claim. The circuit recomputes the commitment from the private facts
-// (so swapping facts fails the network proof) and derives the verdict.
+// and salt (so swapping either fails the network proof) and derives the verdict.
 export circuit proveSolvency(lender: Bytes<32>, balance: Uint<64>, debts: Uint<64>, income: Uint<64>): [] {
   const sk = localSk();
   assert(getDappPubKey(sk) == owner, "only the borrower may prove solvency");
   assert(claims.member(disclose(lender)), "no claim requested by this lender");
   const claim = claims.lookup(disclose(lender));
   assert(claim.status == ClaimStatus.PENDING, "claim already decided");
-  assert(commitment == commitFacts(balance, debts, income), "facts do not match committed facts");
+  assert(commitment == commitFacts(balance, debts, income, factsSalt()), "facts do not match committed facts");
   assert(income > 0, "income must be non-zero");
   // Net worth still floors at zero because Uint<64> cannot go negative, but the
   // floor must not read as "qualified". Without `solvent`, a borrower whose

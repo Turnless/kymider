@@ -41,13 +41,17 @@ import type {
 import {
   createRegistryPrivateState,
   createSolvencyPrivateState,
+  freshFactsSalt,
+  type FactsOpening,
   type RegistryPrivateState,
   type SolvencyPrivateState,
 } from '../contracts/witnesses.js';
 import type { KymiderProviders } from './providers.js';
 import type { FinancialFacts, ClaimParams } from './proof/solvencyProof.js';
 import { computeSolvency } from './proof/solvencyProof.js';
+import { commitFacts } from './proof/loanMath.js';
 import { bytesToHex, bytesEqual } from './utils.js';
+import { DEPLOY_CIRCUIT, emitReceipt, type TxSink } from './txlog.js';
 
 export type BorrowerRow = {
   instanceAddress: ContractAddress;
@@ -65,6 +69,9 @@ export class KymiderClient {
     readonly providers: KymiderProviders,
     private readonly solvencyPrivateStateId: string = SOLVENCY_PRIVATE_STATE_ID,
     private readonly registryPrivateStateId: string = REGISTRY_PRIVATE_STATE_ID,
+    // Optional receipt sink: called once per finalized transaction this
+    // client submits (deploys included) with its public tx data. See txlog.ts.
+    private readonly onTx?: TxSink,
   ) {}
 
   // --- identity -----------------------------------------------------------
@@ -86,11 +93,15 @@ export class KymiderClient {
 
   // --- deployment ---------------------------------------------------------
 
+  // The commitment is blinded with `salt`: fresh random bytes unless the
+  // caller restores a known opening. Facts and salt are stored together; a
+  // later process needs both to prove (see state.ts for the CLI's copy).
   async deploySolvencyProof(
     facts: FinancialFacts,
     sk: Uint8Array,
+    salt: Uint8Array = freshFactsSalt(),
   ): Promise<ContractAddress> {
-    const privateState = createSolvencyPrivateState(facts.balance, facts.debts, facts.income, sk);
+    const privateState = createSolvencyPrivateState(facts.balance, facts.debts, facts.income, sk, salt);
     const deployed = await deployContract<SolvencyProofContract>(this.providers.solvency, {
       compiledContract: CompiledSolvencyProofContract,
       privateStateId: this.solvencyPrivateStateId,
@@ -98,6 +109,7 @@ export class KymiderClient {
       args: [facts.balance, facts.debts, facts.income],
     });
     const address = deployed.deployTxData.public.contractAddress;
+    emitReceipt(this.onTx, 'SolvencyProof', address, DEPLOY_CIRCUIT, deployed.deployTxData.public);
     this.providers.solvency.privateStateProvider.setContractAddress(address);
     await this.providers.solvency.privateStateProvider.set(this.solvencyPrivateStateId, privateState);
     this.logger.info(`SolvencyProof instance deployed at ${address}`);
@@ -112,6 +124,7 @@ export class KymiderClient {
       initialPrivateState: privateState,
     });
     const address = deployed.deployTxData.public.contractAddress;
+    emitReceipt(this.onTx, 'Registry', address, DEPLOY_CIRCUIT, deployed.deployTxData.public);
     this.providers.registry.privateStateProvider.setContractAddress(address);
     await this.providers.registry.privateStateProvider.set(this.registryPrivateStateId, privateState);
     this.logger.info(`Registry deployed at ${address}`);
@@ -169,10 +182,16 @@ export class KymiderClient {
     this.logger.info(`Registry commitment updated for ${solvencyAddress}`);
   }
 
-  // Commit new facts. The facts are circuit ARGUMENTS, not witness outputs, so
-  // the private-state store is not updated by the call itself — we write them
-  // back here. Without that, the next proveSolvency rebuilds the commitment
-  // from stale facts and the network rejects the proof.
+  // Commit new facts under a fresh salt, so the new commitment cannot be
+  // linked to the old one by equality even when the figures are unchanged.
+  //
+  // The salt reaches the circuit through the `factsSalt` witness, which reads
+  // private state WHILE the circuit runs. So the new opening (facts + salt) is
+  // staged in the store BEFORE submitting, with the opening it replaces kept
+  // under `previous`. Once the call lands, `previous` is dropped. If the call
+  // throws, the ledger decides: whichever opening matches the on-chain
+  // commitment is kept (a transaction can land even when the client saw an
+  // error), so private state never ends up out of step with the chain.
   //
   // Pass `registryAddress` to keep the Registry's indexed commitment in step
   // (recommended whenever the instance is registered).
@@ -181,23 +200,67 @@ export class KymiderClient {
     facts: FinancialFacts,
     registryAddress?: ContractAddress,
   ): Promise<void> {
-    await this.submitSolvencyCall(solvencyAddress, 'updateFacts', [
-      facts.balance,
-      facts.debts,
-      facts.income,
-    ]);
-
-    const current = await this.requireSolvencyPrivateState(solvencyAddress);
-    await this.providers.solvency.privateStateProvider.set(this.solvencyPrivateStateId, {
-      ...current,
+    const current = await this.reconcileFacts(solvencyAddress);
+    const { previous: _stale, ...rest } = current;
+    const prior: FactsOpening = {
+      balance: current.balance,
+      debts: current.debts,
+      income: current.income,
+      salt: current.salt,
+    };
+    const staged: SolvencyPrivateState = {
+      ...rest,
       balance: facts.balance,
       debts: facts.debts,
       income: facts.income,
-    });
+      salt: freshFactsSalt(),
+      previous: prior,
+    };
+    await this.providers.solvency.privateStateProvider.set(this.solvencyPrivateStateId, staged);
+
+    try {
+      await this.submitSolvencyCall(solvencyAddress, 'updateFacts', [
+        facts.balance,
+        facts.debts,
+        facts.income,
+      ]);
+    } catch (err) {
+      await this.reconcileFacts(solvencyAddress).catch(() => undefined);
+      throw err;
+    }
+    await this.reconcileFacts(solvencyAddress);
 
     if (registryAddress) {
       await this.updateRegistryCommitment(registryAddress, solvencyAddress);
     }
+  }
+
+  // Make private state agree with the on-chain commitment: keep whichever of
+  // the current and the staged-over (`previous`) openings the ledger commits
+  // to, and drop the other. A state matching neither (a lender's, or one
+  // restored from elsewhere) is left alone. Returns the state now stored.
+  async reconcileFacts(solvencyAddress: ContractAddress): Promise<SolvencyPrivateState> {
+    const state = await this.requireSolvencyPrivateState(solvencyAddress);
+    const onChain = (await this.solvencyState(solvencyAddress)).commitment;
+    const { previous, ...current } = state;
+    let next: SolvencyPrivateState | null = null;
+    if (bytesEqual(commitFacts(current, current.salt), onChain)) {
+      if (previous) next = current;
+    } else if (previous && bytesEqual(commitFacts(previous, previous.salt), onChain)) {
+      next = { ...current, ...previous };
+      this.logger.warn(`Facts update for ${solvencyAddress} did not land; restored the committed facts`);
+    }
+    if (!next) return state;
+    await this.providers.solvency.privateStateProvider.set(this.solvencyPrivateStateId, next);
+    return next;
+  }
+
+  // The borrower's current opening of the instance's commitment: the facts
+  // and the salt that blinds them. A Loan opened now binds this commitment,
+  // and its tier proof needs the same salt (LoanClient.deployLoan).
+  async factsOpening(solvencyAddress: ContractAddress): Promise<FactsOpening> {
+    const { balance, debts, income, salt } = await this.reconcileFacts(solvencyAddress);
+    return { balance, debts, income, salt };
   }
 
   async authorizeLender(
@@ -208,13 +271,14 @@ export class KymiderClient {
   }
 
   // Borrower generates + submits the ZK proof for a lender's pending claim.
-  // The Midnight network verifies the proof at submission; facts that do not
-  // match the on-chain commitment are rejected by the circuit.
+  // The Midnight network verifies the proof at submission; facts or a salt
+  // that do not match the on-chain commitment are rejected by the circuit.
+  // The salt is read by the `factsSalt` witness, never passed as an argument.
   async proveSolvency(
     solvencyAddress: ContractAddress,
     lenderPubKey: Uint8Array,
   ): Promise<void> {
-    const state = await this.requireSolvencyPrivateState(solvencyAddress);
+    const state = await this.reconcileFacts(solvencyAddress);
     const claim = await this.claimFor(solvencyAddress, lenderPubKey);
     const verdict = computeSolvency(
       { balance: state.balance, debts: state.debts, income: state.income },
@@ -361,13 +425,14 @@ export class KymiderClient {
     args: SolvencyCircuitArgs,
   ): Promise<void> {
     this.providers.solvency.privateStateProvider.setContractAddress(solvencyAddress);
-    await submitCallTx<SolvencyProofContract, typeof circuitId>(this.providers.solvency, {
+    const finalized = await submitCallTx<SolvencyProofContract, typeof circuitId>(this.providers.solvency, {
       compiledContract: CompiledSolvencyProofContract,
       contractAddress: solvencyAddress,
       privateStateId: this.solvencyPrivateStateId,
       circuitId,
       args,
     });
+    emitReceipt(this.onTx, 'SolvencyProof', solvencyAddress, circuitId, finalized.public);
   }
 
   async submitRegistryCall(
@@ -376,13 +441,14 @@ export class KymiderClient {
     args: RegistryCircuitArgs,
   ): Promise<void> {
     this.providers.registry.privateStateProvider.setContractAddress(registryAddress);
-    await submitCallTx<RegistryContract, typeof circuitId>(this.providers.registry, {
+    const finalized = await submitCallTx<RegistryContract, typeof circuitId>(this.providers.registry, {
       compiledContract: CompiledRegistryContract,
       contractAddress: registryAddress,
       privateStateId: this.registryPrivateStateId,
       circuitId,
       args,
     });
+    emitReceipt(this.onTx, 'Registry', registryAddress, circuitId, finalized.public);
   }
 
   // --- internals ----------------------------------------------------------

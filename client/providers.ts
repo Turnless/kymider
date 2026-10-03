@@ -1,9 +1,9 @@
-// Kymider — midnight-js providers for the two Wave 1 programs.
+// Kymider — midnight-js providers for the Wave 1 and Wave 2 programs.
 //
 // Each contract program needs its own zkConfigProvider/proofProvider (they have
-// distinct circuit sets), while the wallet is shared. Two private-state stores
-// (one per program) keep the borrower's SolvencyProof facts separate from the
-// Registry caller identity.
+// distinct circuit sets), while the wallet is shared. One private-state store
+// per program keeps the borrower's SolvencyProof facts separate from the
+// Registry caller identity, and each Loan's history seed separate from both.
 //
 // Adapted from midnightntwrk/example-battleship (Apache-2.0).
 
@@ -13,6 +13,8 @@ import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
 import { levelPrivateStateProvider } from '@midnight-ntwrk/midnight-js-level-private-state-provider';
 import {
+  loanDirectoryZkConfigPath,
+  loanZkConfigPath,
   registryZkConfigPath,
   solvencyZkConfigPath,
 } from '../contracts/index.js';
@@ -29,12 +31,29 @@ export type SolvencyCircuits =
 
 export type RegistryCircuits = 'register' | 'updateCommitment' | 'suspend';
 
+export type LoanCircuits =
+  | 'quoteTerms'
+  | 'underwrite'
+  | 'accept'
+  | 'declineOffer'
+  | 'decline'
+  | 'disburse'
+  | 'markDefault'
+  | 'proveTier'
+  | 'repay';
+
+export type LoanDirectoryCircuits = 'list' | 'updateStatus' | 'recordRepaid' | 'proveTwoRepaid';
+
 export type SolvencyProviders = MidnightProviders<SolvencyCircuits>;
 export type RegistryProviders = MidnightProviders<RegistryCircuits>;
+export type LoanProviders = MidnightProviders<LoanCircuits>;
+export type LoanDirectoryProviders = MidnightProviders<LoanDirectoryCircuits>;
 
 export type KymiderProviders = {
   solvency: SolvencyProviders;
   registry: RegistryProviders;
+  loan: LoanProviders;
+  loanDirectory: LoanDirectoryProviders;
 };
 
 // The store password requirement is: at least 3 characters that are not
@@ -64,6 +83,10 @@ export function buildProviders(
   const password = storePassword();
   const solvencyZkConfigProvider = new NodeZkConfigProvider<SolvencyCircuits>(solvencyZkConfigPath);
   const registryZkConfigProvider = new NodeZkConfigProvider<RegistryCircuits>(registryZkConfigPath);
+  const loanZkConfigProvider = new NodeZkConfigProvider<LoanCircuits>(loanZkConfigPath);
+  const loanDirectoryZkConfigProvider = new NodeZkConfigProvider<LoanDirectoryCircuits>(
+    loanDirectoryZkConfigPath,
+  );
 
   return {
     solvency: {
@@ -87,6 +110,30 @@ export function buildProviders(
       publicDataProvider: indexerPublicDataProvider(config.indexer, config.indexerWS),
       zkConfigProvider: registryZkConfigProvider,
       proofProvider: httpClientProofProvider(config.proofServer, registryZkConfigProvider),
+      walletProvider: wallet,
+      midnightProvider: wallet,
+    },
+    loan: {
+      privateStateProvider: levelPrivateStateProvider({
+        privateStateStoreName: `kymider-loan-${tag}`,
+        privateStoragePasswordProvider: () => password,
+        accountId: wallet.getCoinPublicKey(),
+      }),
+      publicDataProvider: indexerPublicDataProvider(config.indexer, config.indexerWS),
+      zkConfigProvider: loanZkConfigProvider,
+      proofProvider: httpClientProofProvider(config.proofServer, loanZkConfigProvider),
+      walletProvider: wallet,
+      midnightProvider: wallet,
+    },
+    loanDirectory: {
+      privateStateProvider: levelPrivateStateProvider({
+        privateStateStoreName: `kymider-loan-directory-${tag}`,
+        privateStoragePasswordProvider: () => password,
+        accountId: wallet.getCoinPublicKey(),
+      }),
+      publicDataProvider: indexerPublicDataProvider(config.indexer, config.indexerWS),
+      zkConfigProvider: loanDirectoryZkConfigProvider,
+      proofProvider: httpClientProofProvider(config.proofServer, loanDirectoryZkConfigProvider),
       walletProvider: wallet,
       midnightProvider: wallet,
     },

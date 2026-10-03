@@ -26,11 +26,13 @@ import {
   SolvencyProofContract,
   createRegistryPrivateState,
   createSolvencyPrivateState,
+  freshFactsSalt,
   registryLedger,
   registryWitnesses,
   solvencyLedger,
   solvencyPureCircuits,
   solvencyWitnesses,
+  type FactsOpening,
   type RegistryPrivateState,
   type SolvencyPrivateState,
 } from './contracts';
@@ -92,7 +94,14 @@ class Instance {
   constructor(facts: FinancialFacts, ownerSk: Uint8Array) {
     this.ownerSk = ownerSk;
     this.contract = new SolvencyProofContract<SolvencyPrivateState>(solvencyWitnesses);
-    const seedState = createSolvencyPrivateState(facts.balance, facts.debts, facts.income, ownerSk);
+    // A fresh salt blinds the commitment, as the wallet-backed client does.
+    const seedState = createSolvencyPrivateState(
+      facts.balance,
+      facts.debts,
+      facts.income,
+      ownerSk,
+      freshFactsSalt(),
+    );
     const { currentContractState, currentPrivateState } = this.contract.initialState(
       createConstructorContext(seedState, COIN_PUBLIC_KEY),
       facts.balance,
@@ -119,6 +128,12 @@ class Instance {
     return { balance, debts, income };
   }
 
+  /** The facts with the salt that blinds the current commitment. */
+  opening(): FactsOpening {
+    const { balance, debts, income, salt } = this.ctx.currentPrivateState;
+    return { balance, debts, income, salt };
+  }
+
   /** Act as the wallet holding `sk` — the caller identity is the private-state sk. */
   private as(sk: Uint8Array): void {
     this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, sk } };
@@ -130,23 +145,24 @@ class Instance {
   }
 
   /**
-   * Facts are circuit ARGUMENTS, so the new values must be written back into
-   * private state or every later proof is built on the old ones. That was a
-   * real bug in the Node client; keeping the write-back here stops the browser
-   * reintroducing it.
+   * Re-commit under a fresh salt. The `factsSalt` witness reads private state
+   * while the circuit runs, so the new facts and salt are staged BEFORE the
+   * call (as KymiderClient.updateFacts does); a refused call throws before
+   * `ctx` is replaced, leaving the committed opening as it was.
    */
   updateFacts(facts: FinancialFacts): void {
     this.as(this.ownerSk);
+    const staged: CircuitContext<SolvencyPrivateState> = {
+      ...this.ctx,
+      currentPrivateState: { ...this.ctx.currentPrivateState, ...facts, salt: freshFactsSalt() },
+    };
     const { context } = this.contract.impureCircuits.updateFacts(
-      this.ctx,
+      staged,
       facts.balance,
       facts.debts,
       facts.income,
     );
-    this.ctx = {
-      ...context,
-      currentPrivateState: { ...context.currentPrivateState, ...facts },
-    };
+    this.ctx = context;
     this.lastUpdate = new Date();
   }
 
@@ -263,6 +279,8 @@ export class SimulatedKymiderClient implements KymiderClient {
   private readonly lenderPk = new Map<string, Uint8Array>();
   private readonly mine: Instance;
   private readonly listeners = new Set<() => void>();
+  /** The lender persona the lender console acts as (see `setMe`). */
+  private meId = 'harbor';
 
   constructor() {
     this.lenderList = LENDER_SEEDS.map(({ seed, ...rest }) => {
@@ -389,19 +407,71 @@ export class SimulatedKymiderClient implements KymiderClient {
     return this.mine.address;
   }
 
-  /** The lender console acts as Harbor Bank. */
+  /** The lender persona the lender console acts as; Harbor Bank by default. */
   me(): Lender {
-    return this.lenderList.find((l) => l.id === 'harbor')!;
+    return this.lenderList.find((l) => l.id === this.meId)!;
+  }
+
+  /**
+   * Act as another lender persona (the lender rail's picker). Every lender
+   * screen keys on `me()`, so a loan applied to any lender can be worked from
+   * that lender's seat. Simulation only: a wallet-backed client is one key.
+   */
+  setMe(lenderId: string): void {
+    if (!this.lenderList.some((l) => l.id === lenderId)) throw new Error(`no such lender: ${lenderId}`);
+    if (lenderId === this.meId) return;
+    this.meId = lenderId;
+    this.changed();
   }
 
   lenders(): Lender[] {
     return this.lenderList;
   }
 
+  // --- Wave 2 accessors (the loan desk) -------------------------------------
+  //
+  // The simulated loan desk drives Loan instances as the same wallets this
+  // client already uses, so a lender's or borrower's identity is the same key
+  // in Wave 1 and Wave 2. These hand it those keys and the on-chain commitments
+  // its Loans bind to. Simulation only: a wallet-backed client never holds
+  // anyone else's key.
+
+  /** Secret key of the borrower this browser owns. */
+  borrowerSecretKey(): Uint8Array {
+    return this.mine.ownerSk;
+  }
+
+  /** Secret key of a lender persona, by id. */
+  lenderSecretKey(lenderId: string): Uint8Array | undefined {
+    return this.lenderSk.get(lenderId);
+  }
+
+  /** Dapp public key of a lender persona, by id. */
+  lenderPublicKey(lenderId: string): Uint8Array | undefined {
+    return this.lenderPk.get(lenderId);
+  }
+
+  /** The current on-chain `commitment` of any SolvencyProof instance. */
+  instanceCommitment(address: string): Uint8Array | null {
+    return this.instances.get(address)?.ledger().commitment ?? null;
+  }
+
+  /** The other seeded borrowers: their instance, wallet key and private opening. */
+  otherBorrowers(): Array<{ address: string; sk: Uint8Array; opening: FactsOpening }> {
+    return [...this.instances.values()]
+      .filter((inst) => inst !== this.mine)
+      .map((inst) => ({ address: inst.address, sk: inst.ownerSk, opening: inst.opening() }));
+  }
+
   // --- borrower side ------------------------------------------------------
 
   facts(): FinancialFacts {
     return this.mine.facts();
+  }
+
+  /** This borrower's facts and the salt of their current commitment. Private. */
+  factsOpening(): FactsOpening {
+    return this.mine.opening();
   }
 
   async commitFacts(facts: FinancialFacts): Promise<void> {
@@ -462,9 +532,11 @@ export class SimulatedKymiderClient implements KymiderClient {
     if (!inst) throw new Error(`no such instance: ${address}`);
     const me = this.me();
     inst.requestClaim(this.lenderSk.get(me.id)!, this.lenderPk.get(me.id)!, terms);
-    // The borrower answers by proving. On a real network that is their move,
-    // not the lender's, and the console would wait for it to land.
-    inst.proveSolvency(this.lenderPk.get(me.id)!);
+    // Answering is the borrower's move. This browser's own borrower answers
+    // from the Claims screen ("Generate proof"), so its claim stays PENDING
+    // until then. The seeded other borrowers have nobody to click, so they
+    // answer at once, as their own clients would.
+    if (inst !== this.mine) inst.proveSolvency(this.lenderPk.get(me.id)!);
     this.changed();
   }
 

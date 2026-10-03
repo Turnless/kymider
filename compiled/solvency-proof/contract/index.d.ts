@@ -11,6 +11,7 @@ export type Claim = { thresholdNetWorth: bigint;
 
 export type Witnesses<PS> = {
   localSk(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
+  factsSalt(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
 }
 
 export type ImpureCircuits<PS> = {

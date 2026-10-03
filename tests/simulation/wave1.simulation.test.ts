@@ -23,7 +23,7 @@ import {
 } from '../../client/wallet.js';
 import { buildProviders } from '../../client/providers.js';
 import { KymiderClient } from '../../client/index.js';
-import { createSolvencyPrivateState } from '../../contracts/witnesses.js';
+import { NO_FACTS_SALT, createSolvencyPrivateState } from '../../contracts/witnesses.js';
 import {
   AttestationStatus,
   ClaimStatus,
@@ -163,7 +163,7 @@ describe(`Kymider Wave 1 simulation (${network})`, () => {
 
     await lender.bindSolvencyPrivateState(
       solvencyAddress,
-      createSolvencyPrivateState(0n, 0n, 0n, lenderSk),
+      createSolvencyPrivateState(0n, 0n, 0n, lenderSk, NO_FACTS_SALT),
     );
     await lender.requestClaim(solvencyAddress, CLAIM);
 
@@ -240,7 +240,7 @@ describe(`Kymider Wave 1 simulation (${network})`, () => {
     await borrower.authorizeLender(solvencyAddress, secondLenderPubKey);
     await lender.bindSolvencyPrivateState(
       solvencyAddress,
-      createSolvencyPrivateState(0n, 0n, 0n, secondLenderSk),
+      createSolvencyPrivateState(0n, 0n, 0n, secondLenderSk, NO_FACTS_SALT),
     );
     await lender.requestClaim(solvencyAddress, CLAIM);
 

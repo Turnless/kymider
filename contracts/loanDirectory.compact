@@ -1,0 +1,140 @@
+pragma language_version 0.23;
+import CompactStandardLibrary;
+
+// Kymider — LoanDirectory (shared, Wave 2).
+//
+// Two jobs:
+//
+// 1. A public index of Loan instances, so lenders can find applications. Same
+//    model as Registry: a listing names the borrower and lender, and a lender
+//    must check the Loan instance's own `borrower`/`lender` match the listing
+//    before relying on it (no cross-contract reads on Midnight; the console
+//    does the check).
+//
+// 2. A private repayment record. When a loan is repaid, its lender records it
+//    as a leaf in a Merkle tree. Later, a borrower applying for a new loan
+//    proves they hold two repaid-loan leaves — without saying which loans,
+//    which lenders, or what amounts. The new lender sees one fact: "this
+//    applicant has repaid two Kymider loans".
+//
+// Honest limit: a leaf is only as good as the lender who recorded it. A
+// borrower who lends to themselves from a second identity can mint leaves.
+// Restricting the proof to a lender allowlist is the Wave 3 fix
+// (docs/architecture-wave3.md, attested provenance).
+
+export enum ListingStatus { OPEN, ACTIVE, REPAID, DEFAULTED, CLOSED }
+
+export struct Listing {
+  borrower: Bytes<32>;
+  lender: Bytes<32>;
+  principal: Uint<64>;
+  status: ListingStatus;
+}
+
+export ledger listings: Map<Bytes<32>, Listing>;   // loan instance address -> listing
+export ledger listingCount: Counter;
+
+export ledger repaid: HistoricMerkleTree<10, Bytes<32>>;
+export ledger recordedLoans: Set<Bytes<32>>;       // one record per loan
+// New loan instance address -> number of prior repaid loans proven for it.
+export ledger historyProofs: Map<Bytes<32>, Uint<8>>;
+
+witness localSk(): Bytes<32>;
+
+constructor() {}
+
+export pure circuit getDappPubKey(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "kymider:pk:"), sk]);
+}
+
+// What a repayment record commits to. Public inputs to the tree insert; private
+// inputs to the proof.
+export pure circuit repaidLeaf(borrowerPk: Bytes<32>, loanAddr: Bytes<32>, lenderPk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<4, Bytes<32>>>([pad(32, "kymider:repaid:"), borrowerPk, loanAddr, lenderPk]);
+}
+
+// --- index ------------------------------------------------------------------
+
+export circuit list(loanAddr: Bytes<32>, lenderPk: Bytes<32>, principal: Uint<64>): [] {
+  const me = getDappPubKey(localSk());
+  assert(!listings.member(disclose(loanAddr)), "loan is already listed");
+  assert(me != lenderPk, "borrower and lender must differ");
+  listings.insert(disclose(loanAddr), Listing {
+    borrower: disclose(me),
+    lender: disclose(lenderPk),
+    principal: disclose(principal),
+    status: ListingStatus.OPEN,
+  });
+  listingCount.increment(1);
+}
+
+// The parties move the listing along; the Loan instance is the source of truth
+// and the console reconciles the two. Each party may make only its own moves:
+//   borrower: OPEN -> CLOSED (withdraw the application)
+//   lender:   OPEN -> ACTIVE, OPEN -> CLOSED, ACTIVE -> DEFAULTED
+// Nobody sets REPAID here: only recordRepaid does, and only from ACTIVE.
+// Honest limit: with no cross-contract reads the directory cannot see the Loan
+// itself, so a lender could still mark a loan ACTIVE and record it repaid
+// without disbursing. The Loan instance, which anyone can read, shows that.
+export circuit updateStatus(loanAddr: Bytes<32>, status: ListingStatus): [] {
+  const me = getDappPubKey(localSk());
+  assert(listings.member(disclose(loanAddr)), "loan is not listed");
+  const l = listings.lookup(disclose(loanAddr));
+  assert(me == l.borrower || me == l.lender, "only the loan's parties may update it");
+  const next = disclose(status);
+  assert(next != ListingStatus.REPAID, "a repayment is recorded with recordRepaid, not set");
+  if (disclose(me == l.borrower)) {
+    assert(l.status == ListingStatus.OPEN && next == ListingStatus.CLOSED,
+      "the borrower may only withdraw an open listing");
+  } else {
+    assert((l.status == ListingStatus.OPEN && (next == ListingStatus.ACTIVE || next == ListingStatus.CLOSED))
+        || (l.status == ListingStatus.ACTIVE && next == ListingStatus.DEFAULTED),
+      "the lender may only move OPEN to ACTIVE or CLOSED, or ACTIVE to DEFAULTED");
+  }
+  listings.insert(disclose(loanAddr), Listing {
+    borrower: l.borrower,
+    lender: l.lender,
+    principal: l.principal,
+    status: next,
+  });
+}
+
+// --- repayment record ---------------------------------------------------------
+
+export circuit recordRepaid(loanAddr: Bytes<32>): [] {
+  const me = getDappPubKey(localSk());
+  assert(listings.member(disclose(loanAddr)), "loan is not listed");
+  const l = listings.lookup(disclose(loanAddr));
+  assert(me == l.lender, "only the loan's lender may record a repayment");
+  assert(!recordedLoans.member(disclose(loanAddr)), "repayment already recorded");
+  assert(l.status == ListingStatus.ACTIVE, "only an active listing can be recorded as repaid");
+  repaid.insert(repaidLeaf(l.borrower, disclose(loanAddr), l.lender));
+  recordedLoans.insert(disclose(loanAddr));
+  listings.insert(disclose(loanAddr), Listing {
+    borrower: l.borrower,
+    lender: l.lender,
+    principal: l.principal,
+    status: ListingStatus.REPAID,
+  });
+}
+
+// Prove two prior repaid loans for the application `forLoan`. The loan
+// addresses, lenders and Merkle paths are private inputs; only the count is
+// written. The caller must be the borrower named on `forLoan`, so a proof
+// cannot be attached to someone else's application.
+export circuit proveTwoRepaid(
+  forLoan: Bytes<32>,
+  loanA: Bytes<32>, lenderA: Bytes<32>, pathA: MerkleTreePath<10, Bytes<32>>,
+  loanB: Bytes<32>, lenderB: Bytes<32>, pathB: MerkleTreePath<10, Bytes<32>>,
+): [] {
+  const me = getDappPubKey(localSk());
+  assert(listings.member(disclose(forLoan)), "application is not listed");
+  assert(listings.lookup(disclose(forLoan)).borrower == me, "only the applicant may attach a history proof");
+  assert(loanA != loanB, "the two loans must differ");
+  assert(loanA != forLoan && loanB != forLoan, "a loan cannot vouch for itself");
+  assert(pathA.leaf == repaidLeaf(me, loanA, lenderA), "first record is not yours");
+  assert(pathB.leaf == repaidLeaf(me, loanB, lenderB), "second record is not yours");
+  assert(repaid.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(pathA))), "first record is not in the directory");
+  assert(repaid.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(pathB))), "second record is not in the directory");
+  historyProofs.insert(disclose(forLoan), 2);
+}

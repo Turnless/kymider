@@ -18,7 +18,17 @@ import {
   type CircuitContext,
   type ContractAddress,
 } from '@midnight-ntwrk/midnight-js-protocol/compact-runtime';
+import type { MerkleTreePath } from '@midnight-ntwrk/compact-runtime';
 import {
+  LoanContract,
+  LoanDirectoryContract,
+  loanDirectoryLedger,
+  loanDirectoryPureCircuits,
+  loanLedger,
+  type ListingStatus,
+  type LoanDirectoryLedger,
+  type LoanLedger,
+  type LoanTerms,
   RegistryContract,
   SolvencyProofContract,
   registryLedger,
@@ -28,10 +38,18 @@ import {
   type SolvencyLedger,
 } from '../../../contracts/index.js';
 import {
+  createLoanDirectoryPrivateState,
+  createLoanPrivateState,
   createRegistryPrivateState,
   createSolvencyPrivateState,
+  freshFactsSalt,
+  loanDirectoryWitnesses,
+  loanWitnesses,
   registryWitnesses,
   solvencyWitnesses,
+  type FactsOpening,
+  type LoanDirectoryPrivateState,
+  type LoanPrivateState,
   type RegistryPrivateState,
   type SolvencyPrivateState,
 } from '../../../contracts/witnesses.js';
@@ -46,6 +64,13 @@ export const pubKeyOf = (sk: Uint8Array): Uint8Array => solvencyPureCircuits.get
 export const skFrom = (fill: number): Uint8Array => new Uint8Array(32).fill(fill);
 
 /**
+ * The facts salt the simulators use unless told otherwise. Fixed, so two
+ * simulators over the same facts publish the same commitment and a Loan can be
+ * bound to it; the salt-specific tests pass their own.
+ */
+export const TEST_SALT: Uint8Array = new Uint8Array(32).fill(0x5a);
+
+/**
  * A single deployed SolvencyProof instance, driven offline.
  *
  * `as(sk)` switches which wallet is making the next call: the caller identity
@@ -57,13 +82,14 @@ export class SolvencySimulator {
   private readonly contract: SolvencyProofContract<SolvencyPrivateState>;
   private ctx: CircuitContext<SolvencyPrivateState>;
 
-  constructor(facts: FinancialFacts, ownerSk: Uint8Array) {
+  constructor(facts: FinancialFacts, ownerSk: Uint8Array, salt: Uint8Array = TEST_SALT) {
     this.contract = new SolvencyProofContract<SolvencyPrivateState>(solvencyWitnesses);
     const initialPrivateState = createSolvencyPrivateState(
       facts.balance,
       facts.debts,
       facts.income,
       ownerSk,
+      salt,
     );
     const { currentContractState, currentPrivateState } = this.contract.initialState(
       createConstructorContext(initialPrivateState, COIN_PUBLIC_KEY),
@@ -89,9 +115,21 @@ export class SolvencySimulator {
     return { balance, debts, income };
   }
 
+  /** The private opening of the current commitment: facts and salt. */
+  opening(): FactsOpening {
+    const { balance, debts, income, salt } = this.ctx.currentPrivateState;
+    return { balance, debts, income, salt };
+  }
+
   /** Make the next call as the wallet holding `sk`. */
   as(sk: Uint8Array): this {
     this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, sk } };
+    return this;
+  }
+
+  /** Overwrite the salt in private state (to model a client that lost or garbled it). */
+  withSalt(salt: Uint8Array): this {
+    this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, salt } };
     return this;
   }
 
@@ -101,26 +139,30 @@ export class SolvencySimulator {
   }
 
   /**
-   * Commit new facts. Mirrors KymiderClient.updateFacts: the facts are circuit
-   * ARGUMENTS, so the private state must be written back by the caller or the
-   * next proof is built on stale facts.
+   * Commit new facts under a new salt (fresh unless given). Mirrors
+   * KymiderClient.updateFacts: the `factsSalt` witness is read while the
+   * circuit runs, so the new facts and salt are staged in private state BEFORE
+   * the call. A refused call throws before `ctx` is replaced, so the old
+   * opening stays in place.
    */
-  updateFacts(facts: FinancialFacts): this {
+  updateFacts(facts: FinancialFacts, salt: Uint8Array = freshFactsSalt()): this {
+    const staged: CircuitContext<SolvencyPrivateState> = {
+      ...this.ctx,
+      currentPrivateState: {
+        ...this.ctx.currentPrivateState,
+        balance: facts.balance,
+        debts: facts.debts,
+        income: facts.income,
+        salt,
+      },
+    };
     const { context } = this.contract.impureCircuits.updateFacts(
-      this.ctx,
+      staged,
       facts.balance,
       facts.debts,
       facts.income,
     );
-    this.ctx = {
-      ...context,
-      currentPrivateState: {
-        ...context.currentPrivateState,
-        balance: facts.balance,
-        debts: facts.debts,
-        income: facts.income,
-      },
-    };
+    this.ctx = context;
     return this;
   }
 
@@ -202,6 +244,218 @@ export class RegistrySimulator {
 
   suspend(): this {
     this.ctx = this.contract.impureCircuits.suspend(this.ctx).context;
+    return this;
+  }
+}
+
+// --- Wave 2 ---------------------------------------------------------------
+
+export { commitFacts } from '../../../client/proof/loanMath.js';
+
+/** A fixed, recent block time, so the time-dependent cases are reproducible. */
+export const T0 = 1_800_000_000n;
+
+/**
+ * A single Loan instance, driven offline, with a block clock the test owns.
+ *
+ * `createCircuitContext` stamps the block with the wall clock; here every call
+ * runs at `now`, moved with `at` and `advance`, so quote expiry, late
+ * payments and the default grace period can be tested exactly.
+ */
+export class LoanSimulator {
+  readonly address: ContractAddress;
+  private readonly contract: LoanContract<LoanPrivateState>;
+  private ctx: CircuitContext<LoanPrivateState>;
+  private readonly log: { amount: bigint; onTime: boolean }[] = [];
+  now: bigint = T0;
+
+  constructor(
+    borrowerSk: Uint8Array,
+    lenderPk: Uint8Array,
+    terms: LoanTerms,
+    commitment: Uint8Array,
+    historySeed: Uint8Array,
+    factsSalt: Uint8Array = TEST_SALT,
+  ) {
+    this.contract = new LoanContract<LoanPrivateState>(loanWitnesses);
+    const { currentContractState, currentPrivateState } = this.contract.initialState(
+      createConstructorContext(createLoanPrivateState(borrowerSk, historySeed, factsSalt), COIN_PUBLIC_KEY),
+      lenderPk,
+      terms,
+      commitment,
+    );
+    this.address = sampleContractAddress();
+    this.ctx = createCircuitContext(
+      this.address,
+      COIN_PUBLIC_KEY,
+      currentContractState,
+      currentPrivateState,
+    );
+  }
+
+  ledger(): LoanLedger {
+    return loanLedger(this.ctx.currentQueryContext.state);
+  }
+
+  /** Make the next call as the wallet holding `sk`. */
+  as(sk: Uint8Array): this {
+    this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, sk } };
+    return this;
+  }
+
+  /** Overwrite the facts salt the `factsSalt` witness hands the circuit. */
+  withFactsSalt(factsSalt: Uint8Array): this {
+    this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, factsSalt } };
+    return this;
+  }
+
+  at(seconds: bigint): this {
+    this.now = seconds;
+    return this;
+  }
+
+  advance(seconds: bigint): this {
+    return this.at(this.now + seconds);
+  }
+
+  private run(call: (ctx: CircuitContext<LoanPrivateState>) => { context: CircuitContext<LoanPrivateState> }): this {
+    const q = this.ctx.currentQueryContext;
+    q.block = { ...q.block, secondsSinceEpoch: this.now };
+    this.ctx = call(this.ctx).context;
+    return this;
+  }
+
+  quoteTerms(thresholdNetWorth: bigint, maxDti: bigint, expiresAt: bigint): this {
+    return this.run((c) => this.contract.impureCircuits.quoteTerms(c, thresholdNetWorth, maxDti, expiresAt));
+  }
+
+  proveTier(facts: FinancialFacts): this {
+    return this.run((c) =>
+      this.contract.impureCircuits.proveTier(c, facts.balance, facts.debts, facts.income),
+    );
+  }
+
+  underwrite(collateral: bigint): this {
+    return this.run((c) => this.contract.impureCircuits.underwrite(c, collateral));
+  }
+
+  /** The borrower makes the lender's offer binding (OFFERED -> ACTIVE). */
+  accept(): this {
+    return this.run((c) => this.contract.impureCircuits.accept(c));
+  }
+
+  /** The borrower turns the offer down (OFFERED -> APPLIED). */
+  declineOffer(): this {
+    return this.run((c) => this.contract.impureCircuits.declineOffer(c));
+  }
+
+  decline(): this {
+    return this.run((c) => this.contract.impureCircuits.decline(c));
+  }
+
+  disburse(start: bigint, owed: bigint, installment: bigint): this {
+    return this.run((c) => this.contract.impureCircuits.disburse(c, start, owed, installment));
+  }
+
+  repay(amount: bigint): this {
+    const lateBefore = this.ledger().latePayments;
+    this.run((c) => this.contract.impureCircuits.repay(c, amount));
+    // Reached only if the circuit accepted the payment. The lateness is the
+    // contract's own verdict, read off its counter, not the test's guess.
+    this.log.push({ amount, onTime: this.ledger().latePayments === lateBefore });
+    return this;
+  }
+
+  /**
+   * The borrower's private record of accepted repayments, in order, as the
+   * borrower's machine would keep it (an auditor disclosure is built from it).
+   */
+  paymentLog(): { amount: bigint; onTime: boolean }[] {
+    return this.log.map((p) => ({ ...p }));
+  }
+
+  /** The borrower's history seed, from the private state the witnesses read. */
+  historySeed(): Uint8Array {
+    return this.ctx.currentPrivateState.historySeed;
+  }
+
+  markDefault(): this {
+    return this.run((c) => this.contract.impureCircuits.markDefault(c));
+  }
+}
+
+export const repaidLeaf = (borrowerPk: Uint8Array, loanAddr: Uint8Array, lenderPk: Uint8Array): Uint8Array =>
+  loanDirectoryPureCircuits.repaidLeaf(borrowerPk, loanAddr, lenderPk);
+
+/** Stand-in for a Loan instance's 32-byte address, as the directory keys it. */
+export const loanAddr = (fill: number): Uint8Array => new Uint8Array(32).fill(fill);
+
+/** The shared LoanDirectory, driven offline. */
+export class LoanDirectorySimulator {
+  readonly address: ContractAddress;
+  private readonly contract: LoanDirectoryContract<LoanDirectoryPrivateState>;
+  private ctx: CircuitContext<LoanDirectoryPrivateState>;
+
+  constructor(callerSk: Uint8Array) {
+    this.contract = new LoanDirectoryContract<LoanDirectoryPrivateState>(loanDirectoryWitnesses);
+    const { currentContractState, currentPrivateState } = this.contract.initialState(
+      createConstructorContext(createLoanDirectoryPrivateState(callerSk), COIN_PUBLIC_KEY),
+    );
+    this.address = sampleContractAddress();
+    this.ctx = createCircuitContext(
+      this.address,
+      COIN_PUBLIC_KEY,
+      currentContractState,
+      currentPrivateState,
+    );
+  }
+
+  ledger(): LoanDirectoryLedger {
+    return loanDirectoryLedger(this.ctx.currentQueryContext.state);
+  }
+
+  as(sk: Uint8Array): this {
+    this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, sk } };
+    return this;
+  }
+
+  /** The Merkle path a borrower would build for a recorded repayment. */
+  pathFor(leaf: Uint8Array): MerkleTreePath<Uint8Array> {
+    const path = this.ledger().repaid.findPathForLeaf(leaf);
+    if (!path) throw new Error('no such leaf in the directory');
+    return path;
+  }
+
+  list(loan: Uint8Array, lenderPk: Uint8Array, principal: bigint): this {
+    this.ctx = this.contract.impureCircuits.list(this.ctx, loan, lenderPk, principal).context;
+    return this;
+  }
+
+  updateStatus(loan: Uint8Array, status: ListingStatus): this {
+    this.ctx = this.contract.impureCircuits.updateStatus(this.ctx, loan, status).context;
+    return this;
+  }
+
+  recordRepaid(loan: Uint8Array): this {
+    this.ctx = this.contract.impureCircuits.recordRepaid(this.ctx, loan).context;
+    return this;
+  }
+
+  proveTwoRepaid(
+    forLoan: Uint8Array,
+    a: { loan: Uint8Array; lender: Uint8Array; path: MerkleTreePath<Uint8Array> },
+    b: { loan: Uint8Array; lender: Uint8Array; path: MerkleTreePath<Uint8Array> },
+  ): this {
+    this.ctx = this.contract.impureCircuits.proveTwoRepaid(
+      this.ctx,
+      forLoan,
+      a.loan,
+      a.lender,
+      a.path,
+      b.loan,
+      b.lender,
+      b.path,
+    ).context;
     return this;
   }
 }

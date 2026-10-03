@@ -33,6 +33,10 @@ export default defineConfig({
       '@midnight-ntwrk/onchain-runtime-v3': root(
         './node_modules/@midnight-ntwrk/onchain-runtime-v3',
       ),
+      // midnight-js's indexer provider reads `ws.WebSocket` from isomorphic-ws,
+      // whose browser build has only a default export. The live console's shim
+      // offers the named export too (src/lib/live/isomorphic-ws.ts).
+      'isomorphic-ws': root('./src/lib/live/isomorphic-ws.ts'),
     },
     dedupe: ['@midnight-ntwrk/compact-runtime', '@midnight-ntwrk/onchain-runtime-v3'],
   },
@@ -60,7 +64,9 @@ export default defineConfig({
     // optimizer cannot follow its bare .wasm import. compact-runtime itself
     // has to be optimized, or its CommonJS dep (object-inspect) reaches the
     // browser without interop and fails on a missing default export.
-    exclude: ['@midnight-ntwrk/onchain-runtime-v3'],
+    // ledger-v8 (loaded by the live console's provider stack) is wasm-bindgen
+    // output with the same bare .wasm import.
+    exclude: ['@midnight-ntwrk/onchain-runtime-v3', '@midnight-ntwrk/ledger-v8'],
     include: ['@midnight-ntwrk/compact-runtime', 'object-inspect'],
   },
 })

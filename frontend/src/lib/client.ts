@@ -77,6 +77,11 @@ export interface KymiderClient {
   myAddress(): string;
   /** The lender persona the lender console acts as. */
   me(): Lender;
+  /**
+   * Act as another lender persona (the lender rail's picker). Optional: only a
+   * simulated client holds more than one lender key; a wallet is one identity.
+   */
+  setMe?(lenderId: string): void;
   lenders(): Lender[];
 
   facts(): FinancialFacts;

@@ -8,7 +8,8 @@ name: CI
 # Layout:
 #   contracts  -> compile the Compact programs, cache + publish compiled/
 #   unit       -> typecheck + unit and offline contract tests (no Docker)
-#   simulation -> docker compose devnet + the two-wallet ZK simulation
+#   simulation -> docker compose devnet + the two-wallet ZK simulation, then
+#                 prove:onchain + verify:onchain (artifact `proof-local`)
 
 on:
   push:
@@ -88,31 +89,33 @@ jobs:
       - name: Check the artifacts look complete
         run: |
           set -euo pipefail
-          for d in compiled/solvency-proof compiled/registry; do
+          for d in compiled/solvency-proof compiled/registry compiled/loan compiled/loan-directory; do
             test -f "$d/contract/index.js"  || { echo "::error::missing $d/contract/index.js"; exit 1; }
             test -d "$d/keys"              || { echo "::error::missing $d/keys"; exit 1; }
           done
           echo "Compiled artifacts:"
           du -sh compiled/*
 
-      # The two contract modules are tracked, because a fresh clone has to be
+      # The contract modules are tracked, because a fresh clone has to be
       # able to build the web console and run the offline contract tests, and
       # the compiler is a Linux-only binary that most contributors cannot run.
       # That makes this the only place they can be regenerated — so when a
       # .compact source changes, push the rebuilt modules back rather than
       # leaving the repository describing contracts it no longer has. The ZK
-      # keys stay untracked; only these six files move.
+      # keys stay untracked; only the contract/ directories move.
       - name: Sync the tracked contract modules
         if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
-          paths="compiled/registry/contract compiled/solvency-proof/contract"
-          if git diff --quiet -- $paths; then
+          paths="compiled/registry/contract compiled/solvency-proof/contract compiled/loan/contract compiled/loan-directory/contract"
+          # status, not diff: a newly added contract has no tracked module yet,
+          # and `git diff` does not see untracked files.
+          if [ -z "$(git status --porcelain -- $paths)" ]; then
             echo "Tracked contract modules already match the sources."
             exit 0
           fi
           echo "Contract modules changed; syncing them back to ${GITHUB_REF_NAME}."
-          git diff --stat -- $paths
+          git status --short -- $paths
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add $paths
@@ -241,7 +244,9 @@ jobs:
     name: Devnet simulation
     needs: contracts
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # The simulations plus prove:onchain, which submits about 30 more proven
+    # transactions.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -270,8 +275,40 @@ jobs:
       - name: Wait for NIGHT + DUST
         run: npm run wait:dust
 
-      - name: Run the Wave 1 simulation
+      - name: Run the devnet simulations (Wave 1, Wave 2)
         run: npm run test:simulation
+
+      # The whole story again as one recorded run: fresh contracts, the Wave 1
+      # claim flow, loans at 110% and 150% to REPAID, and the two-loan history
+      # proof. Writes PROOF.md and frontend/public/deployments/local.json from
+      # the receipts. These are devnet hashes: they go in the artifact below,
+      # never in a commit (the public record comes from preprod.yml).
+      - name: Prove on the devnet (every transaction recorded)
+        # Clear any committed record first, so the artifact below can only
+        # ever hold what this run wrote.
+        run: |
+          rm -f PROOF.md frontend/public/deployments/local.json
+          npm run prove:onchain
+        env:
+          MIDNIGHT_NETWORK: local
+
+      # Independent, read-only re-check from the indexer: every claim in
+      # PROOF.md and every transaction hash.
+      - name: Verify the record against the devnet
+        run: npm run verify:onchain
+        env:
+          MIDNIGHT_NETWORK: local
+
+      - name: Upload the devnet proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-local
+          path: |
+            PROOF.md
+            frontend/public/deployments/local.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Devnet logs
         if: failure()
@@ -280,3 +317,50 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose down -v
+
+  # The console end to end in a real browser: the judge fast path, the
+  # contract's refusals, the Wave 1 flow and a smoke pass over every route, at
+  # desktop and phone widths (frontend/e2e/, frontend/playwright.config.ts).
+  e2e:
+    name: Console end-to-end
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: compiled-contracts
+          path: compiled
+
+      - run: npm ci
+        working-directory: frontend
+
+      # The Chromium build matching the pinned @playwright/test, plus its
+      # system libraries. Runners have no preinstalled Playwright browsers.
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      # Builds the console and serves it with `vite preview` (webServer in
+      # playwright.config.ts), then runs the desktop and phone projects.
+      - run: npm run e2e
+        working-directory: frontend
+        env:
+          CI: 'true'
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/e2e/.report
+            frontend/e2e/.results
+          retention-days: 7
