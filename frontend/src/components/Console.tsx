@@ -16,15 +16,20 @@ const BORROWER_NAV = [
   { to: '/app/facts', label: 'Private facts' },
   { to: '/app/claims', label: 'Claims' },
   { to: '/app/loans', label: 'Loans' },
+  { to: '/app/live', label: 'Live chain' },
 ];
 
 const LENDER_NAV = [
   { to: '/app/applications', label: 'Applications' },
   { to: '/app/portfolio', label: 'Portfolio' },
   { to: '/app/directory', label: 'Solvency claims' },
+  { to: '/app/live', label: 'Live chain' },
 ];
 
-const AUDITOR_NAV = [{ to: '/app/audit', label: 'Verify a history' }];
+const AUDITOR_NAV = [
+  { to: '/app/audit', label: 'Verify a history' },
+  { to: '/app/live', label: 'Live chain' },
+];
 
 const HOME: Record<Role, string> = {
   borrower: '/app/overview',

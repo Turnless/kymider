@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Console, type Role } from './components/Console';
 import { Landing } from './Landing';
@@ -14,6 +14,10 @@ import { LenderLoan } from './lender/LenderLoan';
 import { Portfolio } from './lender/Portfolio';
 import { AuditView } from './auditor/Audit';
 import { KymiderContext } from './lib/useKymider';
+
+// Live mode pulls in its own copies of the compiled contracts and, on
+// connect, the wallet's provider stack, so it loads only when opened.
+const LiveView = lazy(() => import('./live/Live').then((m) => ({ default: m.LiveView })));
 import { LoanDeskContext } from './lib/useLoans';
 import { SimulatedKymiderClient } from './lib/simulatedClient';
 import { SimulatedLoanDesk } from './lib/simulatedLoanDesk';
@@ -67,6 +71,14 @@ function ConsoleRoutes() {
         <Route path="instance/:address" element={<Underwriting />} />
         <Route path="portfolio" element={<Portfolio />} />
         <Route path="audit" element={<AuditView />} />
+        <Route
+          path="live"
+          element={
+            <Suspense fallback={<p className="text-[13px] text-[rgba(15,23,42,0.5)]">Loading the live view…</p>}>
+              <LiveView />
+            </Suspense>
+          }
+        />
         <Route path="*" element={<Navigate to="/app/overview" replace />} />
       </Routes>
     </Console>
