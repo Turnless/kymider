@@ -2,7 +2,7 @@
   "name": "kymider",
   "version": "0.1.0",
   "private": true,
-  "description": "Privacy-first loan underwriting on Midnight — Wave 1: proof-of-solvency MVP",
+  "description": "Privacy-first loan underwriting on Midnight — Wave 2: prove a tier in zero knowledge, post 110% collateral instead of 150%",
   "type": "module",
   "engines": {
     "node": ">=22.0.0"
