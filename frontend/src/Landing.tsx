@@ -1,8 +1,22 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import overviewShot from './assets/shots/overview.jpg';
-import factsShot from './assets/shots/facts.jpg';
-import underwritingShot from './assets/shots/underwriting.jpg';
+
+/**
+ * Figures filled in at integration from the runs they come from. They are
+ * strings on purpose: until they are filled, the page shows the placeholder
+ * rather than a number nobody measured.
+ *
+ *   UNIT_TESTS   `npm run test:unit` → "Tests  N passed"
+ *   E2E_TESTS    `cd frontend && npm run e2e` → tests per project (desktop/phone)
+ *   CIRCUITS     impure circuits across the 4 contracts (zkir files), pure
+ *                helpers not counted
+ */
+const UNIT_TESTS = '{{UNIT_TESTS}}';
+const E2E_TESTS = '{{E2E_TESTS}}';
+const CIRCUITS = '{{CIRCUITS}}';
+/** tests/simulation: 11 Wave 1 + 7 Wave 2 cases. Recheck if the lifecycle adds one. */
+const DEVNET_CASES = '18';
+
+const REPO = 'https://github.com/Turnless/kymider';
 
 /**
  * The landing alternates between the console's two grounds — espresso and
@@ -21,16 +35,19 @@ export function Landing() {
           inside pins to the top while the next one laps it. */}
       <div className="k-over">
         <div className="k-track">
-          <Disclosure />
-        </div>
-        <div className="k-track">
-          <ConsoleShowcase />
-        </div>
-        <div className="k-track">
           <HowItWorks />
         </div>
         <div className="k-track">
-          <Honesty />
+          <Ledger />
+        </div>
+        <div className="k-track">
+          <Evidence />
+        </div>
+        <div className="k-track">
+          <AuditorPreview />
+        </div>
+        <div className="k-track">
+          <Simulated />
         </div>
         <div className="k-track k-track--final">
           <Closing />
@@ -66,8 +83,11 @@ function Nav() {
         <a href="#how" className="hidden text-inherit hover:text-cream sm:inline">
           How it works
         </a>
-        <a href="#honesty" className="hidden text-inherit hover:text-cream sm:inline">
-          What we claim
+        <a href="#ledger" className="hidden text-inherit hover:text-cream md:inline">
+          What is public
+        </a>
+        <a href="#simulated" className="hidden text-inherit hover:text-cream sm:inline">
+          What is simulated
         </a>
         <Link to="/app/overview" className="btn btn-accent px-4 py-[7px] text-[12px]">
           Open console
@@ -80,7 +100,7 @@ function Nav() {
 /**
  * Bottom-anchored rather than centred: the headline sits on the fold line with
  * the wordmark bled off the right edge behind it, so the first screen reads as
- * a title card instead of a centred slide.
+ * a title card instead of a centred slide. The one number sits under it.
  */
 function Hero() {
   return (
@@ -98,7 +118,7 @@ function Hero() {
 
       <div className="k-hero-out relative mx-auto w-full max-w-[1140px]">
         <span className="badge mb-6 inline-flex border border-[rgba(212,109,37,0.4)] bg-[rgba(212,109,37,0.12)] text-accent">
-          Built on Midnight
+          Midnight Buildathon · Wave 2
         </span>
         <h1 className="max-w-[15ch] text-[clamp(2.9rem,8vw,6.5rem)] font-black leading-[0.92] tracking-[-0.045em]">
           Prove it.
@@ -106,23 +126,36 @@ function Hero() {
           <span className="text-[rgba(255,247,235,0.32)]">Don&rsquo;t show it.</span>
         </h1>
 
-        <div className="mt-8 flex flex-col gap-8 border-t border-[rgba(255,247,235,0.1)] pt-7 sm:mt-10 sm:flex-row sm:items-end sm:justify-between">
-          <p className="max-w-[440px] text-[14px] leading-[1.7] text-[rgba(255,247,235,0.62)]">
-            Borrowers prove their net worth and debt ratios clear a lender&rsquo;s bar — without
-            handing over a balance, a statement, or a name. The network verifies the proof. Nobody
-            sees the numbers.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link to="/app/overview" className="btn btn-accent px-7 py-[14px] text-[14px]">
-              Open the console →
-            </Link>
-            <Link
-              to="/app/directory"
-              className="btn px-7 py-[14px] text-[14px]"
-              style={{ background: 'rgba(255,247,235,0.1)', color: 'var(--color-cream)' }}
-            >
-              See the lender view
-            </Link>
+        <div className="mt-8 grid gap-7 border-t border-[rgba(255,247,235,0.1)] pt-7 sm:mt-10 lg:grid-cols-[auto_1fr] lg:items-end lg:gap-14">
+          <div>
+            <p className="tnum text-[clamp(3.4rem,7vw,5.6rem)] font-black leading-none tracking-[-0.04em] text-accent">
+              110%
+            </p>
+            <p className="mt-2 text-[12px] font-semibold text-[rgba(255,247,235,0.62)]">
+              collateral, not 150% ·{' '}
+              <span className="tnum text-cream">11,000</span> on a 10,000 loan, not{' '}
+              <span className="tnum line-through">15,000</span>
+            </p>
+          </div>
+          <div className="flex flex-col gap-5">
+            <p className="max-w-[460px] text-[14px] leading-[1.7] text-[rgba(255,247,235,0.62)]">
+              A borrower proves in zero knowledge that their balance, debts and income clear a
+              lender&rsquo;s bar. The figures stay on their device. A lender can only offer the
+              tier&rsquo;s figure — <span className="text-cream">110% for a verified borrower</span> —
+              and only the borrower can make it binding.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link to="/app/overview" className="btn btn-accent px-7 py-[14px] text-[14px]">
+                Open the console →
+              </Link>
+              <Link
+                to="/app/applications"
+                className="btn px-7 py-[14px] text-[14px]"
+                style={{ background: 'rgba(255,247,235,0.1)', color: 'var(--color-cream)' }}
+              >
+                See the lender view
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -155,198 +188,175 @@ function ArcGlow() {
   );
 }
 
-/** The pitch in one gesture: the same decision, without the exposure. */
-function Disclosure() {
-  const [showLender, setShowLender] = useState(false);
-
+/** Shared section header: eyebrow, then the claim. */
+function Heading({ eyebrow, title, dark }: { eyebrow: string; title: string; dark?: boolean }) {
   return (
-    <section className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 1 }}>
-      <div className="k-reveal mx-auto w-full max-w-[1140px]">
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
-              The whole idea
-            </p>
-            <h2 className="text-[clamp(1.9rem,3.4vw,2.7rem)] font-bold leading-[1.1] tracking-[-0.02em]">
-              Same decision.
-              <br />
-              None of the exposure.
-            </h2>
-          </div>
-          <div className="flex rounded-[11px] bg-[rgba(15,23,42,0.06)] p-[3px]">
-            {(
-              [
-                [false, 'What you hold'],
-                [true, 'What the lender receives'],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setShowLender(value)}
-                aria-pressed={showLender === value}
-                className={[
-                  'rounded-[9px] px-4 py-[7px] text-[12px] font-semibold transition-colors',
-                  showLender === value
-                    ? 'bg-white text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
-                    : 'text-[rgba(15,23,42,0.5)] hover:text-ink',
-                ].join(' ')}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="card p-6 sm:p-7">
-          <p className="mb-5 text-[12px] text-[rgba(15,23,42,0.5)]">
-            {showLender
-              ? 'Delivered to the lender. This is the entire payload.'
-              : 'Held on the borrower device. Never transmitted, never written to the ledger.'}
-          </p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {[
-              ['Cash and equivalents', '$1,000,000'],
-              ['Outstanding debts', '$300,000'],
-              ['Annual income', '$1,000,000'],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-[14px] bg-[rgba(15,23,42,0.03)] px-5 py-4">
-                <p className="mb-[6px] text-[9px] font-bold uppercase tracking-[0.7px] text-[rgba(15,23,42,0.45)]">
-                  {label}
-                </p>
-                <p
-                  className="tnum text-[22px] font-bold"
-                  style={{ color: showLender ? 'rgba(15,23,42,0.3)' : 'var(--color-ink)' }}
-                >
-                  {showLender ? 'not disclosed' : value}
-                </p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 flex flex-wrap items-center gap-4 border-t border-[rgba(15,23,42,0.07)] pt-5">
-            {showLender ? (
-              <>
-                <span className="badge badge-pass">Pass</span>
-                <p className="text-[12px] text-[rgba(15,23,42,0.6)]">
-                  Net worth ≥ $500,000 and DTI ≤ 40% both hold. Verified by the network before it
-                  was recorded.
-                </p>
-              </>
-            ) : (
-              <>
-                <span className="badge badge-neutral">Private</span>
-                <p className="text-[12px] text-[rgba(15,23,42,0.6)]">
-                  The statement behind the answer, held locally and committed as a hash.
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/**
- * Real captures of the running console, not mockups — the product is the
- * argument, and it is live, so there is no reason to draw it.
- */
-function ConsoleShowcase() {
-  return (
-    <section className="k-stack bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 2 }}>
-      <div className="k-reveal mx-auto w-full max-w-[1140px]">
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
-              Not a mockup
-            </p>
-            <h2 className="max-w-[18ch] text-[clamp(1.9rem,3.4vw,2.7rem)] font-bold leading-[1.1] tracking-[-0.02em]">
-              The contracts run in your browser.
-            </h2>
-          </div>
-          <Link to="/app/overview" className="btn btn-accent px-6 py-[12px] text-[13px]">
-            Try it yourself →
-          </Link>
-        </div>
-
-        {/* One row on large screens: a pinned panel only ever shows a single
-            viewport, so the whole section has to fit inside one. */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Shot
-            src={underwritingShot}
-            alt="The lender console showing a network-verified Fail verdict, with cash, debts and income all reading not disclosed"
-            title="A verdict, and nothing else"
-            body="Pass or fail against the lender's terms. Every figure behind it reads not disclosed."
-          />
-          <Shot
-            src={factsShot}
-            alt="The borrower's private facts screen recomputing net worth and debt-to-income as figures are typed"
-            title="Arithmetic that matches the circuit"
-            body="Net worth and DTI recompute as you type, cross-multiplied exactly as the contract does."
-          />
-          <Shot
-            src={overviewShot}
-            alt="The borrower overview listing four lender requests with their attestation results"
-            title="Every verdict is the contract's"
-            body="Six SolvencyProof instances and a Registry deploy into the page at load. Nothing is stubbed."
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Shot({
-  src,
-  alt,
-  title,
-  body,
-}: {
-  src: string;
-  alt: string;
-  title: string;
-  body: string;
-}) {
-  return (
-    <figure className="overflow-hidden rounded-[18px] border border-[rgba(255,247,235,0.1)] bg-[rgba(255,247,235,0.03)]">
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        className="h-[190px] w-full border-b border-[rgba(255,247,235,0.08)] object-cover object-top sm:h-[210px] lg:h-[168px]"
-      />
-      <figcaption className="p-5">
-        <h3 className="mb-[6px] text-[14px] font-bold">{title}</h3>
-        <p className="text-[12px] leading-[1.6] text-[rgba(255,247,235,0.5)]">{body}</p>
-      </figcaption>
-    </figure>
+    <>
+      <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">{eyebrow}</p>
+      <h2
+        className={[
+          'mb-8 max-w-[760px] text-[clamp(1.9rem,3.4vw,2.7rem)] font-bold leading-[1.1] tracking-[-0.02em]',
+          dark ? 'text-cream' : 'text-ink',
+        ].join(' ')}
+      >
+        {title}
+      </h2>
+    </>
   );
 }
 
 function HowItWorks() {
   const steps = [
-    ['01', 'Commit', 'Your device', 'Enter your figures once. Only their hash is written to your contract instance.'],
-    ['02', 'Receive a request', 'Public', 'A lender names a threshold and a debt-to-income limit against your instance.'],
-    ['03', 'Prove', 'Your device', 'A proof is generated locally against the committed statement. The figures stay put.'],
-    ['04', 'Verify', 'Network', 'Midnight checks the proof on submission. A false one never lands.'],
+    [
+      '01',
+      'Commit your facts',
+      'Your device',
+      'Balance, debts and income stay in private state. The ledger gets one salted hash of them, with a 32-byte salt that never leaves the device.',
+    ],
+    [
+      '02',
+      'The lender quotes a bar',
+      'Public',
+      'A net-worth floor and a debt-to-income limit, valid for at least 30 minutes. At most 3 quotes per loan, and none while a verified tier is live.',
+    ],
+    [
+      '03',
+      'Prove the tier',
+      'Zero knowledge',
+      'proveTier checks your facts against the commitment and the bar, in a circuit. It writes one word to the ledger: VERIFIED or STANDARD.',
+    ],
+    [
+      '04',
+      'Offer 110%, you accept',
+      'Contract',
+      'For a verified borrower the lender can offer only 11,000 on 10,000. A 150% ask is refused by the contract. Nothing binds until you accept.',
+    ],
   ];
 
   return (
-    <section id="how" className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 3 }}>
+    <section id="how" className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 1 }}>
       <div className="k-reveal mx-auto w-full max-w-[1140px]">
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
-          How it works
-        </p>
-        <h2 className="mb-12 max-w-[560px] text-[clamp(1.9rem,3.4vw,2.7rem)] font-bold leading-[1.1] tracking-[-0.02em]">
-          Four steps. One of them leaves your device.
-        </h2>
+        <Heading eyebrow="How it works · one Loan contract per loan" title="Four steps. Your figures never leave your device." />
         <div className="k-reveal-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map(([n, title, where, body]) => (
             <article key={n} className="card p-5">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex items-center justify-between gap-2">
                 <span className="tnum text-[11px] font-bold text-accent">{n}</span>
                 <span className="badge badge-neutral">{where}</span>
               </div>
+              <h3 className="mb-2 text-[14px] font-bold">{title}</h3>
+              <p className="text-[12px] leading-[1.6] text-[rgba(15,23,42,0.55)]">{body}</p>
+            </article>
+          ))}
+        </div>
+        <p className="mt-6 max-w-[720px] text-[12px] leading-[1.6] text-[rgba(15,23,42,0.55)]">
+          Ask a verified borrower for 15,000 and the call fails with the contract&rsquo;s own assert:{' '}
+          <code className="font-mono text-ink">collateral does not match the tier</code>. The console
+          lets you try it.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/** The dual ledger, both halves at once: what stays private beside what does not. */
+function Ledger() {
+  const priv = [
+    ['Balance, debts, income', 'proveTier inputs only'],
+    ['The 32-byte facts salt', 'Never in a transaction'],
+    ['Secret key, history seed, nonces', 'Witnesses'],
+    ['Which loans back a history proof', 'Merkle paths, private inputs'],
+  ];
+  const pub = [
+    ['Salted facts commitment', 'One hash'],
+    ['The bar, the tier, its expiry', 'Up to 3 answers per loan'],
+    ['Collateral, terms, owed, due dates', 'So the lender can enforce them'],
+    ['Payments made, late count, amounts', 'Each repay amount is an input'],
+    ['Listings: keys, principal, status', 'Anyone can count a key’s repaid loans'],
+  ];
+
+  return (
+    <section id="ledger" className="k-stack bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 2 }}>
+      <div className="k-reveal mx-auto w-full max-w-[1140px]">
+        <Heading
+          dark
+          eyebrow="Midnight’s dual ledger · a lender has to be able to enforce the loan"
+          title="The facts are private. The loan is public."
+        />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <LedgerList title="Stays on your device" tone="private" rows={priv} />
+          <LedgerList title="On the public ledger" tone="public" rows={pub} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LedgerList({
+  title,
+  tone,
+  rows,
+}: {
+  title: string;
+  tone: 'private' | 'public';
+  rows: string[][];
+}) {
+  return (
+    <div className="rounded-[18px] border border-[rgba(255,247,235,0.1)] bg-[rgba(255,247,235,0.03)] p-5 sm:p-6">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-[14px] font-bold">{title}</h3>
+        <span
+          className={
+            tone === 'private'
+              ? 'badge badge-pass-dark'
+              : 'badge border border-[rgba(255,247,235,0.18)] text-[rgba(255,247,235,0.7)]'
+          }
+        >
+          {tone === 'private' ? 'Private' : 'Public'}
+        </span>
+      </div>
+      <ul className="flex flex-col">
+        {rows.map(([what, why]) => (
+          <li
+            key={what}
+            className="flex flex-col gap-[2px] border-t border-[rgba(255,247,235,0.07)] py-[7px] sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+          >
+            <span className="text-[13px] font-semibold">{what}</span>
+            <span className="text-[11px] text-[rgba(255,247,235,0.45)] sm:text-right">{why}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Numbers a judge can rerun, each with the command that produces it. */
+function Evidence() {
+  const cards = [
+    ['4', 'Compact contracts', `${CIRCUITS} circuits. Compiled by CI on every push, toolchain 0.31.1.`],
+    [UNIT_TESTS, 'Offline tests', 'Drive the compiled contracts, every refusal included. npm run test:unit'],
+    [E2E_TESTS, 'Browser tests', 'The README fast path and each refusal, at 1440 and 390 px. npm run e2e'],
+    [DEVNET_CASES, 'Devnet cases', 'Real zero-knowledge proofs, two wallets, a local Midnight node. In CI.'],
+  ];
+
+  return (
+    <section id="proof" className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 3 }}>
+      <div className="k-reveal mx-auto w-full max-w-[1140px]">
+        <div className="flex flex-wrap items-end justify-between gap-x-6">
+          <div>
+            <Heading eyebrow="Evidence" title="Every number here comes from a command you can run." />
+          </div>
+          <a
+            href={`${REPO}#tests-and-scripts`}
+            className="btn btn-ink mb-8 px-6 py-[12px] text-[13px]"
+          >
+            Tests and scripts →
+          </a>
+        </div>
+        <div className="k-reveal-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {cards.map(([n, title, body]) => (
+            <article key={title} className="card p-5">
+              <p className="tnum mb-3 text-[30px] [overflow-wrap:anywhere] font-black leading-none tracking-[-0.02em]">{n}</p>
               <h3 className="mb-2 text-[14px] font-bold">{title}</h3>
               <p className="text-[12px] leading-[1.6] text-[rgba(15,23,42,0.55)]">{body}</p>
             </article>
@@ -357,30 +367,77 @@ function HowItWorks() {
   );
 }
 
-/** Saying plainly what a proof does not establish is worth more than a claim. */
-function Honesty() {
+/** Wave 3, already runnable: an integrity check, not a privacy feature. */
+function AuditorPreview() {
   return (
-    <section id="honesty" className="k-stack bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 4 }}>
+    <section id="auditor" className="k-stack bg-espresso px-5 py-20 text-cream sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 4 }}>
       <div className="k-reveal mx-auto grid w-full max-w-[1140px] gap-10 lg:grid-cols-2">
         <div>
           <p className="mb-3 text-[10px] font-bold uppercase tracking-[1px] text-accent">
-            What we don&rsquo;t claim
+            Wave 3 preview · the auditor
           </p>
           <h2 className="text-[clamp(1.9rem,3.4vw,2.7rem)] font-bold leading-[1.1] tracking-[-0.02em]">
-            Zero-knowledge proves computation, not honesty.
+            Check a payment history offline, against one on-chain hash.
           </h2>
+          <Link to="/app/audit" className="btn btn-accent mt-8 px-6 py-[12px] text-[13px]">
+            Try the auditor →
+          </Link>
         </div>
         <div className="flex flex-col gap-5 text-[13px] leading-[1.75] text-[rgba(255,247,235,0.55)]">
           <p>
-            A proof shows the arithmetic was carried out correctly against the committed statement.
-            It does not show the statement was true to begin with — today&rsquo;s figures are
-            self-reported, and we label them that way rather than calling them tamper-proof.
+            Each repayment extends a hash chain on the loan. The borrower exports the log; the
+            auditor recomputes the chain and compares the result with the loan&rsquo;s{' '}
+            <code className="font-mono text-cream">historyCommitment</code>. In the console, 3
+            payments land on the head exactly; change one amount and the check fails.
           </p>
           <p>
-            The fix is provenance, not more cryptography: data providers co-sign facts at the point
-            of ingestion, and the circuit proves the co-signature alongside the arithmetic. That is
-            scheduled work, not a claim about today.
+            This proves integrity, not secrecy. Each repay amount and the late count are already
+            public on the ledger; the export adds the nonces that make the chain checkable without a
+            Midnight node.
           </p>
+          <p>
+            Wave 3 adds attested facts: a data provider co-signs balance, debts and income, so a
+            VERIFIED tier rests on more than the borrower&rsquo;s word.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Saying plainly what is simulated is worth more than a claim. */
+function Simulated() {
+  const items = [
+    [
+      'The console',
+      'Runs the compiled Loan and LoanDirectory contracts in your browser, on a simulated ledger with a demo block clock. It executes the circuits; it does not generate proofs or use a wallet.',
+    ],
+    [
+      'Real proofs',
+      // VERIFY: Preprod run done (PROOF.md exists). Until then: "Preprod pending; devnet proofs in CI".
+      `${DEVNET_CASES} devnet cases prove and submit in CI on every push. Public-testnet transactions are listed in PROOF.md and read back in the console's Live chain view.`,
+    ],
+    [
+      'Money',
+      'No token moves. Collateral, principal and balances are figures in contract state.',
+    ],
+    [
+      'The facts',
+      'Self-reported. Anyone can commit figures that clear the bar, so today a VERIFIED tier costs nothing to get. Attested provenance in Wave 3 is the fix.',
+    ],
+  ];
+
+  return (
+    <section id="simulated" className="k-stack bg-cream px-5 py-20 text-ink sm:px-8 sm:py-28 lg:py-12" style={{ zIndex: 5 }}>
+      <div className="k-reveal mx-auto w-full max-w-[1140px]">
+        <Heading eyebrow="What is simulated · unaudited, no external review" title="Zero knowledge proves the arithmetic, not that the figures are true." />
+        <div className="k-reveal-stagger grid gap-4 sm:grid-cols-2">
+          {items.map(([title, body]) => (
+            <article key={title} className="card p-5">
+              <h3 className="mb-2 text-[14px] font-bold">{title}</h3>
+              <p className="text-[12px] leading-[1.6] text-[rgba(15,23,42,0.55)]">{body}</p>
+            </article>
+          ))}
         </div>
       </div>
     </section>
@@ -389,7 +446,7 @@ function Honesty() {
 
 function Closing() {
   return (
-    <section className="k-stack relative overflow-hidden bg-espresso px-5 py-24 text-center text-cream sm:px-8 sm:py-32 lg:py-12" style={{ zIndex: 5 }}>
+    <section className="k-stack relative overflow-hidden bg-espresso px-5 py-24 text-center text-cream sm:px-8 sm:py-32 lg:py-12" style={{ zIndex: 6 }}>
       <div
         aria-hidden="true"
         className="pointer-events-none absolute bottom-[-40%] left-1/2 size-[620px] -translate-x-1/2 rounded-full opacity-60"
@@ -401,20 +458,20 @@ function Closing() {
       />
       <div className="k-reveal relative w-full">
         <h2 className="text-[clamp(2rem,4vw,3.2rem)] font-black leading-[1.05] tracking-[-0.03em]">
-          Underwrite the borrower.
+          Post 110%.
           <br />
-          Not their privacy.
+          Keep the figures.
         </h2>
         <div className="mt-9 flex flex-wrap justify-center gap-3">
           <Link to="/app/overview" className="btn btn-accent px-7 py-[14px] text-[14px]">
             Open the console
           </Link>
           <a
-            href="https://github.com/Turnless/kymider"
+            href={REPO}
             className="btn px-7 py-[14px] text-[14px]"
             style={{ background: 'rgba(255,247,235,0.1)', color: 'var(--color-cream)' }}
           >
-            Read the architecture
+            Read the README
           </a>
         </div>
       </div>
@@ -424,12 +481,12 @@ function Closing() {
 
 function Footer() {
   return (
-    <footer className="relative z-[6] border-t border-[rgba(255,247,235,0.07)] bg-espresso px-5 py-8 text-cream sm:px-8">
+    <footer className="relative z-[7] border-t border-[rgba(255,247,235,0.07)] bg-espresso px-5 py-8 text-cream sm:px-8">
       <div className="mx-auto flex max-w-[1140px] flex-wrap items-center justify-between gap-4 text-[11px] text-[rgba(255,247,235,0.35)]">
         <span className="font-black tracking-[1.6px]">KYMIDER</span>
         <div className="flex gap-6">
           <span>Apache-2.0</span>
-          <a href="https://github.com/Turnless/kymider">Source</a>
+          <a href={REPO}>Source</a>
         </div>
       </div>
     </footer>

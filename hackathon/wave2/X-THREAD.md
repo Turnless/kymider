@@ -13,13 +13,14 @@ them until they are true.
 
 ## 1. Thesis post (post first, around Oct 6)
 
-> DeFi lending asks everyone for 150% collateral: a protocol can't see a
-> borrower's balance sheet.
+> DeFi lending asks everyone for 150% collateral: protocols can't see
+> balance sheets.
 >
 > I'm building the other answer on @MidnightNtwrk: prove in zero knowledge you
-> clear the lender's bar; the contract enforces 110%.
+> clear the lender's bar. The lender can only offer 110%, and only you make
+> it binding.
 >
-> One bit disclosed. 11,000 collateral, not 15,000.
+> 11,000 collateral, not 15,000.
 
 Image: `03-prove-tier.jpg`, or slide 3 of the deck.
 
@@ -71,7 +72,8 @@ Image: `03-prove-tier.jpg`.
 > What the lender sees: the tier. Balance, debts, income: not disclosed.
 >
 > What the contract enforces: collateral = exactly floor(principal × 110%).
-> Ask a verified borrower for 150% and the transaction is refused.
+> Ask a verified borrower for 150% and it's refused. The offer binds only
+> when the borrower accepts. <!-- VERIFY: accept step merged -->
 
 Image: `04-lender-underwrite.jpg`, then `05-refusal-150.jpg`.
 
@@ -88,8 +90,9 @@ Image: `06-repaid-history.jpg`.
 **5/7**
 
 > Evidence:
-> - 4 Compact contracts, 20 circuits, compiled in CI
-> - 131 offline tests on the compiled contracts
+> - 4 Compact contracts, {{CIRCUITS}} circuits, compiled in CI
+> - {{UNIT_TESTS}} offline tests on the compiled contracts
+> - {{E2E_TESTS}} browser tests of the console
 > - 18 devnet cases with real ZK proofs, every push
 > - Preprod hashes in PROOF.md <!-- VERIFY -->
 >
@@ -97,12 +100,12 @@ Image: `06-repaid-history.jpg`.
 
 **6/7**
 
-> What's simulated: no token moves yet (collateral is a figure in contract
-> state), and the figures are self-reported. ZK proves the arithmetic, not
-> that the inputs are true.
+> What's simulated: no token moves yet, and the figures are self-reported, so
+> today anyone can get VERIFIED. ZK proves the arithmetic, not that the inputs
+> are true.
 >
-> Wave 3: data providers co-sign facts, and an auditor view. The preview is
-> already in the console. <!-- VERIFY: /app/audit shipped -->
+> Wave 3: data providers co-sign facts. The auditor check is already in the
+> console.
 
 Image: `07-auditor.jpg`.
 
@@ -123,5 +126,12 @@ Image: `07-auditor.jpg`.
 - **"Can't the borrower lie?"** Today, yes: figures are self-reported, and we
   say so in the README. Wave 3 has a data provider co-sign them before they are
   committed.
+- **"Can't the lender just re-quote?"** Not while a verified tier is live,
+  and any figure the lender names is only an offer until the borrower accepts.
+  A review found that gap in our first version; we closed it in the contract.
+  <!-- VERIFY: merged -->
+- **"Is the payment history private?"** No. Each repayment amount is public on
+  the ledger. The history proof hides which loans back it, not that a key has
+  repaid loans. The auditor check proves the history is complete and unaltered.
 - **"Where's the money?"** Nowhere yet. Wave 2 is a lifecycle demo; balances
   are figures in contract state. Token settlement is a later milestone.
