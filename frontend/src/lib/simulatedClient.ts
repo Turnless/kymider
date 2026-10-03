@@ -26,11 +26,13 @@ import {
   SolvencyProofContract,
   createRegistryPrivateState,
   createSolvencyPrivateState,
+  freshFactsSalt,
   registryLedger,
   registryWitnesses,
   solvencyLedger,
   solvencyPureCircuits,
   solvencyWitnesses,
+  type FactsOpening,
   type RegistryPrivateState,
   type SolvencyPrivateState,
 } from './contracts';
@@ -92,7 +94,14 @@ class Instance {
   constructor(facts: FinancialFacts, ownerSk: Uint8Array) {
     this.ownerSk = ownerSk;
     this.contract = new SolvencyProofContract<SolvencyPrivateState>(solvencyWitnesses);
-    const seedState = createSolvencyPrivateState(facts.balance, facts.debts, facts.income, ownerSk);
+    // A fresh salt blinds the commitment, as the wallet-backed client does.
+    const seedState = createSolvencyPrivateState(
+      facts.balance,
+      facts.debts,
+      facts.income,
+      ownerSk,
+      freshFactsSalt(),
+    );
     const { currentContractState, currentPrivateState } = this.contract.initialState(
       createConstructorContext(seedState, COIN_PUBLIC_KEY),
       facts.balance,
@@ -119,6 +128,12 @@ class Instance {
     return { balance, debts, income };
   }
 
+  /** The facts with the salt that blinds the current commitment. */
+  opening(): FactsOpening {
+    const { balance, debts, income, salt } = this.ctx.currentPrivateState;
+    return { balance, debts, income, salt };
+  }
+
   /** Act as the wallet holding `sk` — the caller identity is the private-state sk. */
   private as(sk: Uint8Array): void {
     this.ctx = { ...this.ctx, currentPrivateState: { ...this.ctx.currentPrivateState, sk } };
@@ -130,23 +145,24 @@ class Instance {
   }
 
   /**
-   * Facts are circuit ARGUMENTS, so the new values must be written back into
-   * private state or every later proof is built on the old ones. That was a
-   * real bug in the Node client; keeping the write-back here stops the browser
-   * reintroducing it.
+   * Re-commit under a fresh salt. The `factsSalt` witness reads private state
+   * while the circuit runs, so the new facts and salt are staged BEFORE the
+   * call (as KymiderClient.updateFacts does); a refused call throws before
+   * `ctx` is replaced, leaving the committed opening as it was.
    */
   updateFacts(facts: FinancialFacts): void {
     this.as(this.ownerSk);
+    const staged: CircuitContext<SolvencyPrivateState> = {
+      ...this.ctx,
+      currentPrivateState: { ...this.ctx.currentPrivateState, ...facts, salt: freshFactsSalt() },
+    };
     const { context } = this.contract.impureCircuits.updateFacts(
-      this.ctx,
+      staged,
       facts.balance,
       facts.debts,
       facts.income,
     );
-    this.ctx = {
-      ...context,
-      currentPrivateState: { ...context.currentPrivateState, ...facts },
-    };
+    this.ctx = context;
     this.lastUpdate = new Date();
   }
 
@@ -426,17 +442,22 @@ export class SimulatedKymiderClient implements KymiderClient {
     return this.instances.get(address)?.ledger().commitment ?? null;
   }
 
-  /** The other seeded borrowers: their instance, wallet key and private facts. */
-  otherBorrowers(): Array<{ address: string; sk: Uint8Array; facts: FinancialFacts }> {
+  /** The other seeded borrowers: their instance, wallet key and private opening. */
+  otherBorrowers(): Array<{ address: string; sk: Uint8Array; opening: FactsOpening }> {
     return [...this.instances.values()]
       .filter((inst) => inst !== this.mine)
-      .map((inst) => ({ address: inst.address, sk: inst.ownerSk, facts: inst.facts() }));
+      .map((inst) => ({ address: inst.address, sk: inst.ownerSk, opening: inst.opening() }));
   }
 
   // --- borrower side ------------------------------------------------------
 
   facts(): FinancialFacts {
     return this.mine.facts();
+  }
+
+  /** This borrower's facts and the salt of their current commitment. Private. */
+  factsOpening(): FactsOpening {
+    return this.mine.opening();
   }
 
   async commitFacts(facts: FinancialFacts): Promise<void> {

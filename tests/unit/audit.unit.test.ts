@@ -25,7 +25,7 @@ import {
 } from '../../contracts/audit.js';
 import { loanPaymentNonce } from '../../contracts/witnesses.js';
 import { collateralFor, installmentFor, owedFor } from '../../client/proof/loanMath.js';
-import { LoanSimulator, T0, commitFacts, pubKeyOf, skFrom } from './support/simulators.js';
+import { LoanSimulator, T0, TEST_SALT, commitFacts, pubKeyOf, skFrom } from './support/simulators.js';
 
 const BORROWER_SK = skFrom(1);
 const LENDER_SK = skFrom(2);
@@ -45,7 +45,7 @@ const TERMS: Terms = { principal: 1_000n, interestBps: 1_000n, installments: 3n,
 /** A disbursed loan at T0, with a verified tier. */
 const disbursedLoan = (seed: Uint8Array, terms: Terms = TERMS): LoanSimulator => {
   const owed = owedFor(terms);
-  return new LoanSimulator(BORROWER_SK, LENDER_PK, terms, commitFacts(FACTS), seed)
+  return new LoanSimulator(BORROWER_SK, LENDER_PK, terms, commitFacts(FACTS, TEST_SALT), seed)
     .as(LENDER_SK)
     .quoteTerms(500_000n, 40n, T0 + 7n * DAY)
     .as(BORROWER_SK)
@@ -86,7 +86,7 @@ const expectFailure = (check: { ok: boolean; reason?: string }, kind: Disclosure
 
 describe('audit — the chain, rebuilt off-chain', () => {
   it('the genesis head is what the Loan constructor writes', () => {
-    const sim = new LoanSimulator(BORROWER_SK, LENDER_PK, TERMS, commitFacts(FACTS), SEED_A);
+    const sim = new LoanSimulator(BORROWER_SK, LENDER_PK, TERMS, commitFacts(FACTS, TEST_SALT), SEED_A);
     expect(bytesToHex(historyGenesis())).toBe(bytesToHex(sim.ledger().historyCommitment));
   });
 

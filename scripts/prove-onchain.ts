@@ -42,6 +42,7 @@ import { LoanClient, tierName } from '../client/loans.js';
 import { TxLog } from '../client/txlog.js';
 import type { WalletSecret } from '../client/wallet.js';
 import {
+  NO_FACTS_SALT,
   createLoanDirectoryPrivateState,
   createLoanPrivateState,
   createSolvencyPrivateState,
@@ -169,7 +170,10 @@ try {
 
   const lenderAPk = lender.solvencyPubKeyOf(lenderASk);
   await step(STEPS.addLender, () => borrower.authorizeLender(solvency, lenderAPk));
-  await lender.bindSolvencyPrivateState(solvency, createSolvencyPrivateState(0n, 0n, 0n, lenderASk));
+  await lender.bindSolvencyPrivateState(
+    solvency,
+    createSolvencyPrivateState(0n, 0n, 0n, lenderASk, NO_FACTS_SALT),
+  );
   await step(STEPS.requestClaim, () => lender.requestClaim(solvency, CLAIM));
   await step(STEPS.proveSolvency, () => borrower.proveSolvency(solvency, lenderAPk));
   const attestation = await borrower.attestationFor(solvency, lenderAPk);
@@ -182,6 +186,9 @@ try {
   const directory = await step(STEPS.deployDirectory, () => borrowerLoans.deployLoanDirectory(borrowerSk));
   show('LoanDirectory', directory);
   const commitment = (await borrower.solvencyState(solvency)).commitment;
+  // The salt the commitment was blinded with, drawn at deploy and kept in the
+  // borrower's private state. Every loan's tier proof needs it.
+  const { salt: factsSalt } = await borrower.factsOpening(solvency);
 
   const openLoan = async (
     deploy: StepInfo,
@@ -190,10 +197,19 @@ try {
     terms: LoanTerms,
   ): Promise<ContractAddress> => {
     const loan = await step(deploy, () =>
-      borrowerLoans.deployLoan({ sk: borrowerSk, lenderPk: lenderLoans.pubKeyOf(lenderSk), terms, commitment }),
+      borrowerLoans.deployLoan({
+        sk: borrowerSk,
+        lenderPk: lenderLoans.pubKeyOf(lenderSk),
+        terms,
+        commitment,
+        factsSalt,
+      }),
     );
     await step(list, () => borrowerLoans.listLoan(directory, loan));
-    await lenderLoans.bindLoanPrivateState(loan, createLoanPrivateState(lenderSk, new Uint8Array(32)));
+    await lenderLoans.bindLoanPrivateState(
+      loan,
+      createLoanPrivateState(lenderSk, new Uint8Array(32), NO_FACTS_SALT),
+    );
     show('Loan', loan);
     return loan;
   };

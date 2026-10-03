@@ -37,6 +37,7 @@ import {
   SolvencySimulator,
   T0,
   commitFacts,
+  TEST_SALT,
   loanAddr,
   pubKeyOf,
   repaidLeaf,
@@ -107,7 +108,7 @@ const TERMS = { principal: 1_000n, interestBps: 1_000n, installments: 3n, period
 const HISTORY_SEED = new Uint8Array(32).fill(9);
 
 const activeLoan = (): LoanSimulator =>
-  new LoanSimulator(BORROWER_SK, LENDER_PK, TERMS, commitFacts(FACTS), HISTORY_SEED)
+  new LoanSimulator(BORROWER_SK, LENDER_PK, TERMS, commitFacts(FACTS, TEST_SALT), HISTORY_SEED)
     .as(LENDER_SK)
     .quoteTerms(CLAIM.thresholdNetWorth, CLAIM.maxDti, T0 + 7n * 86_400n)
     .as(BORROWER_SK)
@@ -214,7 +215,7 @@ describe('decode — Registry', () => {
 
 describe('decode — Loan', () => {
   it('reads an application before any quote', () => {
-    const sim = new LoanSimulator(BORROWER_SK, LENDER_PK, TERMS, commitFacts(FACTS), HISTORY_SEED);
+    const sim = new LoanSimulator(BORROWER_SK, LENDER_PK, TERMS, commitFacts(FACTS, TEST_SALT), HISTORY_SEED);
     const v = decodeContractState(codec, 'loan', indexerStateHex(sim));
     expect(v).toMatchObject({
       kind: 'loan',
@@ -227,7 +228,7 @@ describe('decode — Loan', () => {
       paymentsMade: 0n,
       borrower: hex(BORROWER_PK),
       lender: hex(LENDER_PK),
-      factsCommitment: hex(commitFacts(FACTS)),
+      factsCommitment: hex(commitFacts(FACTS, TEST_SALT)),
     });
     expect(v.terms).toEqual(TERMS);
   });

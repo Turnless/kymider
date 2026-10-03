@@ -128,7 +128,9 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
         title={proven ? `Tier recorded. Waiting for ${lender} to underwrite` : `Clear ${lender}'s bar for 110% collateral`}
       >
         <div className="rounded-[13px] bg-[rgba(255,247,235,0.05)] px-4 py-3">
-          <p className="label-dark mb-1">The lender's bar</p>
+          <p className="label-dark mb-1">
+            The lender's bar · quote {loan.quotesIssued} of {loan.quoteLimit}
+          </p>
           <p className="tnum text-[15px] font-semibold text-cream">{quoteLabel(q)}</p>
           <p className="tnum mt-1 text-[11px]" style={{ color: expired ? '#e9b168' : 'rgba(255,247,235,0.45)' }}>
             {expired
@@ -169,8 +171,8 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
         )}
         {!loan.factsBound && (
           <p className="mt-2 text-[11px] leading-[1.5] text-[#e9b168]">
-            Your solvency instance now commits different facts from the ones this loan was opened
-            with. The contract will refuse a proof made from them.
+            Your solvency instance has committed again since this loan was opened, so its commitment
+            no longer matches this loan's. A proof needs the facts and salt this loan was opened with.
           </p>
         )}
 
@@ -186,11 +188,17 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
               <LoanSpinner /> Generating proof
             </>
           ) : proven ? (
-            'Prove again to refresh'
+            'Prove again'
           ) : (
             'Prove tier'
           )}
         </button>
+        {loan.tierProven && (
+          <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.45)]">
+            One proof per quote: the contract refuses another until the lender quotes again, so a
+            lender learns at most {loan.quoteLimit} answers about your facts on this loan.
+          </p>
+        )}
         <LoanRefusal message={act.refusalFor('prove')} onDismiss={act.clear} dark />
       </Panel>
     );

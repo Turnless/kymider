@@ -14,6 +14,7 @@ import {
   ListingStatus,
   LoanStatus,
   Tier,
+  loanPureCircuits,
   type LoanDirectoryLedger,
   type LoanLedger,
   type RegistryLedger,
@@ -160,6 +161,24 @@ function loanClaims(d: Deployments, s: OnchainStates): ClaimResult[] {
         'all three match',
         matches.map((m, i) => `${name(i)} ${m ? 'matches' : 'differs'}`).join('; '),
         matches.every(Boolean),
+      ),
+    );
+  }
+
+  // The re-quote cap: each quote buys the lender one yes/no answer about the
+  // facts, so the contract allows quoteLimit() per loan.
+  const limit = loanPureCircuits.quoteLimit();
+  const capped = `Loans A, B and C: quotes within the cap of ${limit}`;
+  if (!a || !b || !c) {
+    out.push(missing(capped, `<= ${limit} each`, 'a loan'));
+  } else {
+    const counts = [a, b, c].map((l) => l.quotesIssued);
+    out.push(
+      result(
+        capped,
+        `<= ${limit} each`,
+        counts.map((n, i) => `${name(i)} ${n}`).join('; '),
+        counts.every((n) => n <= limit),
       ),
     );
   }

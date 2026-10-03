@@ -150,6 +150,10 @@ export type LoanView = {
   factsCommitment: Hex;
   quoted: boolean;
   quote: { thresholdNetWorth: bigint; maxDti: bigint; expiresAt: bigint } | null;
+  /** Quotes made on the loan (the contract caps them at 3). */
+  quotesIssued: bigint;
+  /** A tier was proven against the current quote (one proof per quote). */
+  tierProven: boolean;
   collateralRequired: bigint;
   balanceOwed: bigint;
   installmentAmount: bigint;
@@ -229,6 +233,8 @@ export function loanView(l: LoanLedger): LoanView {
     factsCommitment: bytesToHex(l.factsCommitment),
     quoted: l.quoted,
     quote: l.quoted ? { ...l.quote } : null,
+    quotesIssued: l.quotesIssued,
+    tierProven: l.tierProven,
     collateralRequired: l.collateralRequired,
     balanceOwed: l.balanceOwed,
     installmentAmount: l.installmentAmount,

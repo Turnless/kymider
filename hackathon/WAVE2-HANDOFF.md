@@ -133,6 +133,47 @@ driving the compiled contracts through `LoanSimulator` and
 - The witnesses are shared verbatim with the browser console, so they use the
   compact runtime's `persistentHash`, never `node:crypto`.
 
+### Privacy hardening
+
+- **Salted facts commitment.** Was `persistentHash<Vector<3, Uint<64>>>([balance,
+  debts, income])`, which a dictionary of round figures reverses: 1,010,000
+  candidates (multiples of 50,000 up to 5,000,000), demo facts found after
+  193,826 hashes in 4.3 s on one core. Now, identical in both contracts:
+  `persistentHash<Vector<3, Bytes<32>>>([pad(32, "kymider:facts:v2"),
+  persistentHash<Vector<3, Uint<64>>>([balance, debts, income]), salt])`.
+  The tag separates it from the payment nonce (same shape) and from v1.
+  Off-chain: `contracts/loanMath.ts#commitFacts(facts, salt)`.
+- **Salt is a witness** (`factsSalt()`), never a circuit argument.
+  `SolvencyPrivateState` gains `salt` (and `previous` during an update);
+  `LoanPrivateState` gains `factsSalt`. Both contracts refuse an all-zero
+  salt at commit time ("facts salt must be set"); `NO_FACTS_SALT` is what a
+  lender's private state carries.
+- **How updateFacts learns the new salt:** the witness is read while the
+  circuit runs, so `KymiderClient.updateFacts` stages `{new facts, fresh salt,
+  previous: old opening}` in the store BEFORE submitting. After the call it
+  calls `reconcileFacts`, which keeps whichever opening the on-chain
+  commitment matches and drops `previous`; on an error it does the same (a
+  transaction can land after the client saw a failure). `proveSolvency` and
+  `factsOpening` reconcile first too.
+- **Loans keep their own salt.** `deployLoan` takes `factsSalt` (from
+  `KymiderClient.factsOpening`). After `updateFacts`, older loans still prove
+  with their stored salt if the figures are unchanged; the lender's
+  `factsMatchSolvencyProof` shows they no longer match the instance.
+- **`.midnight-state.json`** now stores the salt (hex) beside the facts; a
+  file without it is treated as absent (its instance runs the old circuits).
+- **Re-quote cap.** `Loan.quotesIssued: Counter` capped at the exported pure
+  circuit `quoteLimit()` = 3 ("quote limit reached"); `tierProven: Boolean`,
+  reset by each quote, allows one `proveTier` per quote ("already proven
+  against this quote"). Circuit count unchanged (7 Loan, 6 SolvencyProof).
+  `LoanView` has `quotesIssued`, `quoteLimit`, `tierProven`.
+- **Not done in SolvencyProof:** claims are not "decided once" (re-request
+  after a decision is allowed), so the same 1-bit-per-round leak exists there,
+  but each round needs the borrower's own proof and the Wave 1 lender screen
+  cannot show a refusal yet. A per-(lender, commitment) cap is the Wave 3 fix.
+- Tests: `tests/unit/privacy.contract.test.ts` (24), including the dictionary
+  regression. Mutation check: removing the two Loan cap asserts fails the cap
+  tests.
+
 ## Constraints
 
 - On the owner's Windows machine there is **no Docker**, and the Compact

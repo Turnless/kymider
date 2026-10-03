@@ -11,6 +11,7 @@
 // share one copy of the arithmetic.
 
 import {
+  CompactTypeBytes,
   CompactTypeUnsignedInteger,
   CompactTypeVector,
   persistentHash,
@@ -53,14 +54,32 @@ export const defaultableFrom = (state: Pick<LoanLedger, 'nextDueAt'>): bigint =>
   state.nextDueAt + GRACE_SECONDS + 1n;
 
 const u64x3 = new CompactTypeVector(3, new CompactTypeUnsignedInteger((1n << 64n) - 1n, 8));
+const bytes32x3 = new CompactTypeVector(3, new CompactTypeBytes(32));
+
+// Compact's pad(32, s): the UTF-8 bytes of s, zero-filled to 32.
+const pad32 = (s: string): Uint8Array => {
+  const out = new Uint8Array(32);
+  out.set(new TextEncoder().encode(s));
+  return out;
+};
+
+/** Domain tag of the salted facts commitment (v1 was the bare, unsalted hash). */
+export const FACTS_COMMITMENT_TAG = pad32('kymider:facts:v2');
+
+/** The unsalted hash of the figures: the inner layer of the commitment, never published alone. */
+export const hashFacts = (facts: CommittedFacts): Uint8Array =>
+  persistentHash(u64x3, [facts.balance, facts.debts, facts.income]);
 
 /**
- * SolvencyProof.commitFacts, computed off-chain. A Loan instance is deployed
- * with the commitment its borrower's SolvencyProof instance publishes; this
- * gives the same bytes from the facts.
+ * SolvencyProof.commitFacts (and Loan.commitFacts), computed off-chain:
+ * H(tag, H(balance, debts, income), salt). A Loan instance is deployed with the
+ * commitment its borrower's SolvencyProof instance publishes; this gives the
+ * same bytes from the facts and the 32-byte salt that blinds them.
  */
-export const commitFacts = (facts: CommittedFacts): Uint8Array =>
-  persistentHash(u64x3, [facts.balance, facts.debts, facts.income]);
+export const commitFacts = (facts: CommittedFacts, salt: Uint8Array): Uint8Array => {
+  if (salt.length !== 32) throw new Error(`facts salt must be 32 bytes, got ${salt.length}`);
+  return persistentHash(bytes32x3, [FACTS_COMMITMENT_TAG, hashFacts(facts), salt]);
+};
 
 /** The wall clock in seconds, as block time is measured. */
 export const nowSeconds = (): bigint => BigInt(Math.floor(Date.now() / 1000));

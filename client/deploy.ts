@@ -14,6 +14,7 @@ import { buildProviders } from './providers.js';
 import { KymiderClient } from './index.js';
 import { loadOrCreateDappSk } from './identity.js';
 import { factsToState, writeDeploymentState } from './state.js';
+import { freshFactsSalt } from '../contracts/witnesses.js';
 
 const logger = pino({
   level: process.env['LOG_LEVEL'] ?? 'info',
@@ -33,7 +34,10 @@ const client = new KymiderClient(logger, buildProviders(wallet, config));
 const { sk, source } = loadOrCreateDappSk();
 logger.info(`Borrower dapp identity loaded (${source})`);
 
-const solvencyAddress = await client.deploySolvencyProof(FACTS, sk);
+// The salt blinds the facts commitment; it is saved beside the facts, since a
+// later process needs both to prove.
+const salt = freshFactsSalt();
+const solvencyAddress = await client.deploySolvencyProof(FACTS, sk, salt);
 const registryAddress = await client.deployRegistry(sk);
 await client.registerWithRegistry(registryAddress, solvencyAddress);
 
@@ -41,7 +45,7 @@ await writeDeploymentState({
   network: config.networkId,
   solvencyAddress,
   registryAddress,
-  facts: factsToState(FACTS),
+  facts: factsToState(FACTS, salt),
 });
 
 logger.info('Deployment state written to .midnight-state.json');

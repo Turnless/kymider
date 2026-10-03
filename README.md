@@ -208,7 +208,8 @@ increments the counter before the witness runs.
 | Datum | Ledger | Who can see it |
 |---|---|---|
 | Balance, debts, income | **Private** (borrower's device); circuit inputs to `proveTier` only | Borrower |
-| Facts commitment `hash(balance, debts, income)` | Public | Anyone; reveals nothing without the facts |
+| Facts commitment `hash(tag, hash(balance, debts, income), salt)` | Public | Anyone; reveals nothing without the facts and the 32-byte salt ([why the salt](#privacy-hardening-in-wave-2)) |
+| Facts salt | **Private** (borrower's device) | Borrower |
 | Borrower secret key, history seed, payment nonces | **Private** | Borrower |
 | Borrower and lender public keys | Public | Anyone |
 | Quote: net-worth floor, max DTI, expiry | Public | Anyone |
@@ -320,6 +321,24 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 self-lending to mint repayment records, and linkability of a borrower's key
 across listings.
 
+### Privacy hardening in Wave 2
+
+Two leaks in the first version, both closed in the contracts:
+
+| Leak | Before | After | Evidence |
+|---|---|---|---|
+| Dictionary attack on the public facts commitment | `persistentHash([balance, debts, income])`, unsalted. Trying round figures (multiples of 50,000 up to 5,000,000, 1,010,000 candidates) recovered the demo facts 1,000,000 / 300,000 / 1,000,000 after 193,826 hashes in **4.3 s** on one core of a cloud VM, in Node with the Compact runtime's own `persistentHash` (about 45,000 hashes/s); multiples of 10,000 up to 2,000,000 took 84 s | `persistentHash([pad(32, "kymider:facts:v2"), hash(facts), salt])` with a 32-byte random salt per commitment, held in private state and read through the `factsSalt` witness, never a transaction input. The same search now also has to guess 2^256 salts | [`privacy.contract.test.ts`](./tests/unit/privacy.contract.test.ts): a grid search finds the facts without the salt and not with it; a wrong salt is refused (`facts do not match committed facts`); an all-zero salt is refused (`facts salt must be set`) |
+| Re-quote binary search | A lender could re-quote a loan without limit; each quote plus tier proof answers one yes/no question about net worth against a bar the lender picks | At most 3 quotes per loan (`quotesIssued`, `quote limit reached`) and one `proveTier` per quote (`tierProven`, `already proven against this quote`): at most 3 bits, counted on the public ledger. Bisecting net worth over [0, 2^20) stops with 131,072 values still possible | `Loan — re-quote cap` tests; the console shows "Quote n of 3" |
+
+`updateFacts` draws a fresh salt every time, so a new commitment cannot be
+linked to the old one by equality even when the figures are unchanged. A
+Loan keeps the salt of the commitment it was opened with, so the lender's
+binding check (`factsMatchSolvencyProof`) still compares two public hashes.
+
+Not capped: Wave 1 `SolvencyProof` claims. A lender can re-request after each
+decision, and every round needs a new proof from the borrower; the Wave 1
+screens do not yet show a refusal for a cap, so it is left for Wave 3.
+
 ---
 
 ## Tests and scripts
@@ -407,8 +426,9 @@ all of it on every push.
   loans back an application, not that the key has repaid loans. Per-loan keys
   would close this.
 - **One bit per proof.** Each `proveTier` discloses one comparison against a
-  public quote. A borrower who re-proves against many quotes from the same
-  lender narrows their figures; the console should warn before a re-proof.
+  public quote. A loan caps this at 3 quotes and one proof per quote
+  ([privacy hardening](#privacy-hardening-in-wave-2)); a borrower who opens
+  many loans with the same lender still answers once per quote on each.
 - **Browser console skips proving.** It executes the circuits; it does not
   generate proofs.
 - **Preprod** <!-- VERIFY: replace with tx links, or keep -->: deployment runs

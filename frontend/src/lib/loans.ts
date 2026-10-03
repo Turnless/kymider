@@ -62,6 +62,18 @@ export type LoanView = {
   status: LoanStatusName;
   /** Null until the lender quotes. */
   quote: LoanQuote | null;
+  /**
+   * Quotes made on this loan so far, and the most the contract allows. Each
+   * quote buys the lender one yes/no answer about the private facts, so the
+   * contract caps them ("quote limit reached").
+   */
+  quotesIssued: number;
+  quoteLimit: number;
+  /**
+   * A tier was proven against the current quote. One proof per quote: another
+   * answer needs a new quote ("already proven against this quote").
+   */
+  tierProven: boolean;
   tier: TierName;
   tierExpiresAt: bigint;
   /** True while a VERIFIED tier is live at `now`. */

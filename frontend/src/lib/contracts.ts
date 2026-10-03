@@ -65,6 +65,8 @@ export {
   createLoanPrivateState,
   createRegistryPrivateState,
   createSolvencyPrivateState,
+  freshFactsSalt,
+  NO_FACTS_SALT,
   loanDirectoryWitnesses,
   loanPaymentNonce,
   loanWitnesses,
@@ -72,6 +74,7 @@ export {
   solvencyWitnesses,
 } from '../../../contracts/witnesses.js';
 export type {
+  FactsOpening,
   LoanDirectoryPrivateState,
   LoanPrivateState,
   RegistryPrivateState,
@@ -84,6 +87,7 @@ export {
   VERIFIED_RATIO_BPS,
   amountDue,
   collateralFor,
+  commitFacts,
   defaultableFrom,
   installmentFor,
   owedFor,

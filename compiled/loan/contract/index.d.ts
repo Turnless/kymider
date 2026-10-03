@@ -23,6 +23,7 @@ export type Quote = { thresholdNetWorth: bigint;
 export type Witnesses<PS> = {
   localSk(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
   paymentNonce(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
+  factsSalt(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
 }
 
 export type ImpureCircuits<PS> = {
@@ -64,10 +65,12 @@ export type ProvableCircuits<PS> = {
 }
 
 export type PureCircuits = {
+  quoteLimit(): bigint;
   getDappPubKey(sk_0: Uint8Array): Uint8Array;
 }
 
 export type Circuits<PS> = {
+  quoteLimit(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, bigint>;
   getDappPubKey(context: __compactRuntime.CircuitContext<PS>, sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
   quoteTerms(context: __compactRuntime.CircuitContext<PS>,
              thresholdNetWorth_0: bigint,
@@ -95,6 +98,8 @@ export type Ledger = {
   readonly status: LoanStatus;
   readonly quote: Quote;
   readonly quoted: boolean;
+  readonly quotesIssued: bigint;
+  readonly tierProven: boolean;
   readonly tier: Tier;
   readonly tierExpiresAt: bigint;
   readonly collateralRequired: bigint;

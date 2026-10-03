@@ -16,5 +16,7 @@ export {
   tierIsLive,
   defaultableFrom,
   commitFacts,
+  hashFacts,
+  FACTS_COMMITMENT_TAG,
   nowSeconds,
 } from '../../contracts/loanMath.js';

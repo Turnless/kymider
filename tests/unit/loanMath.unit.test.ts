@@ -15,14 +15,14 @@ import {
   owedFor,
   tierIsLive,
 } from '../../client/proof/loanMath.js';
-import { LoanSimulator, T0, commitFacts, pubKeyOf, skFrom } from './support/simulators.js';
+import { LoanSimulator, T0, TEST_SALT, commitFacts, pubKeyOf, skFrom } from './support/simulators.js';
 
 const BORROWER_SK = skFrom(1);
 const LENDER_SK = skFrom(2);
 const FACTS = { balance: 1_000_000n, debts: 300_000n, income: 1_000_000n };
 
 const open = (terms: { principal: bigint; interestBps: bigint; installments: bigint; periodSeconds: bigint }) =>
-  new LoanSimulator(BORROWER_SK, pubKeyOf(LENDER_SK), terms, commitFacts(FACTS), new Uint8Array(32))
+  new LoanSimulator(BORROWER_SK, pubKeyOf(LENDER_SK), terms, commitFacts(FACTS, TEST_SALT), new Uint8Array(32))
     .as(LENDER_SK)
     .quoteTerms(500_000n, 40n, T0 + 86_400n);
 

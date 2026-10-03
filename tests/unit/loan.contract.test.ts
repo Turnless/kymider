@@ -20,6 +20,7 @@ import {
   SolvencySimulator,
   T0,
   commitFacts,
+  TEST_SALT,
   pubKeyOf,
   skFrom,
 } from './support/simulators.js';
@@ -47,7 +48,7 @@ const QUOTE_TTL = 7n * 86_400n;
 const GRACE = 259_200n; // 3 days
 
 const deploy = (terms = TERMS): LoanSimulator =>
-  new LoanSimulator(BORROWER_SK, LENDER_PK, terms, commitFacts(FACTS), HISTORY_SEED);
+  new LoanSimulator(BORROWER_SK, LENDER_PK, terms, commitFacts(FACTS, TEST_SALT), HISTORY_SEED);
 
 const quoted = (): LoanSimulator =>
   deploy().as(LENDER_SK).quoteTerms(BAR.thresholdNetWorth, BAR.maxDti, T0 + QUOTE_TTL);
@@ -87,7 +88,7 @@ describe('Loan — deployment', () => {
     expect(hex(state.borrower)).toBe(hex(BORROWER_PK));
     expect(hex(state.lender)).toBe(hex(LENDER_PK));
     expect(state.terms).toEqual(TERMS);
-    expect(hex(state.factsCommitment)).toBe(hex(commitFacts(FACTS)));
+    expect(hex(state.factsCommitment)).toBe(hex(commitFacts(FACTS, TEST_SALT)));
     expect(state.status).toBe(LoanStatus.APPLIED);
     expect(state.tier).toBe(Tier.NONE);
     expect(state.quoted).toBe(false);
@@ -96,7 +97,7 @@ describe('Loan — deployment', () => {
 
   it("carries over the commitment published by the borrower's SolvencyProof instance", () => {
     const solvency = new SolvencySimulator(FACTS, BORROWER_SK);
-    expect(hex(solvency.ledger().commitment)).toBe(hex(commitFacts(FACTS)));
+    expect(hex(solvency.ledger().commitment)).toBe(hex(commitFacts(FACTS, TEST_SALT)));
   });
 
   it('refuses terms it cannot honour', () => {
@@ -113,7 +114,7 @@ describe('Loan — deployment', () => {
 
   it('refuses a borrower lending to themselves', () => {
     expect(
-      () => new LoanSimulator(BORROWER_SK, BORROWER_PK, TERMS, commitFacts(FACTS), HISTORY_SEED),
+      () => new LoanSimulator(BORROWER_SK, BORROWER_PK, TERMS, commitFacts(FACTS, TEST_SALT), HISTORY_SEED),
     ).toThrow(/borrower and lender must differ/);
   });
 });
@@ -182,7 +183,7 @@ describe('Loan — tier proof', () => {
 
   it('an insolvent borrower gets STANDARD even against a zero net-worth bar', () => {
     const insolvent = { balance: 100n, debts: 500n, income: 1_000_000n };
-    const sim = new LoanSimulator(BORROWER_SK, LENDER_PK, TERMS, commitFacts(insolvent), HISTORY_SEED)
+    const sim = new LoanSimulator(BORROWER_SK, LENDER_PK, TERMS, commitFacts(insolvent, TEST_SALT), HISTORY_SEED)
       .as(LENDER_SK)
       .quoteTerms(0n, 100n, T0 + QUOTE_TTL)
       .as(BORROWER_SK)
@@ -260,7 +261,7 @@ describe('Loan — underwriting', () => {
 
   it('accepts only the exact floor of the ratio', () => {
     const odd = { ...TERMS, principal: 1_001n }; // 110% = 1101.1, floored to 1101
-    const sim = new LoanSimulator(BORROWER_SK, LENDER_PK, odd, commitFacts(FACTS), HISTORY_SEED)
+    const sim = new LoanSimulator(BORROWER_SK, LENDER_PK, odd, commitFacts(FACTS, TEST_SALT), HISTORY_SEED)
       .as(LENDER_SK)
       .quoteTerms(BAR.thresholdNetWorth, BAR.maxDti, T0 + QUOTE_TTL)
       .as(BORROWER_SK)
