@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kymider, Midnight Buildathon Wave 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;700;800&display=swap">
+<style>
+  /* Same visual system as the Wave 1 deck (hackathon/wave1/DECK.html): the
+     console's cream, the landing page's near-black and amber. */
+  :root {
+    --ink: #17120E;
+    --ink-2: #221A14;
+    --cream: #FBF6EC;
+    --cream-2: #F1E7D6;
+    --amber: #E08A2B;
+    --amber-soft: #F2B366;
+    --muted: #A08F7D;
+    --line: #35291F;
+    --pass: #4FA97A;
+    --fail: #D9614F;
+    --sans: "Manrope", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--ink);
+    color: var(--cream);
+    font-family: var(--sans);
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .deck { position: relative; width: 100vw; height: 100vh; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: 5vh 5vw 7vh;
+  }
+  .slide.on { display: flex; }
+
+  /* ---------- type ---------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: clamp(10px, .92vw, 14px);
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 1.6vh;
+  }
+  h1 {
+    font-size: clamp(40px, 7.4vw, 110px);
+    font-weight: 800;
+    line-height: .95;
+    letter-spacing: -0.035em;
+  }
+  h2 {
+    font-size: clamp(24px, 3.1vw, 50px);
+    font-weight: 800;
+    line-height: 1.06;
+    letter-spacing: -0.025em;
+    max-width: 28ch;
+  }
+  .say {
+    font-size: clamp(14px, 1.32vw, 21px);
+    line-height: 1.5;
+    color: var(--cream-2);
+    max-width: 66ch;
+    margin-top: 1.6vh;
+  }
+  .say .hl { color: var(--amber-soft); font-weight: 700; }
+  .mono { font-family: var(--mono); }
+  .pass-t { color: var(--pass); }
+  .fail-t { color: var(--fail); }
+
+  /* ---------- cards ---------- */
+  .row { display: flex; gap: 2vw; align-items: flex-start; }
+  .col { flex: 1; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6vw; margin-top: 3vh; }
+  .card { border: 1px solid var(--line); background: var(--ink-2); border-radius: 9px; padding: 2.2vh 1.5vw; }
+  .card .k { font-family: var(--mono); font-size: clamp(9px, .82vw, 12px); letter-spacing: .16em; text-transform: uppercase; color: var(--amber); margin-bottom: 1vh; }
+  .card .v { font-size: clamp(13px, 1.2vw, 19px); line-height: 1.4; color: var(--cream-2); }
+  .card .n { font-family: var(--mono); font-size: clamp(26px, 3.4vw, 54px); font-weight: 600; line-height: 1; color: var(--cream); }
+  .card .v code, .say code, .t code { font-family: var(--mono); color: var(--amber-soft); }
+
+  /* ---------- the number ---------- */
+  .versus { display: grid; grid-template-columns: 1fr 1fr; gap: 2vw; margin-top: 3.4vh; max-width: 74vw; }
+  .versus .card { padding: 3vh 2vw; }
+  .versus .big { font-family: var(--mono); font-size: clamp(40px, 6.4vw, 104px); font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
+  .meter { height: 12px; border-radius: 6px; background: var(--line); margin-top: 2.2vh; overflow: hidden; }
+  .meter span { display: block; height: 100%; border-radius: 6px; }
+
+  /* ---------- flow ---------- */
+  .flow { display: flex; flex-direction: column; gap: 1.2vh; margin-top: 2.4vh; }
+  .step { display: grid; grid-template-columns: 9ch 1fr; gap: 1.2vw; align-items: baseline; }
+  .step .n { font-family: var(--mono); font-size: clamp(10px, .88vw, 13px); letter-spacing: .1em; padding: .35em 0; color: var(--muted); }
+  .step.local .n { color: var(--pass); }
+  .step.refuse .n { color: var(--fail); }
+  .step .t { font-size: clamp(13px, 1.22vw, 20px); line-height: 1.4; color: var(--cream-2); }
+
+  /* ---------- ledger table ---------- */
+  table.ledger { border-collapse: collapse; margin-top: 2.6vh; width: 100%; max-width: 80vw; font-size: clamp(12px, 1.08vw, 17px); }
+  table.ledger th, table.ledger td { text-align: left; padding: 1vh 1vw; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--cream-2); }
+  table.ledger th { font-family: var(--mono); font-size: clamp(9px, .8vw, 12px); letter-spacing: .16em; text-transform: uppercase; color: var(--amber); font-weight: 500; }
+  table.ledger td.priv { color: var(--pass); font-weight: 700; }
+  table.ledger td.pub { color: var(--cream); }
+
+  /* ---------- screenshots ----------
+     Shots live in deck/shots/. When one is missing, the <img> removes itself
+     and the frame shows its file name, so the deck still presents. */
+  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.4vw 1.6vw; margin-top: 2.4vh; max-width: 86vw; }
+  .shotcell { display: flex; flex-direction: column; gap: .8vh; }
+  .shot {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    max-height: 31vh;
+    border-radius: 9px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    box-shadow: 0 18px 44px rgba(0,0,0,.5);
+    background: var(--ink-2);
+  }
+  .shot::before {
+    content: attr(data-file);
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: clamp(10px, .9vw, 13px); letter-spacing: .08em;
+    color: var(--muted);
+    border: 1px dashed var(--line); border-radius: 9px;
+  }
+  .shot img { position: relative; display: block; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+  .cap { display: grid; grid-template-columns: auto 1fr; gap: .7vw; align-items: start; }
+  .cap .num {
+    width: clamp(17px, 1.4vw, 23px); height: clamp(17px, 1.4vw, 23px);
+    border-radius: 50%; background: var(--amber); color: #1A1206;
+    font-family: var(--mono); font-size: clamp(9px, .78vw, 12px); font-weight: 600;
+    display: grid; place-items: center; margin-top: .1em;
+  }
+  .cap .num.pass { background: var(--pass); color: #06180F; }
+  .cap .num.fail { background: var(--fail); color: #1A0703; }
+  .cap .txt { font-size: clamp(11px, .98vw, 15px); line-height: 1.4; color: var(--cream-2); }
+  .cap .txt b { color: var(--cream); }
+
+  /* ---------- chrome ---------- */
+  .chrome {
+    position: fixed; bottom: 1.8vh; left: 5vw; right: 5vw;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--mono); font-size: clamp(9px, .78vw, 12px);
+    letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
+  }
+  .bar { position: fixed; top: 0; left: 0; height: 2px; background: var(--amber); transition: width .3s ease; z-index: 5; }
+  .hint { position: fixed; bottom: 1.8vh; left: 50%; transform: translateX(-50%); color: var(--line); font-family: var(--mono); font-size: 10.5px; letter-spacing: .16em; }
+
+  @media (max-width: 760px) {
+    html, body { overflow: auto; }
+    .slide { position: relative; display: flex; min-height: 100vh; padding: 6vh 16px; }
+    .cards, .versus, .shots { grid-template-columns: 1fr; max-width: none; }
+    .row { flex-direction: column; }
+    .chrome, .hint { display: none; }
+  }
+
+  @media print {
+    @page { size: 330mm 186mm; margin: 0; }
+    html, body { overflow: visible; height: auto; }
+    .deck { height: auto; }
+    .chrome, .bar, .hint { display: none; }
+    .slide {
+      display: flex !important; position: relative; inset: auto;
+      width: 330mm; height: 186mm;
+      page-break-after: always; break-after: page;
+      background: var(--ink);
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="bar" id="bar"></div>
+<div class="deck" id="deck">
+
+  <!-- 1 · TITLE ......................................................... -->
+  <section class="slide on">
+    <p class="eyebrow">Midnight Buildathon &middot; Wave 2 &middot; Compact + MidnightJS</p>
+    <h1>Kymider</h1>
+    <p class="say" style="font-size:clamp(18px,2.1vw,34px); color:var(--amber-soft); font-weight:700; margin-top:2.4vh; max-width:34ch">
+      Prove solvency privately. Post 110% collateral, not 150%.
+    </p>
+    <p class="say">
+      A borrower proves in zero knowledge that their committed balance, debts and income
+      clear a lender&rsquo;s bar. The <span class="mono">Loan</span> contract then enforces
+      110% collateral and refuses any other figure. The figures never enter a transaction.
+    </p>
+    <div class="cards" style="max-width:70vw">
+      <div class="card"><p class="k">Live console</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">turnless.github.io/kymider</p></div>
+      <div class="card"><p class="k">Repository</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">github.com/Turnless/kymider</p></div>
+      <!-- VERIFY: PROOF.md with Preprod hashes exists -->
+      <div class="card"><p class="k">On-chain proof</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">PROOF.md &middot; Preprod</p></div>
+    </div>
+  </section>
+
+  <!-- 2 · PROBLEM ...................................................... -->
+  <section class="slide">
+    <p class="eyebrow">The problem</p>
+    <h2>DeFi lenders cannot see a borrower&rsquo;s finances, so every borrower pays the worst-case price.</h2>
+    <div class="row" style="margin-top:3vh">
+      <div class="col">
+        <p class="say" style="margin:0">
+          A lending protocol cannot ask for bank statements. It treats every borrower as
+          unknown and asks for <span class="hl">150% collateral</span>. A borrower with a clean
+          balance sheet pays the same as one without.
+        </p>
+        <p class="say">
+          Disclosing finances is the fix the setting cannot accept: it puts a financial history
+          on a public chain or in a counterparty&rsquo;s database. The lender does not want the
+          data. It wants one answer: <span class="hl">does this borrower clear our bar?</span>
+        </p>
+      </div>
+      <div class="col">
+        <div class="card"><p class="k">The borrower</p><p class="v">Locks up capital it could put to work, because it cannot show what it has without showing everything.</p></div>
+        <div class="card" style="margin-top:1.4vh"><p class="k">The lender</p><p class="v">Cannot offer a cheaper tier, because it has no signal it can rely on.</p></div>
+        <div class="card" style="margin-top:1.4vh"><p class="k">Disclosure</p><p class="v">Turns a one-bit question into a permanent data liability for both sides.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · THE NUMBER ................................................... -->
+  <section class="slide">
+    <p class="eyebrow">The number &middot; a 10,000 loan</p>
+    <h2>One bit of disclosure, 4,000 less collateral.</h2>
+    <div class="versus">
+      <div class="card">
+        <p class="k">Not verified &middot; Tier STANDARD</p>
+        <p class="big">15,000</p>
+        <div class="meter"><span style="width:100%; background:var(--muted)"></span></div>
+        <p class="v" style="margin-top:1.6vh">150% of principal. What every borrower posts today.</p>
+      </div>
+      <div class="card" style="border-color:var(--pass)">
+        <p class="k" style="color:var(--pass)">Verified &middot; Tier VERIFIED</p>
+        <p class="big pass-t">11,000</p>
+        <div class="meter"><span style="width:73.3%; background:var(--pass)"></span></div>
+        <p class="v" style="margin-top:1.6vh">110% of principal. Enforced in-circuit: the exact floor, nothing else passes.</p>
+      </div>
+    </div>
+    <p class="say" style="margin-top:3vh">
+      <span class="hl">27% less collateral</span> for the same loan (4,000 of 15,000), or
+      <span class="hl">36% more borrowing</span> on the same collateral (1.5 / 1.1).
+      The lender learns <span class="mono">VERIFIED</span>. It never learns the balance.
+    </p>
+  </section>
+
+  <!-- 4 · HOW IT WORKS ................................................. -->
+  <section class="slide">
+    <p class="eyebrow">How it works &middot; one Loan instance per loan</p>
+    <h2>The proof buys a price, and the contract holds the lender to it.</h2>
+    <div class="flow">
+      <div class="step local"><span class="n">LOCAL</span><span class="t">The borrower commits <code>hash(balance, debts, income)</code>. Figures stay on the device.</span></div>
+      <div class="step"><span class="n">CHAIN</span><span class="t"><code>deploy Loan(lender, terms, commitment)</code> and <code>LoanDirectory.list</code>. Terms are public.</span></div>
+      <div class="step"><span class="n">CHAIN</span><span class="t"><code>quoteTerms</code> &nbsp; The lender names a net-worth floor, a max DTI and an expiry.</span></div>
+      <div class="step local"><span class="n">PROVE</span><span class="t"><code>proveTier</code> &nbsp; Facts are private circuit inputs; the circuit checks them against the commitment and writes <code>VERIFIED</code> or <code>STANDARD</code>.</span></div>
+      <div class="step"><span class="n">CHAIN</span><span class="t"><code>underwrite(collateral)</code> &nbsp; Accepted only if <code>collateral = floor(principal &times; 110% or 150%)</code>.</span></div>
+      <div class="step refuse"><span class="n">REFUSED</span><span class="t">A 150% ask on a verified borrower: <code>collateral does not match the tier</code>.</span></div>
+      <div class="step"><span class="n">CHAIN</span><span class="t"><code>disburse</code>, <code>repay &times; N</code>, <code>markDefault</code> after a 3-day grace. Lateness is block time.</span></div>
+      <div class="step local"><span class="n">PROVE</span><span class="t"><code>proveTwoRepaid</code> &nbsp; Two private Merkle paths, <code>checkRoot</code> against the directory. Public result: &ldquo;2 repaid loans&rdquo;.</span></div>
+    </div>
+    <p class="say" style="margin-top:2.4vh">
+      Compact has no division. The client computes each quotient; the circuit checks it by
+      cross-multiplying: <code>v&times;10000 &le; p&times;ratio &lt; (v+1)&times;10000</code>.
+    </p>
+  </section>
+
+  <!-- 5 · DUAL LEDGER .................................................. -->
+  <section class="slide">
+    <p class="eyebrow">Midnight&rsquo;s dual ledger &middot; exactly what is private</p>
+    <h2>The facts are private. The loan is public, because a lender has to enforce it.</h2>
+    <table class="ledger">
+      <thead><tr><th>Datum</th><th>Ledger</th><th>Mechanism</th></tr></thead>
+      <tbody>
+        <tr><td>Balance, debts, income</td><td class="priv">Private</td><td>Circuit inputs to <span class="mono">proveTier</span>; only <span class="mono">persistentHash</span> of them is public</td></tr>
+        <tr><td>Secret key, history seed, payment nonces</td><td class="priv">Private</td><td>Witnesses <span class="mono">localSk</span>, <span class="mono">paymentNonce</span></td></tr>
+        <tr><td>Which loans back a history proof</td><td class="priv">Private</td><td><span class="mono">HistoricMerkleTree</span> paths + <span class="mono">checkRoot</span></td></tr>
+        <tr><td>Tier <span class="mono">VERIFIED</span> / <span class="mono">STANDARD</span> and its expiry</td><td class="pub">Public</td><td><span class="mono">disclose()</span>: the one bit the borrower gives</td></tr>
+        <tr><td>Quote, terms, collateral, balance owed, due date</td><td class="pub">Public</td><td>Enforced by block time and caller checks</td></tr>
+        <tr><td>Payments made, late payments, history chain head</td><td class="pub">Public</td><td><span class="mono">Counter</span> + hash chain; openable to an auditor</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 6 · DEMO A ....................................................... -->
+  <!-- VERIFY: shots 01-08 captured into hackathon/wave2/deck/shots/ from the
+       shipped Wave 2 console; captions match what the screens show. -->
+  <section class="slide">
+    <p class="eyebrow">Live console &middot; the borrower and the lender</p>
+    <div class="shots">
+      <div class="shotcell">
+        <div class="shot" data-file="deck/shots/01-landing.jpg"><img src="deck/shots/01-landing.jpg" alt="Kymider landing page" onerror="this.remove()"></div>
+        <div class="cap"><span class="num">1</span><span class="txt"><b>No install.</b> The console runs the compiled contracts in the browser.</span></div>
+      </div>
+      <div class="shotcell">
+        <div class="shot" data-file="deck/shots/02-borrower-loans.jpg"><img src="deck/shots/02-borrower-loans.jpg" alt="Borrower's loans with both collateral prices" onerror="this.remove()"></div>
+        <div class="cap"><span class="num">2</span><span class="txt"><b>Both prices up front.</b> 11,000 if verified, 15,000 if not.</span></div>
+      </div>
+      <div class="shotcell">
+        <div class="shot" data-file="deck/shots/03-prove-tier.jpg"><img src="deck/shots/03-prove-tier.jpg" alt="Borrower proves the tier: VERIFIED" onerror="this.remove()"></div>
+        <div class="cap"><span class="num pass">3</span><span class="txt"><b>Prove tier &rarr; VERIFIED.</b> One word reaches the ledger.</span></div>
+      </div>
+      <div class="shotcell">
+        <div class="shot" data-file="deck/shots/04-lender-underwrite.jpg"><img src="deck/shots/04-lender-underwrite.jpg" alt="Lender underwrites at 110% with figures not disclosed" onerror="this.remove()"></div>
+        <div class="cap"><span class="num">4</span><span class="txt"><b>The lender&rsquo;s view.</b> Tier VERIFIED; balance, debts, income <i>not disclosed</i>. Underwrite at 11,000.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · DEMO B ....................................................... -->
+  <!-- VERIFY: 05 needs a console control that submits a non-tier collateral
+       (LoanDesk.underwrite took no figure at a0337b1); 07 needs /app/audit and
+       contracts/audit.ts implemented; 08 needs the Live view and Preprod. -->
+  <section class="slide">
+    <p class="eyebrow">Live console &middot; refusal, history, auditor, chain</p>
+    <div class="shots">
+      <div class="shotcell">
+        <div class="shot" data-file="deck/shots/05-refusal-150.jpg"><img src="deck/shots/05-refusal-150.jpg" alt="The contract refuses 150% collateral for a verified borrower" onerror="this.remove()"></div>
+        <div class="cap"><span class="num fail">5</span><span class="txt"><b>150% refused.</b> &ldquo;collateral does not match the tier&rdquo;, the contract&rsquo;s own assert.</span></div>
+      </div>
+      <div class="shotcell">
+        <div class="shot" data-file="deck/shots/06-repaid-history.jpg"><img src="deck/shots/06-repaid-history.jpg" alt="Repaid loan and a two-repaid-loans history proof" onerror="this.remove()"></div>
+        <div class="cap"><span class="num pass">6</span><span class="txt"><b>Repaid, then proven.</b> &ldquo;2 repaid loans&rdquo; on a new application; which loans stays private.</span></div>
+      </div>
+      <div class="shotcell">
+        <div class="shot" data-file="deck/shots/07-auditor.jpg"><img src="deck/shots/07-auditor.jpg" alt="Auditor verifies a payment-history disclosure" onerror="this.remove()"></div>
+        <div class="cap"><span class="num">7</span><span class="txt"><b>Auditor (Wave 3 preview).</b> The disclosed history lands exactly on the on-chain commitment.</span></div>
+      </div>
+      <div class="shotcell">
+        <div class="shot" data-file="deck/shots/08-live.jpg"><img src="deck/shots/08-live.jpg" alt="Live view reading Preprod through the indexer" onerror="this.remove()"></div>
+        <div class="cap"><span class="num">8</span><span class="txt"><b>Live.</b> The deployed Preprod instances, read through the indexer. Hashes in PROOF.md.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 · ENGINEERING EVIDENCE ......................................... -->
+  <section class="slide">
+    <p class="eyebrow">Engineering evidence &middot; every number links to the repo</p>
+    <h2>Refusals are the product, so every refusal has a test.</h2>
+    <div class="cards" style="grid-template-columns:repeat(4,1fr)">
+      <div class="card">
+        <p class="n">4</p>
+        <p class="k" style="margin-top:1.2vh">Compact contracts</p>
+        <p class="v">20 exported circuits. Language 0.23, toolchain 0.31.1, compiled in CI on every push.</p>
+      </div>
+      <div class="card">
+        <p class="n pass-t">131</p>
+        <p class="k" style="margin-top:1.2vh">Offline tests</p>
+        <p class="v">Drive the compiled contracts: 47 Loan, 18 LoanDirectory, 12 arithmetic sweep, 54 Wave 1.</p>
+      </div>
+      <div class="card">
+        <p class="n" style="color:var(--amber)">18</p>
+        <p class="k" style="margin-top:1.2vh">Devnet cases</p>
+        <p class="v">Two wallets, real ZK proofs, node + indexer + proof server in Docker.</p>
+      </div>
+      <div class="card">
+        <p class="n">24</p>
+        <p class="k" style="margin-top:1.2vh">Mutation kills</p>
+        <p class="v">Altering the collateral ratio, a late flag or the proof count fails 24 tests.</p>
+      </div>
+    </div>
+    <p class="say" style="margin-top:3vh">
+      Time is tested to the second: quote expiry, a payment exactly on its due date, a default
+      one second inside the grace period. The payment-history chain is rebuilt from the seed and
+      compared byte for byte. Forged Merkle paths, someone else&rsquo;s record and a loan vouching
+      for itself are all refused.
+    </p>
+  </section>
+
+  <!-- 9 · MARKET ....................................................... -->
+  <section class="slide">
+    <p class="eyebrow">Market and adoption</p>
+    <h2>The buyer is a DeFi lender that wants a cheaper tier without KYC.</h2>
+    <div class="cards">
+      <div class="card">
+        <p class="k">Who</p>
+        <p class="v">Lending protocols that over-collateralize at 150% and up because they cannot assess a borrower. Their borrowers with balance sheets the protocol cannot see.</p>
+      </div>
+      <div class="card">
+        <p class="k">Adoption path</p>
+        <p class="v">One protocol adds a verified tier. The borrower generates one proof per loan. No regulatory change, no new identity system. Then regulated lenders, through the Wave 3 auditor and attestation channel.</p>
+      </div>
+      <div class="card">
+        <p class="k">The dependency</p>
+        <p class="v">Figures are self-reported today. A data provider co-signing facts into private state makes the tier worth more than its arithmetic. That is a partnership, not more cryptography.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 · WHAT CHANGED ................................................ -->
+  <section class="slide">
+    <p class="eyebrow">What changed since Wave 1</p>
+    <h2>Wave 1 proved creditworthiness. Wave 2 makes the proof buy a price.</h2>
+    <table class="ledger">
+      <thead><tr><th></th><th>Wave 1</th><th>Wave 2</th></tr></thead>
+      <tbody>
+        <tr><td>Contracts / circuits</td><td>2 / 9</td><td class="pub">4 / 20 &middot; + Loan, LoanDirectory</td></tr>
+        <tr><td>What a proof buys</td><td>PASS / FAIL</td><td class="pub">110% vs 150% collateral, enforced in-circuit</td></tr>
+        <tr><td>Compact features</td><td>Witness, commitments, Map/Set, Counter</td><td class="pub">+ block time, HistoricMerkleTree + checkRoot, a 2nd witness, division-free quotient checks</td></tr>
+        <tr><td>Offline tests / devnet cases</td><td>49 / 11</td><td class="pub">131 / 18</td></tr>
+        <!-- VERIFY: Preprod deploy done and PROOF.md published; else "Preprod: pending" -->
+        <tr><td>On-chain</td><td>Local devnet</td><td class="pub">Preprod, hashes in PROOF.md</td></tr>
+        <tr><td>Console</td><td>Solvency screens</td><td class="pub">+ loan desk, portfolio, auditor preview, Live view</td></tr>
+        <!-- VERIFY: owner applied the AKINDO record fixes -->
+        <tr><td>AKINDO record</td><td>Repo unlinked, private, tagged Base</td><td class="pub">Repo connected, public, tagged Midnight</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 11 · ROADMAP ..................................................... -->
+  <section class="slide">
+    <p class="eyebrow">Roadmap &middot; and what is simulated today</p>
+    <h2>Wave 3 closes the gaps we name.</h2>
+    <div class="cards">
+      <div class="card"><p class="k">Auditor views</p><p class="v">The preview exists: a borrower opens a loan&rsquo;s payment history; the auditor checks it against the on-chain commitment. Wave 3 adds a read-only regulator dashboard.</p></div>
+      <div class="card"><p class="k">Attested provenance</p><p class="v">A data provider co-signs facts at ingestion. The same allowlist stops a borrower minting repayment records by lending to themselves.</p></div>
+      <div class="card"><p class="k">Bank channel</p><p class="v">Signed, expirable attestations a bank verifies offline, with no Midnight node on its side.</p></div>
+    </div>
+    <p class="say" style="margin-top:3.4vh">
+      <span class="hl">Simulated today:</span> no token moves (collateral and balances are
+      figures in contract state); figures are self-reported; the browser console executes circuits
+      without generating proofs. Unaudited.
+    </p>
+  </section>
+
+  <!-- 12 · TEAM / ASK .................................................. -->
+  <section class="slide">
+    <p class="eyebrow">Kymider &middot; Wave 2</p>
+    <h1 style="font-size:clamp(34px,5.6vw,84px)">Prove it privately.<br><span style="color:var(--amber)">Post 110%.</span></h1>
+    <div class="cards" style="max-width:80vw; margin-top:4vh">
+      <div class="card"><p class="k">Team</p><p class="v">{{OWNER_NAME}}, solo builder: contracts, client, console, CI.</p></div>
+      <div class="card"><p class="k">The ask</p><p class="v">An introduction to one Midnight lending protocol, and one data provider willing to co-sign facts.</p></div>
+      <div class="card"><p class="k">Try it</p><p class="v mono" style="font-size:clamp(11px,1vw,15px)">turnless.github.io/kymider<br>github.com/Turnless/kymider<br>Apache-2.0</p></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="chrome">
+  <span>Kymider &middot; 110%, not 150%</span>
+  <span id="count">1 / 12</span>
+</div>
+<div class="hint" id="hint">&larr; &rarr; navigate &middot; F fullscreen &middot; P print to PDF</div>
+
+<script>
+(function () {
+  "use strict";
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var count = document.getElementById('count');
+  var bar = document.getElementById('bar');
+  var hint = document.getElementById('hint');
+  var i = 0;
+
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (s, idx) { s.classList.toggle('on', idx === i); });
+    count.textContent = (i + 1) + ' / ' + slides.length;
+    bar.style.width = (((i + 1) / slides.length) * 100) + 'vw';
+    if (i > 0 && hint) hint.style.display = 'none';
+    try { history.replaceState(null, '', '#' + (i + 1)); } catch (e) {}
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(i + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(i - 1); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (e.key === 'f' || e.key === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+    else if (e.key === 'p' || e.key === 'P') window.print();
+  });
+
+  document.addEventListener('click', function (e) {
+    if (window.innerWidth <= 760) return;
+    show(e.clientX > window.innerWidth / 2 ? i + 1 : i - 1);
+  });
+
+  // /DECK.html#7 opens slide 7.
+  function fromHash() {
+    var n = parseInt((location.hash || '').replace('#', ''), 10);
+    return Number.isFinite(n) && n > 0 ? n - 1 : 0;
+  }
+  window.addEventListener('hashchange', function () {
+    if (fromHash() !== i) show(fromHash());
+  });
+
+  show(fromHash());
+})();
+</script>
+</body>
+</html>
