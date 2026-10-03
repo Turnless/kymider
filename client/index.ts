@@ -48,6 +48,7 @@ import type { KymiderProviders } from './providers.js';
 import type { FinancialFacts, ClaimParams } from './proof/solvencyProof.js';
 import { computeSolvency } from './proof/solvencyProof.js';
 import { bytesToHex, bytesEqual } from './utils.js';
+import { DEPLOY_CIRCUIT, emitReceipt, type TxSink } from './txlog.js';
 
 export type BorrowerRow = {
   instanceAddress: ContractAddress;
@@ -65,6 +66,9 @@ export class KymiderClient {
     readonly providers: KymiderProviders,
     private readonly solvencyPrivateStateId: string = SOLVENCY_PRIVATE_STATE_ID,
     private readonly registryPrivateStateId: string = REGISTRY_PRIVATE_STATE_ID,
+    // Optional receipt sink: called once per finalized transaction this
+    // client submits (deploys included) with its public tx data. See txlog.ts.
+    private readonly onTx?: TxSink,
   ) {}
 
   // --- identity -----------------------------------------------------------
@@ -98,6 +102,7 @@ export class KymiderClient {
       args: [facts.balance, facts.debts, facts.income],
     });
     const address = deployed.deployTxData.public.contractAddress;
+    emitReceipt(this.onTx, 'SolvencyProof', address, DEPLOY_CIRCUIT, deployed.deployTxData.public);
     this.providers.solvency.privateStateProvider.setContractAddress(address);
     await this.providers.solvency.privateStateProvider.set(this.solvencyPrivateStateId, privateState);
     this.logger.info(`SolvencyProof instance deployed at ${address}`);
@@ -112,6 +117,7 @@ export class KymiderClient {
       initialPrivateState: privateState,
     });
     const address = deployed.deployTxData.public.contractAddress;
+    emitReceipt(this.onTx, 'Registry', address, DEPLOY_CIRCUIT, deployed.deployTxData.public);
     this.providers.registry.privateStateProvider.setContractAddress(address);
     await this.providers.registry.privateStateProvider.set(this.registryPrivateStateId, privateState);
     this.logger.info(`Registry deployed at ${address}`);
@@ -361,13 +367,14 @@ export class KymiderClient {
     args: SolvencyCircuitArgs,
   ): Promise<void> {
     this.providers.solvency.privateStateProvider.setContractAddress(solvencyAddress);
-    await submitCallTx<SolvencyProofContract, typeof circuitId>(this.providers.solvency, {
+    const finalized = await submitCallTx<SolvencyProofContract, typeof circuitId>(this.providers.solvency, {
       compiledContract: CompiledSolvencyProofContract,
       contractAddress: solvencyAddress,
       privateStateId: this.solvencyPrivateStateId,
       circuitId,
       args,
     });
+    emitReceipt(this.onTx, 'SolvencyProof', solvencyAddress, circuitId, finalized.public);
   }
 
   async submitRegistryCall(
@@ -376,13 +383,14 @@ export class KymiderClient {
     args: RegistryCircuitArgs,
   ): Promise<void> {
     this.providers.registry.privateStateProvider.setContractAddress(registryAddress);
-    await submitCallTx<RegistryContract, typeof circuitId>(this.providers.registry, {
+    const finalized = await submitCallTx<RegistryContract, typeof circuitId>(this.providers.registry, {
       compiledContract: CompiledRegistryContract,
       contractAddress: registryAddress,
       privateStateId: this.registryPrivateStateId,
       circuitId,
       args,
     });
+    emitReceipt(this.onTx, 'Registry', registryAddress, circuitId, finalized.public);
   }
 
   // --- internals ----------------------------------------------------------

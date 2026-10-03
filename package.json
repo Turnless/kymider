@@ -27,6 +27,9 @@
     "loan:deploy": "vite-node client/loan-deploy.ts",
     "loan:demo": "vite-node client/loan-demo.ts",
     "check-balance": "vite-node client/check-balance.ts",
+    "prove:onchain": "vite-node scripts/prove-onchain.ts",
+    "verify:onchain": "vite-node scripts/verify-onchain.ts",
+    "verify:preprod": "cross-env MIDNIGHT_NETWORK=preprod vite-node scripts/verify-onchain.ts",
     "setup": "npm run env:up && npm run build:contracts && npm run wait:dust",
     "validate": "npm run env:up && npm run wait:dust && npm run test:simulation && npm run env:down"
   },

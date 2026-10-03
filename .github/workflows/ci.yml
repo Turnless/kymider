@@ -8,7 +8,8 @@ name: CI
 # Layout:
 #   contracts  -> compile the Compact programs, cache + publish compiled/
 #   unit       -> typecheck + unit and offline contract tests (no Docker)
-#   simulation -> docker compose devnet + the two-wallet ZK simulation
+#   simulation -> docker compose devnet + the two-wallet ZK simulation, then
+#                 prove:onchain + verify:onchain (artifact `proof-local`)
 
 on:
   push:
@@ -243,7 +244,9 @@ jobs:
     name: Devnet simulation
     needs: contracts
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # The simulations plus prove:onchain, which submits about 30 more proven
+    # transactions.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -274,6 +277,38 @@ jobs:
 
       - name: Run the devnet simulations (Wave 1, Wave 2)
         run: npm run test:simulation
+
+      # The whole story again as one recorded run: fresh contracts, the Wave 1
+      # claim flow, loans at 110% and 150% to REPAID, and the two-loan history
+      # proof. Writes PROOF.md and frontend/public/deployments/local.json from
+      # the receipts. These are devnet hashes: they go in the artifact below,
+      # never in a commit (the public record comes from preprod.yml).
+      - name: Prove on the devnet (every transaction recorded)
+        # Clear any committed record first, so the artifact below can only
+        # ever hold what this run wrote.
+        run: |
+          rm -f PROOF.md frontend/public/deployments/local.json
+          npm run prove:onchain
+        env:
+          MIDNIGHT_NETWORK: local
+
+      # Independent, read-only re-check from the indexer: every claim in
+      # PROOF.md and every transaction hash.
+      - name: Verify the record against the devnet
+        run: npm run verify:onchain
+        env:
+          MIDNIGHT_NETWORK: local
+
+      - name: Upload the devnet proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-local
+          path: |
+            PROOF.md
+            frontend/public/deployments/local.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Devnet logs
         if: failure()
