@@ -135,7 +135,7 @@ lender's application list shows **2 prior repaid loans proven**.
 transactions. Click one hash into the explorer.
 
 > The same contracts run on Midnight Preprod. These are the transactions.
-> {{UNIT_TESTS}} offline tests, {{E2E_TESTS}} browser tests and a devnet run
+> 302 offline tests, 46 browser tests and a devnet run
 > with real proofs back every step in CI.
 
 *Read the two numbers as filled in at recording time.*

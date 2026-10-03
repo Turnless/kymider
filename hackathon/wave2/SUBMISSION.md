@@ -27,8 +27,8 @@ private entry, earned points (see `hackathon/wave1-results.md`).
       deck (PDF export of `hackathon/wave2/DECK.html`, {{DECK_PDF_URL}}).
 - [ ] `PROOF.md` lists the Preprod tx hashes ({{PREPROD_TX}}), and the README
       table links to it.
-- [ ] Fill every placeholder: `{{UNIT_TESTS}}`, `{{UNIT_TEST_FILES}}`,
-      `{{E2E_TESTS}}`, `{{CIRCUITS}}`, `{{LOAN_CIRCUITS}}`, `{{VIDEO_URL}}`,
+- [ ] Fill every placeholder: `302`, `11`,
+      `46`, `22`, `9`, `{{VIDEO_URL}}`,
       `{{DECK_PDF_URL}}`, `{{PREPROD_TX}}`, `{{OWNER_NAME}}` (deck slide 12).
       Resolve every `<!-- VERIFY -->` in `README.md`, this file, `DECK.html`,
       `VIDEO-SCRIPT.md` and `X-THREAD.md`.
@@ -75,9 +75,9 @@ records repaid loans in a HistoricMerkleTree, so a borrower can prove "two
 prior loans repaid" on a new application without naming the loans, lenders or
 amounts.
 
-Evidence: 4 Compact contracts ({{CIRCUITS}} circuits) compiled in CI on
-toolchain 0.31.1; {{UNIT_TESTS}} offline tests on the compiled contracts;
-{{E2E_TESTS}} browser tests of the console; an 18-case devnet simulation with
+Evidence: 4 Compact contracts (22 circuits) compiled in CI on
+toolchain 0.31.1; 302 offline tests on the compiled contracts;
+46 browser tests of the console; an 18-case devnet simulation with
 real proofs on every push; Preprod transactions in PROOF.md. <!-- VERIFY: Preprod -->
 
 What is simulated: no token moves, and the figures are self-reported, so a
@@ -90,7 +90,7 @@ VERIFIED tier costs nothing to get today. Attested data provenance is Wave 3.
 All built Sep 27 - Oct 17, 2026, on the `wave2` branch
 (https://github.com/Turnless/kymider/tree/wave2).
 
-1. **`Loan` contract** (`contracts/loan.compact`, {{LOAN_CIRCUITS}} circuits):
+1. **`Loan` contract** (`contracts/loan.compact`, 9 circuits):
    per-loan lifecycle from application to repaid, defaulted or declined;
    `proveTier` against the borrower's salted facts commitment; 110% vs 150%
    collateral enforced with an exact-floor check (`isFloorOfBps`), because
@@ -104,8 +104,8 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch
    active listing marks it repaid), repayment records in a
    `HistoricMerkleTree<10>`, and `proveTwoRepaid`, which checks two private
    Merkle paths with `checkRoot`. <!-- VERIFY: listing lockdown merged -->
-3. **{{UNIT_TESTS}} offline tests** in {{UNIT_TEST_FILES}} files, all driving
-   the compiled contracts (Wave 1 had 49), plus **{{E2E_TESTS}} Playwright
+3. **302 offline tests** in 11 files, all driving
+   the compiled contracts (Wave 1 had 49), plus **46 Playwright
    tests** that run the README's judge path and each refusal at 1440 and 390 px
    in CI.
 4. **`LoanClient`** (`client/loans.ts`) and the CLIs `loan:deploy`, `loan:demo`,
@@ -134,9 +134,9 @@ Wave 1 proved creditworthiness as a PASS/FAIL attestation. Wave 2 makes the
 proof buy something: a lower collateral ratio that the lender cannot change and
 the borrower must accept.
 
-- Contracts: 2 → 4 (+ `Loan`, `LoanDirectory`); circuits 9 → {{CIRCUITS}}.
+- Contracts: 2 → 4 (+ `Loan`, `LoanDirectory`); circuits 9 → 22.
   https://github.com/Turnless/kymider/blob/wave2/contracts/loan.compact
-- Offline tests: 49 → {{UNIT_TESTS}}; browser tests: 0 → {{E2E_TESTS}}.
+- Offline tests: 49 → 302; browser tests: 0 → 46.
   https://github.com/Turnless/kymider/tree/wave2/tests/unit
 - Devnet simulation: 11 → 18 cases.
   https://github.com/Turnless/kymider/tree/wave2/tests/simulation

@@ -355,10 +355,10 @@
       <div class="card">
         <p class="n">4</p>
         <p class="k" style="margin-top:1.2vh">Compact contracts</p>
-        <p class="v">{{CIRCUITS}} circuits plus exported pure helpers. Language 0.23, toolchain 0.31.1, compiled in CI on every push.</p>
+        <p class="v">22 circuits plus exported pure helpers. Language 0.23, toolchain 0.31.1, compiled in CI on every push.</p>
       </div>
       <div class="card">
-        <p class="n pass-t" style="overflow-wrap:anywhere">{{UNIT_TESTS}}</p>
+        <p class="n pass-t" style="overflow-wrap:anywhere">302</p>
         <p class="k" style="margin-top:1.2vh">Offline tests</p>
         <p class="v">Drive the compiled contracts, every refusal included. <span class="mono">npm run test:unit</span></p>
       </div>
@@ -368,7 +368,7 @@
         <p class="v">Two wallets, real ZK proofs, node + indexer + proof server in Docker.</p>
       </div>
       <div class="card">
-        <p class="n" style="overflow-wrap:anywhere">{{E2E_TESTS}}</p>
+        <p class="n" style="overflow-wrap:anywhere">46</p>
         <p class="k" style="margin-top:1.2vh">Browser tests</p>
         <p class="v">Playwright on the console build at 1440 and 390 px: the judge path and each refusal, in CI.</p>
       </div>
@@ -408,10 +408,10 @@
     <table class="ledger">
       <thead><tr><th></th><th>Wave 1</th><th>Wave 2</th></tr></thead>
       <tbody>
-        <tr><td>Contracts / circuits</td><td>2 / 9</td><td class="pub">4 / {{CIRCUITS}} &middot; + Loan, LoanDirectory</td></tr>
+        <tr><td>Contracts / circuits</td><td>2 / 9</td><td class="pub">4 / 22 &middot; + Loan, LoanDirectory</td></tr>
         <tr><td>What a proof buys</td><td>PASS / FAIL</td><td class="pub">110% vs 150% collateral, enforced in-circuit, binding on the borrower&rsquo;s acceptance</td></tr>
         <tr><td>Compact features</td><td>Witness, commitments, Map/Set, Counter</td><td class="pub">+ block time, HistoricMerkleTree + checkRoot, salt and nonce witnesses, division-free quotient checks</td></tr>
-        <tr><td>Offline / browser tests / devnet cases</td><td>49 / 0 / 11</td><td class="pub">{{UNIT_TESTS}} / {{E2E_TESTS}} / 18</td></tr>
+        <tr><td>Offline / browser tests / devnet cases</td><td>49 / 0 / 11</td><td class="pub">302 / 46 / 18</td></tr>
         <!-- VERIFY: Preprod deploy done and PROOF.md published; else "Preprod: pending" -->
         <tr><td>On-chain</td><td>Local devnet</td><td class="pub">Preprod, hashes in PROOF.md</td></tr>
         <tr><td>Console</td><td>Solvency screens</td><td class="pub">+ loan desk, portfolio, auditor preview, Live view</td></tr>

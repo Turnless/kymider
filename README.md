@@ -23,7 +23,7 @@ never enter a transaction.
 
 | Live console | Video | Deck | On-chain proof | Tests | What is simulated |
 |---|---|---|---|---|---|
-| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | [{{VIDEO_URL}}]({{VIDEO_URL}}) | [DECK.html](./hackathon/wave2/DECK.html) · [PDF]({{DECK_PDF_URL}}) | [PROOF.md](./PROOF.md) <!-- VERIFY: PROOF.md exists and lists the Preprod tx hashes; until then link the green CI devnet run instead --> | {{UNIT_TESTS}} offline, {{E2E_TESTS}} browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
+| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | [{{VIDEO_URL}}]({{VIDEO_URL}}) | [DECK.html](./hackathon/wave2/DECK.html) · [PDF]({{DECK_PDF_URL}}) | [PROOF.md](./PROOF.md) <!-- VERIFY: PROOF.md exists and lists the Preprod tx hashes; until then link the green CI devnet run instead --> | 302 offline, 46 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
 
 ---
 
@@ -130,13 +130,13 @@ Sep 27 and Oct 17, 2026, on the [`wave2`](https://github.com/Turnless/kymider/tr
 
 | | Wave 1 | Wave 2 |
 |---|---|---|
-| Contracts | 2 (`SolvencyProof`, `Registry`), 9 circuits | 4: + [`Loan`](./contracts/loan.compact) ({{LOAN_CIRCUITS}} circuits) and [`LoanDirectory`](./contracts/loanDirectory.compact) (4 circuits); {{CIRCUITS}} circuits in total, plus exported pure helpers |
+| Contracts | 2 (`SolvencyProof`, `Registry`), 9 circuits | 4: + [`Loan`](./contracts/loan.compact) (9 circuits) and [`LoanDirectory`](./contracts/loanDirectory.compact) (4 circuits); 22 circuits in total, plus exported pure helpers |
 | What a proof buys | A PASS/FAIL attestation | A collateral ratio: 110% vs 150%, enforced in-circuit with an exact-floor check, binding only on the borrower's acceptance |
 | Lifecycle | Claim → verdict | Apply → quote → prove tier → lender offers → borrower accepts → disburse → repay / default |
 | Time | None | Block time: quote expiry, a minimum quote life, due dates, late flags, a 3-day grace period before default |
 | History | None | Payment-history hash chain per loan; two-repaid-loans proof over a `HistoricMerkleTree` |
-| Offline tests | 49 | {{UNIT_TESTS}} in {{UNIT_TEST_FILES}} files |
-| Browser tests | None | {{E2E_TESTS}} Playwright tests at 1440 and 390 px, in CI |
+| Offline tests | 49 | 302 in 11 files |
+| Browser tests | None | 46 Playwright tests at 1440 and 390 px, in CI |
 | Devnet simulation | 11 cases, 2 wallets | 18 cases (+7 Wave 2 lifecycle), run in CI on every push |
 | Client | `KymiderClient` | + [`LoanClient`](./client/loans.ts), `npm run loan:deploy`, `npm run loan:demo`, `prove:onchain` / `verify:onchain` |
 | Console | Solvency screens | + loan screens for borrower and lender, portfolio, auditor preview, Live chain view |
@@ -292,7 +292,7 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 
 ### Engineering & Implementation (40%)
 
-- **Compact contracts that compile:** 4 contracts, {{CIRCUITS}} circuits plus
+- **Compact contracts that compile:** 4 contracts, 22 circuits plus
   exported pure helpers, Compact language 0.23 / toolchain 0.31.1, compiled by
   the `contracts` job in [CI](./.github/workflows/ci.yml) on every push;
   compiled modules are tracked in [`compiled/*/contract/`](./compiled/).
@@ -310,11 +310,11 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 
 ### Quality Assurance & Reliability (15%)
 
-- **{{UNIT_TESTS}} offline tests** in {{UNIT_TEST_FILES}} files that drive the
+- **302 offline tests** in 11 files that drive the
   compiled contracts through simulators ([`tests/unit/`](./tests/unit/)),
   including every refusal, time edge cases to the second, and a byte-for-byte
   rebuild of the history chain from the seed.
-- **{{E2E_TESTS}} Playwright tests** on the production console build, at 1440
+- **46 Playwright tests** on the production console build, at 1440
   and 390 px: this README's fast path end to end, each refusal, and every route
   ([`frontend/e2e/`](./frontend/e2e/)).
 - **18 devnet cases** with real ZK proofs, two wallets, Midnight node + indexer
@@ -437,8 +437,8 @@ a real selective disclosure; that needs token settlement and is not built.
 ## Tests and scripts
 
 Totals are from `npm run test:unit` and `cd frontend && npm run e2e` on this
-branch: {{UNIT_TESTS}} offline tests in {{UNIT_TEST_FILES}} files, and
-{{E2E_TESTS}} browser tests. Per-file counts: `npx vitest run tests/unit --reporter=verbose`.
+branch: 302 offline tests in 11 files, and
+46 browser tests. Per-file counts: `npx vitest run tests/unit --reporter=verbose`.
 
 | Suite | Drives |
 |---|---|
@@ -466,9 +466,9 @@ Preprod when dispatched with a funded wallet secret.
 
 | Command | What it does |
 |---|---|
-| `npm run test:unit` | {{UNIT_TESTS}} offline tests, no Docker |
+| `npm run test:unit` | 302 offline tests, no Docker |
 | `npm run typecheck` | `tsc --noEmit` |
-| `cd frontend && npm run e2e` | {{E2E_TESTS}} Playwright tests on the production build |
+| `cd frontend && npm run e2e` | 46 Playwright tests on the production build |
 | `npm run build:contracts` | Compile all 4 contracts (Linux-only compiler) |
 | `npm run compile:fast` | Same, skipping ZK key generation |
 | `npm run env:up` / `env:down` | Start / stop the local devnet (node, indexer, proof server) |

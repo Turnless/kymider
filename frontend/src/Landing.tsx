@@ -6,13 +6,13 @@ import { Link } from 'react-router-dom';
  * rather than a number nobody measured.
  *
  *   UNIT_TESTS   `npm run test:unit` → "Tests  N passed"
- *   E2E_TESTS    `cd frontend && npm run e2e` → tests per project (desktop/phone)
+ *   E2E_TESTS    `cd frontend && npm run e2e` → total across the desktop and phone projects
  *   CIRCUITS     impure circuits across the 4 contracts (zkir files), pure
  *                helpers not counted
  */
-const UNIT_TESTS = '{{UNIT_TESTS}}';
-const E2E_TESTS = '{{E2E_TESTS}}';
-const CIRCUITS = '{{CIRCUITS}}';
+const UNIT_TESTS = '302';
+const E2E_TESTS = '46';
+const CIRCUITS = '22';
 /** tests/simulation: 11 Wave 1 + 7 Wave 2 cases. Recheck if the lifecycle adds one. */
 const DEVNET_CASES = '18';
 

@@ -90,9 +90,9 @@ Image: `06-repaid-history.jpg`.
 **5/7**
 
 > Evidence:
-> - 4 Compact contracts, {{CIRCUITS}} circuits, compiled in CI
-> - {{UNIT_TESTS}} offline tests on the compiled contracts
-> - {{E2E_TESTS}} browser tests of the console
+> - 4 Compact contracts, 22 circuits, compiled in CI
+> - 302 offline tests on the compiled contracts
+> - 46 browser tests of the console
 > - 18 devnet cases with real ZK proofs, every push
 > - Preprod hashes in PROOF.md <!-- VERIFY -->
 >
