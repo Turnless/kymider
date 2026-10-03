@@ -1,0 +1,26 @@
+{
+  "_comment": "EXAMPLE ONLY: placeholder values showing the schema. Not a deployment; the console never loads this file.",
+  "network": "preprod",
+  "indexer": "https://indexer.preprod.midnight.network/api/v4/graphql",
+  "indexerWS": "wss://indexer.preprod.midnight.network/api/v4/graphql/ws",
+  "generatedAt": "1970-01-01T00:00:00.000Z",
+  "contracts": {
+    "solvencyProof": "0000000000000000000000000000000000000000000000000000000000000001",
+    "registry": "0000000000000000000000000000000000000000000000000000000000000002",
+    "loanDirectory": "0000000000000000000000000000000000000000000000000000000000000003",
+    "loans": ["0000000000000000000000000000000000000000000000000000000000000004"]
+  },
+  "txs": [
+    {
+      "label": "Deploy SolvencyProof (example)",
+      "txHash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "blockHeight": 0,
+      "contract": "0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    {
+      "label": "Loan 1: repay (example)",
+      "txId": "2222222222222222222222222222222222222222222222222222222222222222",
+      "contract": "0000000000000000000000000000000000000000000000000000000000000004"
+    }
+  ]
+}
