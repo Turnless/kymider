@@ -50,12 +50,14 @@ export default function App() {
 function ConsoleRoutes() {
   const location = useLocation();
   const path = location.pathname;
-  const lenderRoute = ['/app/applications', '/app/loan/', '/app/directory', '/app/instance', '/app/portfolio'].some(
-    (p) => path.startsWith(p),
-  );
-  const [role, setRole] = useState<Role>(
-    path.startsWith('/app/audit') ? 'auditor' : lenderRoute ? 'lender' : 'borrower',
-  );
+  const routeRole = roleOf(path);
+  const [role, setRole] = useState<Role>(routeRole ?? 'borrower');
+
+  // A link can cross roles (the borrower's "go to the auditor" link, a lender
+  // deep link), so the rail follows the route, adjusted during render rather
+  // than in an effect. Live chain belongs to every role and keeps whichever
+  // one is selected.
+  if (routeRole && routeRole !== role) setRole(routeRole);
 
   return (
     <Console role={role} onRole={setRole} surface={role === 'borrower' ? 'cream' : 'sand'}>
@@ -83,4 +85,13 @@ function ConsoleRoutes() {
       </Routes>
     </Console>
   );
+}
+
+function roleOf(path: string): Role | null {
+  if (path.startsWith('/app/audit')) return 'auditor';
+  if (['/app/applications', '/app/loan/', '/app/directory', '/app/instance', '/app/portfolio'].some((p) => path.startsWith(p))) {
+    return 'lender';
+  }
+  if (['/app/overview', '/app/facts', '/app/claims', '/app/loans'].some((p) => path.startsWith(p))) return 'borrower';
+  return null;
 }

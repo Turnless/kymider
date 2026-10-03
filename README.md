@@ -30,50 +30,54 @@ Five minutes, no keys, nothing to install. Every refusal you see below is the
 contract's own `assert` message, raised by the compiled `Loan` and
 `LoanDirectory` contracts running in your browser.
 
-<!-- VERIFY: the Wave 2 loan screens are merged to main and published to
-     GitHub Pages (Pages deploys only from main, see .github/workflows/ci.yml),
-     and the screen names and routes below match the shipped console. -->
+<!-- VERIFY: wave2 merged to main so GitHub Pages (which deploys only from
+     main) serves the Wave 2 console. -->
 
 1. **Open** <https://turnless.github.io/kymider/> and click **Open the console**.
-   You start as the borrower. Your facts (balance, debts, income) are on the
-   **Private facts** screen; only their hash is on the ledger.
-2. **Apply.** Borrower → **Loans** → **Apply**: pick a lender, principal
-   10,000, 3 installments. The application shows both prices: 11,000 collateral
-   if verified, 15,000 otherwise. This deploys a `Loan` instance and lists it in
-   the `LoanDirectory`.
-3. **Quote.** Switch to **Lender** (bottom-left) → **Applications** → open the
-   loan → **Quote**: a net-worth floor, a maximum DTI and an expiry.
-4. **Prove the tier.** Switch back to **Borrower** → **Prove tier**. The
-   `proveTier` circuit checks the facts against the on-ledger commitment and the
-   quote, and writes one value: `VERIFIED` or `STANDARD`.
-5. **Underwrite at 110%.** As the lender, open the loan. You see the tier and
-   the collateral it fixes. Balance, debts and income read *not disclosed*.
-   Click **Underwrite**: collateral 11,000.
-6. **Watch the contract refuse 150%.** On a second verified application, ask
-   for 15,000 instead. The contract refuses with
-   `collateral does not match the tier`. A lender cannot quietly price a
-   verified borrower as unverified.
-   <!-- VERIFY: the console offers a way to submit a non-tier collateral figure.
-        As of commit a0337b1, LoanDesk.underwrite(address) computes the
-        collateral itself and takes no figure, so this step needs a dedicated
-        control (e.g. "Ask for 150%") on the underwriting screen. -->
-7. **Disburse and repay.** Lender → **Disburse**. Borrower → **Repay** three
-   times (on a 1,000 principal at 10%: 367, 367, 366). Use **Advance time** to
-   pay one installment late and see `latePayments` move; lateness is decided by
-   block time, not by the borrower.
-8. **Prove history.** With two loans repaid and recorded by their lender, open a
-   new application and **Prove history**. The directory records "2 repaid loans"
-   for that application, and not which loans, lenders or amounts.
-9. **Auditor check (Wave 3 preview).** Borrower → **Disclose** on a repaid loan,
-   then open **/app/audit**, paste the disclosure, and **Verify**. The auditor
-   recomputes the payment chain and checks it lands on the loan's on-chain
-   `historyCommitment`. Edit one amount and verify again: it fails.
-   <!-- VERIFY: /app/audit route exists and contracts/audit.ts is implemented
-        (it is signatures only at commit a0337b1). -->
-10. **On-chain.** Open **Live** in the console to read the Preprod instances
-    through the indexer, or see [PROOF.md](./PROOF.md) for the transaction
-    hashes. <!-- VERIFY: Live view (Lace connect + indexer reads) shipped;
-    Preprod deploy done. Otherwise replace this step with "pending". -->
+   You start as the borrower. **Private facts** holds your balance, debts and
+   income; only their commitment is on the ledger.
+2. **Apply.** Borrower → **Loans**. In the form, set principal **10,000**,
+   interest **10**%, **3** installments. Beside it: collateral **$11,000** with a
+   solvency proof (110%), **$15,000** without (150%). Click
+   **Apply to Harbor Bank**: this deploys a `Loan` instance bound to your facts
+   commitment and lists it in the `LoanDirectory`.
+3. **Quote.** Switch to **Lender** (role switch, bottom-left) → **Applications**
+   → the loan → **Send quote** (net worth ≥ $500,000, DTI ≤ 40%, valid 72 h).
+4. **Prove the tier.** Switch to **Borrower** → **Loans** → the loan →
+   **Prove tier**. The `proveTier` circuit checks your facts against the
+   on-ledger commitment and the quote, and writes one value: here
+   **Verified · 110%**.
+5. **Watch the contract refuse 150%.** As the lender, open the loan again. The
+   desk shows **11,000 (110%)**; under "What you can see, and what you cannot",
+   balance, debts and income are listed as never leaving the borrower. Click
+   **Ask for 150% anyway · 15,000**: the contract refuses with
+   `collateral does not match the tier`. A lender cannot price a verified
+   borrower as unverified.
+6. **Underwrite and disburse.** **Underwrite at 110% · 11,000**, then
+   **Disburse**: 11,000 owed in installments of 3,667, 3,667 and 3,666.
+7. **Repay, once late.** As the borrower, on the loan: **+31 days** (the demo
+   block clock), then **Repay $3,667** — recorded late, by block time, not by
+   the borrower. **Repay $3,667**, **+30 days**, **Repay $3,666**: **Repaid in
+   full**, 3 payments, 1 late. The payment log (private to this device) sits
+   next to the public record.
+8. **Record, then prove two repaid loans.** As the lender: **Record repayment in
+   the directory**. As the borrower, apply for a second loan; on it, under
+   **Prove two repaid loans**, tick two of your repaid loans and click
+   **Prove two repaid loans**. The lender's application list now shows
+   **2 prior repaid loans proven**, and not which loans, lenders or amounts.
+9. **Auditor check (Wave 3 preview).** On the repaid loan: **Open history to an
+   auditor** → **Copy JSON**. Switch to **Auditor** → paste →
+   **Verify against the chain**: **Verified**, "3 payments, 1 late, $11,000
+   repaid". Change one amount in the JSON and verify again: **Rejected**.
+10. **On chain.** **Live chain** reads deployed instances through the indexer,
+    and [PROOF.md](./PROOF.md) lists the transaction hashes from the Preprod run.
+    <!-- VERIFY: Preprod run done (PROOF.md and
+    frontend/public/deployments/preprod.json committed). Until then Live shows
+    "Not deployed to Preprod yet"; every CI run carries a local-devnet proof as
+    the proof-local artifact. -->
+
+This exact path runs in CI as a Playwright test at desktop and phone width
+([`frontend/e2e/fast-path.spec.ts`](./frontend/e2e/fast-path.spec.ts)).
 
 ---
 
