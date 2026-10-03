@@ -7,7 +7,8 @@ export enum ListingStatus { OPEN = 0,
                             CLOSED = 4
 }
 
-export type Listing = { borrower: Uint8Array;
+export type Listing = { loan: Uint8Array;
+                        borrower: Uint8Array;
                         lender: Uint8Array;
                         principal: bigint;
                         status: ListingStatus
@@ -23,10 +24,10 @@ export type ImpureCircuits<PS> = {
        lenderPk_0: Uint8Array,
        principal_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   updateStatus(context: __compactRuntime.CircuitContext<PS>,
-               loanAddr_0: Uint8Array,
+               listing_0: Uint8Array,
                status_0: ListingStatus): __compactRuntime.CircuitResults<PS, []>;
   recordRepaid(context: __compactRuntime.CircuitContext<PS>,
-               loanAddr_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+               listing_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   proveTwoRepaid(context: __compactRuntime.CircuitContext<PS>,
                  forLoan_0: Uint8Array,
                  loanA_0: Uint8Array,
@@ -51,10 +52,10 @@ export type ProvableCircuits<PS> = {
        lenderPk_0: Uint8Array,
        principal_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   updateStatus(context: __compactRuntime.CircuitContext<PS>,
-               loanAddr_0: Uint8Array,
+               listing_0: Uint8Array,
                status_0: ListingStatus): __compactRuntime.CircuitResults<PS, []>;
   recordRepaid(context: __compactRuntime.CircuitContext<PS>,
-               loanAddr_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+               listing_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   proveTwoRepaid(context: __compactRuntime.CircuitContext<PS>,
                  forLoan_0: Uint8Array,
                  loanA_0: Uint8Array,
@@ -78,6 +79,7 @@ export type PureCircuits = {
   repaidLeaf(borrowerPk_0: Uint8Array,
              loanAddr_0: Uint8Array,
              lenderPk_0: Uint8Array): Uint8Array;
+  listingKey(loanAddr_0: Uint8Array, borrowerPk_0: Uint8Array): Uint8Array;
 }
 
 export type Circuits<PS> = {
@@ -86,15 +88,18 @@ export type Circuits<PS> = {
              borrowerPk_0: Uint8Array,
              loanAddr_0: Uint8Array,
              lenderPk_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
+  listingKey(context: __compactRuntime.CircuitContext<PS>,
+             loanAddr_0: Uint8Array,
+             borrowerPk_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
   list(context: __compactRuntime.CircuitContext<PS>,
        loanAddr_0: Uint8Array,
        lenderPk_0: Uint8Array,
        principal_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   updateStatus(context: __compactRuntime.CircuitContext<PS>,
-               loanAddr_0: Uint8Array,
+               listing_0: Uint8Array,
                status_0: ListingStatus): __compactRuntime.CircuitResults<PS, []>;
   recordRepaid(context: __compactRuntime.CircuitContext<PS>,
-               loanAddr_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+               listing_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   proveTwoRepaid(context: __compactRuntime.CircuitContext<PS>,
                  forLoan_0: Uint8Array,
                  loanA_0: Uint8Array,

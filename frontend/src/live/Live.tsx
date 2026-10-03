@@ -3,11 +3,13 @@ import { LiveBadge } from '../components/LiveBadge';
 import { shortHex } from '../lib/client';
 import { createChainReader, type ContractRead, type TxLookup } from '../lib/live/chainReader';
 import { browserCodec } from '../lib/live/codecs';
-import type {
-  LoanDirectoryView,
-  LoanView,
-  RegistryView,
-  SolvencyProofView,
+import {
+  normalizeAddress,
+  reconcileListings,
+  type LoanDirectoryView,
+  type LoanView,
+  type RegistryView,
+  type SolvencyProofView,
 } from '../lib/live/decode';
 import {
   NETWORKS,
@@ -224,7 +226,12 @@ export function LiveView() {
                 <div className="flex flex-col gap-5">
                   {reads.contracts.map((r) =>
                     r.status === 'ok' ? (
-                      <StateCard key={r.address} read={r} label={labelFor(contracts, r.address)} />
+                      <StateCard
+                        key={r.address}
+                        read={r}
+                        label={labelFor(contracts, r.address)}
+                        loans={loansByAddress(reads.contracts)}
+                      />
                     ) : null,
                   )}
                 </div>
@@ -485,7 +492,24 @@ function WalletBadge({ wallet }: { wallet: WalletState }) {
 
 // --- state cards ----------------------------------------------------------
 
-function StateCard({ read, label }: { read: Extract<ContractRead, { status: 'ok' }>; label: string }) {
+/** Every Loan read, by normalized address: what a directory listing is checked against. */
+function loansByAddress(reads: readonly ContractRead[]): Map<string, LoanView> {
+  const out = new Map<string, LoanView>();
+  for (const r of reads) {
+    if (r.status === 'ok' && r.view.kind === 'loan') out.set(normalizeAddress(r.address), r.view);
+  }
+  return out;
+}
+
+function StateCard({
+  read,
+  label,
+  loans,
+}: {
+  read: Extract<ContractRead, { status: 'ok' }>;
+  label: string;
+  loans: ReadonlyMap<string, LoanView>;
+}) {
   const v = read.view;
   return (
     <section className="card overflow-hidden">
@@ -507,7 +531,7 @@ function StateCard({ read, label }: { read: Extract<ContractRead, { status: 'ok'
         ) : v.kind === 'registry' ? (
           <RegistryBody v={v} />
         ) : v.kind === 'loanDirectory' ? (
-          <DirectoryBody v={v} />
+          <DirectoryBody v={v} loans={loans} />
         ) : (
           <LoanBody v={v} />
         )}
@@ -557,7 +581,10 @@ function RegistryBody({ v }: { v: RegistryView }) {
   );
 }
 
-function DirectoryBody({ v }: { v: LoanDirectoryView }) {
+function DirectoryBody({ v, loans }: { v: LoanDirectoryView; loans: ReadonlyMap<string, LoanView> }) {
+  // A listing proves only who listed it: check its parties against the Loan's
+  // own, and take a default from the Loan (the directory never records one).
+  const rows = reconcileListings(v, loans);
   return (
     <>
       <Figures>
@@ -576,12 +603,25 @@ function DirectoryBody({ v }: { v: LoanDirectoryView }) {
               </tr>
             </thead>
             <tbody>
-              {v.listings.map((l) => (
-                <tr key={l.loan} className="border-t border-[rgba(15,23,42,0.06)]">
-                  <td className="mono py-[9px] pr-4 text-[11px]">{shortHex('0x' + l.loan, 8, 4)}</td>
+              {rows.map((l) => (
+                <tr key={l.key} className="border-t border-[rgba(15,23,42,0.06)]">
+                  <td className="mono py-[9px] pr-4 text-[11px]">
+                    {shortHex('0x' + l.loan, 8, 4)}
+                    {l.matchesLoan === false && (
+                      <span
+                        className="badge badge-fail ml-2"
+                        title="This listing's borrower or lender is not the Loan instance's own: someone else listed this address. Ignored."
+                      >
+                        not the loan's parties
+                      </span>
+                    )}
+                  </td>
                   <td className="tnum py-[9px] pr-4 text-[12px]">{l.principal.toLocaleString('en-US')}</td>
-                  <td className="py-[9px] text-right">
-                    <StatusPill status={l.status} />
+                  <td
+                    className="py-[9px] text-right"
+                    title={l.fromLoan ? 'From the Loan instance: the directory does not record defaults' : undefined}
+                  >
+                    <StatusPill status={l.shown} />
                   </td>
                 </tr>
               ))}

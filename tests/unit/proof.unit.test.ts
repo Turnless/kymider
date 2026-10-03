@@ -57,6 +57,7 @@ import {
   RegistrySimulator,
   SolvencySimulator,
   T0,
+  listingKey,
   pubKeyOf,
   repaidLeaf,
   skFrom,
@@ -65,6 +66,7 @@ import {
   CLAIM,
   FACTS,
   QUOTE,
+  REFUSALS,
   STEPS,
   STEP_LIST,
   TERMS_A,
@@ -122,6 +124,12 @@ type WorldOptions = {
   registryElsewhere?: boolean;
   /** Loan A's borrower accepts the 110% offer (default true); if not, A stops at OFFERED. */
   acceptA?: boolean;
+  /** The run recorded loan A's two refusals (default true; an older record has none). */
+  refusals?: boolean;
+  /** A stranger lists loan A's address first, under their own key. */
+  squatA?: boolean;
+  /** The borrower lists loan A naming this lender instead of the Loan's own. */
+  listALender?: Uint8Array;
 };
 
 function repayAll(loan: LoanSimulator): LoanSimulator {
@@ -139,14 +147,25 @@ function runLoan(
 ): LoanSimulator {
   const loan = new LoanSimulator(BORROWER_SK, pubKeyOf(lenderSk), terms, commitmentOf(facts), SEED);
   loan.as(lenderSk).quoteTerms(QUOTE.thresholdNetWorth, QUOTE.maxDti, T0 + QUOTE.ttlSeconds);
+  // As prove:onchain does: prove, or answer the quote by waiving the proof.
   if (proveTier) loan.as(BORROWER_SK).proveTier(facts);
+  else loan.as(BORROWER_SK).waiveProof();
   const tier = proveTier && loan.ledger().tier === Tier.VERIFIED ? Tier.VERIFIED : Tier.STANDARD;
+  if (tier === Tier.VERIFIED) {
+    // The two calls the run makes on purpose; the contract refuses both.
+    expect(() => loan.as(lenderSk).underwrite(collateralFor(terms.principal, Tier.STANDARD))).toThrow(
+      REFUSALS.overaskA.expected,
+    );
+    expect(() =>
+      loan.as(lenderSk).quoteTerms(QUOTE.thresholdNetWorth, QUOTE.maxDti, loan.now + QUOTE.ttlSeconds),
+    ).toThrow(REFUSALS.requoteA.expected);
+  }
   const owed = owedFor(terms);
   loan.as(lenderSk).advance(30n).underwrite(collateralFor(terms.principal, tier));
   if (!accept) return loan;
   loan
     .as(BORROWER_SK)
-    .accept()
+    .accept(collateralFor(terms.principal, tier))
     .as(lenderSk)
     .disburse(loan.now, owed, installmentFor(owed, terms.installments));
   return repayAll(loan);
@@ -178,15 +197,27 @@ function world(opts: WorldOptions = {}): { deployments: Deployments; states: Onc
   const [addrA, addrB, addrC] = [a, b, c].map((l) => encodeContractAddress(l.address));
 
   const dir = new LoanDirectorySimulator(BORROWER_SK);
-  dir.as(BORROWER_SK).list(addrA!, LENDER_A_PK, TERMS_A.principal);
+  if (opts.squatA) dir.as(skFrom(9)).list(addrA!, pubKeyOf(skFrom(10)), TERMS_A.principal);
+  const listALender = opts.listALender ?? LENDER_A_PK;
+  dir.as(BORROWER_SK).list(addrA!, listALender, TERMS_A.principal);
   dir.as(BORROWER_SK).list(addrB!, LENDER_B_PK, TERMS_B.principal);
   dir.as(BORROWER_SK).list(addrC!, LENDER_A_PK, TERMS_C.principal);
+  // The listing keys under the Loans' own borrower (the run's LoanClient
+  // derives them the same way, from each Loan's `borrower`).
+  const [keyA, keyB] = [addrA!, addrB!].map((addr) => listingKey(addr, BORROWER_PK));
   // Each lender marks its listing ACTIVE (as prove:onchain does once the
   // borrower accepts); a repayment can be recorded only from ACTIVE.
-  if (opts.acceptA ?? true) dir.as(LENDER_A_SK).updateStatus(addrA!, ListingStatus.ACTIVE).recordRepaid(addrA!);
-  dir.as(LENDER_B_SK).updateStatus(addrB!, ListingStatus.ACTIVE);
-  if (opts.recordB ?? true) dir.as(LENDER_B_SK).recordRepaid(addrB!);
-  if ((opts.historyC ?? true) && (opts.recordB ?? true) && (opts.acceptA ?? true)) {
+  if ((opts.acceptA ?? true) && opts.listALender === undefined) {
+    dir.as(LENDER_A_SK).updateStatus(keyA!, ListingStatus.ACTIVE).recordRepaid(keyA!);
+  }
+  dir.as(LENDER_B_SK).updateStatus(keyB!, ListingStatus.ACTIVE);
+  if (opts.recordB ?? true) dir.as(LENDER_B_SK).recordRepaid(keyB!);
+  if (
+    (opts.historyC ?? true) &&
+    (opts.recordB ?? true) &&
+    (opts.acceptA ?? true) &&
+    opts.listALender === undefined
+  ) {
     dir.as(BORROWER_SK).proveTwoRepaid(
       addrC!,
       { loan: addrA!, lender: LENDER_A_PK, path: dir.pathFor(repaidLeaf(BORROWER_PK, addrA!, LENDER_A_PK)) },
@@ -213,6 +244,15 @@ function world(opts: WorldOptions = {}): { deployments: Deployments; states: Onc
       generatedAt: new Date('2026-10-03T12:00:00Z'),
       contracts,
       receipts,
+      refusals:
+        opts.refusals === false
+          ? []
+          : [REFUSALS.overaskA, REFUSALS.requoteA].map((r, i) => ({
+              label: r.label,
+              contract: a.address,
+              circuit: i === 0 ? 'underwrite' : 'quoteTerms',
+              message: r.expected,
+            })),
     }),
     states: {
       solvencyProof: sp.ledger(),
@@ -358,7 +398,22 @@ describe('deployments JSON', () => {
   const { deployments } = world();
 
   it('has exactly the agreed shape, in order', () => {
-    expect(Object.keys(deployments)).toEqual(['network', 'indexer', 'indexerWS', 'generatedAt', 'contracts', 'txs']);
+    expect(Object.keys(deployments)).toEqual([
+      'network',
+      'indexer',
+      'indexerWS',
+      'generatedAt',
+      'contracts',
+      'txs',
+      'refusals',
+    ]);
+    for (const r of deployments.refusals) {
+      expect(Object.keys(r)).toEqual(['label', 'contract', 'circuit', 'message']);
+    }
+    expect(deployments.refusals.map((r) => r.message)).toEqual([
+      'collateral does not match the tier',
+      'a verified tier is live until it lapses',
+    ]);
     expect(Object.keys(deployments.contracts)).toEqual(['solvencyProof', 'registry', 'loanDirectory', 'loans']);
     expect(deployments.contracts.loans).toHaveLength(3);
     for (const tx of deployments.txs) {
@@ -379,6 +434,14 @@ describe('deployments JSON', () => {
     const text = serializeDeployments(deployments);
     expect(text.endsWith('\n')).toBe(true);
     expect(parseDeployments(JSON.parse(text))).toEqual(deployments);
+  });
+
+  it('reads an older file with no refusals as none', () => {
+    const d = JSON.parse(serializeDeployments(deployments)) as Record<string, unknown>;
+    delete d['refusals'];
+    expect(parseDeployments(d).refusals).toEqual([]);
+    d['refusals'] = [{ label: 'x', contract: 'c', circuit: 'underwrite' }];
+    expect(() => parseDeployments(d)).toThrow(/refusals\[0\]\.message/);
   });
 
   it('refuses a malformed file, naming the field', () => {
@@ -414,10 +477,13 @@ describe('verify:onchain claim checks, on states from the compiled contracts', (
     expect(checkContractsCoverTxs(deployments).pass).toBe(true);
   });
 
-  it('loan A without a tier proof is held to 150%, and the 110% claim fails', () => {
+  it('loan A without a tier proof is held to 150%, and the 110% claims fail', () => {
     const { deployments, states } = world({ proveTierA: false });
     const rows = checkClaims(deployments, states);
-    expect(failing(rows)).toEqual(['Loan A: tier VERIFIED, collateral 110% of principal, accepted by the borrower']);
+    expect(failing(rows)).toEqual([
+      'Loan A: tier VERIFIED, collateral 110% of principal, accepted by the borrower',
+      'Loan A: the refused 150% offer and re-quote left no trace: 1 quote, offered and accepted at 110%',
+    ]);
     expect(byClaim(rows, 'Loan A: tier VERIFIED').actual).toMatch(/^STANDARD, 1500 on 1000/);
   });
 
@@ -453,6 +519,34 @@ describe('verify:onchain claim checks, on states from the compiled contracts', (
     const noHistory = world({ historyC: false });
     const rows2 = checkClaims(noHistory.deployments, noHistory.states);
     expect(failing(rows2)).toEqual(['LoanDirectory: Loan C carries a history proof of 2 repaid loans']);
+  });
+
+  it('the refusal claim needs the recorded refusals and a ledger they left untouched', () => {
+    const honest = world();
+    expect(byClaim(checkClaims(honest.deployments, honest.states), 'left no trace').actual).toBe(
+      'quotesIssued 1, tier VERIFIED, 1100 offered; 2 refusal(s) recorded',
+    );
+    const old = world({ refusals: false });
+    expect(failing(checkClaims(old.deployments, old.states))).toEqual([
+      'Loan A: the refused 150% offer and re-quote left no trace: 1 quote, offered and accepted at 110%',
+    ]);
+    // Had a re-quote landed, the ledger would count two quotes.
+    const requoted = { ...honest.states.loans[0]!, quotesIssued: 2n } as typeof honest.states.loans[0];
+    const rows = checkClaims(honest.deployments, { ...honest.states, loans: [requoted, ...honest.states.loans.slice(1)] });
+    expect(byClaim(rows, 'left no trace').pass).toBe(false);
+  });
+
+  it("a stranger's earlier listing of loan A's address does not disturb the claims", () => {
+    const { deployments, states } = world({ squatA: true });
+    expect(states.loanDirectory!.listingCount).toBe(4n);
+    expect(failing(checkClaims(deployments, states))).toEqual([]);
+  });
+
+  it("a listing that names another lender than the Loan's fails the listing claim", () => {
+    const { deployments, states } = world({ listALender: LENDER_B_PK });
+    const rows = checkClaims(deployments, states);
+    expect(byClaim(rows, 'listed under their own borrowers').pass).toBe(false);
+    expect(byClaim(rows, 'listed under their own borrowers').actual).toContain('Loan A parties differ');
   });
 
   it('a Registry row pointing at another instance fails', () => {
@@ -531,6 +625,18 @@ describe('PROOF.md rendering', () => {
     receiptOf('Loan', deployments.contracts.loans[1]!, 'repay', fixtureTx(5), 'An unlisted | step'),
   ];
   const preprod = { ...deployments, network: 'preprod', indexer: 'https://indexer.preprod.midnight.network/api/v4/graphql' };
+
+  it('lists each refused call with its assert message, and no hash', () => {
+    const md = renderProofMd({ deployments: preprod, receipts });
+    expect(md).toContain('## Refused before submission (2)');
+    expect(md).toContain(
+      `| ${REFUSALS.overaskA.label} | Loan A | \`underwrite\` | refused, not submitted: \`collateral does not match the tier\` |`,
+    );
+    expect(md).toContain(
+      `| ${REFUSALS.requoteA.label} | Loan A | \`quoteTerms\` | refused, not submitted: \`a verified tier is live until it lapses\` |`,
+    );
+    expect(renderProofMd({ deployments: { ...preprod, refusals: [] }, receipts })).not.toContain('Refused before');
+  });
 
   it('has one transaction row per receipt, with hash, block, circuit and contract role', () => {
     const md = renderProofMd({ deployments: preprod, receipts });

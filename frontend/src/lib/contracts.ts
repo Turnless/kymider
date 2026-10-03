@@ -91,5 +91,9 @@ export {
   defaultableFrom,
   installmentFor,
   owedFor,
+  proofWaived,
+  proofWindowOpen,
   tierIsLive,
+  underwriteRefusal,
+  PROOF_WINDOW_REFUSAL,
 } from '../../../contracts/loanMath.js';

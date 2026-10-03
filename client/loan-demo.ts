@@ -137,6 +137,10 @@ show('Principal', TERMS.principal);
 console.log('\n--- lender: check the binding, then quote ---');
 await lender.bindLoanPrivateState(loan, createLoanPrivateState(lenderSk, new Uint8Array(32), NO_FACTS_SALT));
 show('Facts match the SolvencyProof instance', await lender.factsMatchSolvencyProof(loan, solvencyAddress));
+// The directory cannot read the Loan: check the listing names its own parties.
+const ownKey = bytesToHex(await lender.listingKeyOf(loan));
+const ownListing = (await lender.listings(directory, { reconcile: true })).find((r) => bytesToHex(r.key) === ownKey);
+show("Listing names the Loan's own borrower and lender", ownListing?.matchesLoan ?? false);
 await lender.quote(loan, QUOTE);
 show('Bar: net worth >= / DTI <= (%)', `${QUOTE.thresholdNetWorth} / ${QUOTE.maxDti}`);
 
@@ -155,7 +159,8 @@ show('Tier on the ledger', tierName(tier));
 console.log('\n--- lender: offer the tier\'s collateral; borrower: accept it ---');
 const { collateral } = await lender.underwrite(loan);
 show('Collateral offered', `${collateral} (150% would be ${collateralFor(TERMS.principal, Tier.STANDARD)})`);
-await borrower.acceptOffer(loan);
+// The borrower names the figure they accept; the circuit refuses any other.
+await borrower.acceptOffer(loan, collateral);
 show('Collateral required (accepted)', (await borrower.loanState(loan)).collateralRequired);
 
 console.log('\n--- lender: disburse ---');

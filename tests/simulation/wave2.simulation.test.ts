@@ -123,8 +123,11 @@ describe(`Kymider Wave 2 simulation (${network})`, () => {
 
     const state = await borrower.loanState(loanA);
     expect(state.status).toBe(LoanStatus.APPLIED);
-    const rows = await borrower.listings(directory);
-    expect(rows.map((r) => r.loan)).toContain(loanA);
+    // The listing sits under the borrower's own key and names the Loan's own
+    // parties: the reconcile a reader runs, since the directory cannot.
+    const rows = await borrower.listings(directory, { reconcile: true });
+    const row = rows.find((r) => r.loan === loanA);
+    expect(row?.matchesLoan).toBe(true);
   });
 
   it('a verified borrower is offered 110%, and the tier cannot be re-quoted away', async () => {
@@ -142,8 +145,13 @@ describe(`Kymider Wave 2 simulation (${network})`, () => {
     await expect(lender.quote(loanA, QUOTE)).rejects.toThrow(/a verified tier is live until it lapses/);
     await expect(
       lender.callLoan(loanA, 'quoteTerms', [QUOTE.thresholdNetWorth, QUOTE.maxDti, (await lender.loanState(loanA)).quote.expiresAt]),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/a verified tier is live until it lapses/);
+    // And 150% is refused outright while the tier is live.
+    await expect(lender.callLoan(loanA, 'underwrite', [1_500n])).rejects.toThrow(
+      /collateral does not match the tier/,
+    );
     expect((await borrower.loanState(loanA)).tier).toBe(Tier.VERIFIED);
+    expect((await borrower.loanState(loanA)).quotesIssued).toBe(1n);
 
     const { tier, collateral } = await lender.underwrite(loanA);
     expect(tier).toBe(Tier.VERIFIED);
@@ -153,9 +161,10 @@ describe(`Kymider Wave 2 simulation (${network})`, () => {
     expect(state.offeredCollateral).toBe(1_100n);
     expect(state.collateralRequired).toBe(0n);
 
-    // Nothing binds until the borrower accepts.
+    // Nothing binds until the borrower accepts, naming the figure.
     await expect(lender.disburse(loanA)).rejects.toThrow();
-    expect(await borrower.acceptOffer(loanA)).toEqual({ tier: Tier.VERIFIED, collateral: 1_100n });
+    await expect(borrower.callLoan(loanA, 'accept', [1_500n])).rejects.toThrow(/offer changed/);
+    expect(await borrower.acceptOffer(loanA, 1_100n)).toEqual({ tier: Tier.VERIFIED, collateral: 1_100n });
     state = await lender.loanState(loanA);
     expect(state.status).toBe(LoanStatus.ACTIVE);
     expect(state.collateralRequired).toBe(1_100n);
@@ -182,13 +191,19 @@ describe(`Kymider Wave 2 simulation (${network})`, () => {
     expect(listing?.status).toBe(ListingStatus.REPAID);
   });
 
-  it('loan B, with no tier proof, is offered 150%, accepted and repaid', async () => {
+  it('loan B: no 150% offer while the borrower can prove; the borrower waives, is offered 150%, accepts and repays', async () => {
     loanB = await openLoan(lenderBSk, TERMS_B);
     await lender.quote(loanB, QUOTE);
+    // The proof window: the client refuses first, and so does the circuit.
+    await expect(lender.underwrite(loanB)).rejects.toThrow(/the borrower can prove until the quote lapses/);
+    await expect(lender.callLoan(loanB, 'underwrite', [3_000n])).rejects.toThrow(
+      /the borrower can prove until the quote lapses/,
+    );
+    await borrower.waiveProof(loanB);
     const { tier, collateral } = await lender.underwrite(loanB);
     expect(tier).toBe(Tier.STANDARD);
     expect(collateral).toBe(3_000n);
-    await borrower.acceptOffer(loanB);
+    await borrower.acceptOffer(loanB, collateral);
     await repayInFull(loanB, lenderBSk);
     expect((await borrower.loanState(loanB)).status).toBe(LoanStatus.REPAID);
   });

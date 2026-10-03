@@ -40,6 +40,7 @@ export type LoanCircuits =
   | 'disburse'
   | 'markDefault'
   | 'proveTier'
+  | 'waiveProof'
   | 'repay';
 
 export type LoanDirectoryCircuits = 'list' | 'updateStatus' | 'recordRepaid' | 'proveTwoRepaid';

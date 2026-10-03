@@ -6,7 +6,12 @@
 //
 //   { network, indexer, indexerWS, generatedAt,
 //     contracts: { solvencyProof, registry, loanDirectory, loans: string[] },
-//     txs: [{ label, txId, txHash, blockHeight, contract }] }
+//     txs: [{ label, txId, txHash, blockHeight, contract }],
+//     refusals: [{ label, contract, circuit, message }] }
+//
+// `refusals` are calls the run made on purpose that the circuit refused before
+// anything was proved or submitted: no hash, only the contract's message.
+// Optional when read back (older files have none).
 //
 // `contracts.loans` is ordered: loan A (VERIFIED, 110%), loan B (STANDARD,
 // 150%), loan C (the application carrying the history proof).
@@ -23,6 +28,14 @@ export type DeploymentTx = {
   contract: string;
 };
 
+/** A call the circuit refused before submission: what was tried and the assert message. */
+export type DeploymentRefusal = {
+  label: string;
+  contract: string;
+  circuit: string;
+  message: string;
+};
+
 export type DeployedContracts = {
   solvencyProof: string;
   registry: string;
@@ -37,6 +50,7 @@ export type Deployments = {
   generatedAt: string;
   contracts: DeployedContracts;
   txs: DeploymentTx[];
+  refusals: DeploymentRefusal[];
 };
 
 export const DEPLOYMENTS_DIR = path.join('frontend', 'public', 'deployments');
@@ -65,6 +79,7 @@ export function buildDeployments(args: {
   generatedAt: Date | string;
   contracts: DeployedContracts;
   receipts: readonly TxReceipt[];
+  refusals?: readonly DeploymentRefusal[];
 }): Deployments {
   return {
     network: args.network,
@@ -79,6 +94,12 @@ export function buildDeployments(args: {
       loans: [...args.contracts.loans],
     },
     txs: args.receipts.map(toDeploymentTx),
+    refusals: (args.refusals ?? []).map((r) => ({
+      label: r.label,
+      contract: r.contract,
+      circuit: r.circuit,
+      message: r.message,
+    })),
   };
 }
 
@@ -110,6 +131,8 @@ export function parseDeployments(value: unknown): Deployments {
   }
   const txs = value['txs'];
   if (!Array.isArray(txs)) throw new Error('deployments.txs: expected an array');
+  const refusals = value['refusals'] ?? [];
+  if (!Array.isArray(refusals)) throw new Error('deployments.refusals: expected an array');
 
   return {
     network: str(value, 'network', 'deployments'),
@@ -135,6 +158,16 @@ export function parseDeployments(value: unknown): Deployments {
         txHash: str(t, 'txHash', where),
         blockHeight,
         contract: str(t, 'contract', where),
+      };
+    }),
+    refusals: refusals.map((r, i) => {
+      const where = `deployments.refusals[${i}]`;
+      if (!isObject(r)) throw new Error(`${where}: expected an object`);
+      return {
+        label: str(r, 'label', where),
+        contract: str(r, 'contract', where),
+        circuit: str(r, 'circuit', where),
+        message: str(r, 'message', where),
       };
     }),
   };
