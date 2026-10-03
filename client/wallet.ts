@@ -117,7 +117,8 @@ export class MidnightWalletProvider implements MidnightProvider, WalletProvider 
     };
 
     logger.info(
-      `Wallet built from ${secret.kind}; master seed: ${seeds.masterSeed.slice(0, 8)}...`,
+      // Never log any part of the seed: Actions logs on a public repo are public.
+      `Wallet built from ${secret.kind}`,
     );
 
     return new MidnightWalletProvider(
