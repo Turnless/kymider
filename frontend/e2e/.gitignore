@@ -1,0 +1,3 @@
+# Playwright output (test artifacts and the HTML report).
+.results/
+.report/
