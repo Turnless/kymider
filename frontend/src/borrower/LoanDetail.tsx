@@ -524,7 +524,7 @@ function PaymentLog({ loan }: { loan: LoanView }) {
           <tbody>
             {log.map((p) => (
               <tr key={p.index} className="border-t border-[rgba(15,23,42,0.06)]">
-                <td className="tnum px-5 py-[11px] text-[12px] text-[rgba(15,23,42,0.45)]">{p.index + 1}</td>
+                <td className="tnum px-5 py-[11px] text-[12px] text-[rgba(15,23,42,0.45)]">{p.index}</td>
                 <td className="tnum px-3 py-[11px] text-[12px]">{blockDate(p.at).slice(0, 16)}</td>
                 <td className="tnum px-3 py-[11px] text-right text-[12px] font-semibold">{money(p.amount)}</td>
                 <td className="px-5 py-[11px] text-right">
@@ -538,8 +538,9 @@ function PaymentLog({ loan }: { loan: LoanView }) {
         </table>
       )}
       <p className="mt-auto border-t border-[rgba(15,23,42,0.07)] px-5 py-4 text-[11px] leading-[1.6] text-[rgba(15,23,42,0.45)]">
-        Kept by this browser, never sent. The ledger holds only how many payments were made, how
-        many were late, and the history commitment these entries open.
+        Kept by this browser. The ledger state holds how many payments were made, how many were
+        late, the balance, and the history commitment these entries open; each payment's amount is
+        visible in its transaction.
       </p>
     </section>
   );

@@ -47,7 +47,7 @@ export function LoanPublicRecord({ loan, note }: { loan: LoanView; note?: ReactN
       </dl>
       <p className="mt-5 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.42)]">
         {note ??
-          'Amounts and dates of individual payments are not on the ledger. Each repayment only moves the history commitment forward, so the chain can later be opened to an auditor and checked against it.'}
+          'The ledger state keeps counts, the balance and one history commitment, not a list of payments. Each repayment still moves the public balance, so its amount can be read from the transaction; what the commitment adds is a single checkable record of the whole history, which the borrower can open to an auditor.'}
       </p>
     </section>
   );
