@@ -7,6 +7,40 @@
 
 ---
 
+## As built (October 2026)
+
+This document is the plan and is kept as written. The code in
+[`contracts/loan.compact`](../contracts/loan.compact) and
+[`contracts/loanDirectory.compact`](../contracts/loanDirectory.compact)
+differs from it in these ways (23 circuits across the 4 contracts; `Loan` has 10):
+
+- **Tiers, not a Wave 1 check.** The lender quotes a bar (`quoteTerms`, at most
+  3 per loan, each holding at least 30 minutes); the borrower's `proveTier`
+  writes `VERIFIED` (110% collateral) or `STANDARD` (150%).
+- **Consent step.** `underwrite` records an offer (`OFFERED`) at exactly the
+  tier's figure; the loan is `ACTIVE` only after the borrower's
+  `accept(expectedCollateral)`, which refuses any other figure (`offer
+  changed`). `declineOffer` returns it to `APPLIED`.
+- **Proof window and `waiveProof`.** No offer before a quote (`quote first`).
+  While a quote is live and unanswered, the lender can neither offer 150% nor
+  re-quote (`the borrower can prove until the quote lapses`). The borrower
+  answers with `proveTier`, or with `waiveProof`, which reveals nothing and
+  opens the 150% offer at once.
+- **Listing key.** `LoanDirectory` keys listings by `listingKey(loan, borrower)`,
+  so a stranger listing someone else's loan address gets their own slot;
+  `updateStatus` and `recordRepaid` take the key.
+- **No directory defaults.** `updateStatus` refuses `DEFAULTED`; a default is
+  the `Loan`'s own `markDefault` (due date + 3 days), and readers take it from
+  the `Loan`.
+- **Salted commitment.** The facts commitment is
+  `persistentHash([pad(32, "kymider:facts:v2"), H(balance, debts, income), salt])`
+  with a 32-byte salt in private state.
+- **Payment history.** A public hash chain per loan (`historyCommitment`) and a
+  two-repaid-loans proof over a `HistoricMerkleTree` (`proveTwoRepaid`), in
+  place of the "no default in N months" circuits of section 5.
+
+---
+
 ## 0. Revision Note (v1.1)
 
 Consistent with the Wave 1 revision:
