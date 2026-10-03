@@ -265,11 +265,11 @@
     <div class="flow">
       <div class="step local"><span class="n">LOCAL</span><span class="t">The borrower commits <code>H(tag, H(balance, debts, income), salt)</code>. Figures and the 32-byte salt stay on the device.</span></div>
       <div class="step"><span class="n">CHAIN</span><span class="t"><code>deploy Loan(lender, terms, commitment)</code> and <code>LoanDirectory.list</code>. Terms are public.</span></div>
-      <div class="step"><span class="n">CHAIN</span><span class="t"><code>quoteTerms</code> &nbsp; A net-worth floor, a max DTI, an expiry at least 30 min out. At most 3 per loan; none while a verified tier is live.</span></div>
-      <div class="step local"><span class="n">PROVE</span><span class="t"><code>proveTier</code> &nbsp; Facts are private circuit inputs; the circuit checks them against the commitment and writes <code>VERIFIED</code> or <code>STANDARD</code>.</span></div>
+      <div class="step"><span class="n">CHAIN</span><span class="t"><code>quoteTerms</code> &nbsp; A net-worth floor, a max DTI, an expiry at least 30 min out. At most 3 per loan; none while a verified tier is live or the last quote is unanswered.</span></div>
+      <div class="step local"><span class="n">PROVE</span><span class="t"><code>proveTier</code> &nbsp; Facts are private circuit inputs, checked against the commitment; writes <code>VERIFIED</code> or <code>STANDARD</code>. Or <code>waiveProof</code>: reveal nothing, take 150%.</span></div>
       <div class="step"><span class="n">CHAIN</span><span class="t"><code>underwrite(collateral)</code> &nbsp; An offer, accepted only if <code>collateral = floor(principal &times; 110% or 150%)</code>.</span></div>
-      <div class="step refuse"><span class="n">REFUSED</span><span class="t">A 150% ask on a verified borrower: <code>collateral does not match the tier</code>.</span></div>
-      <div class="step local"><span class="n">ACCEPT</span><span class="t"><code>accept</code> &nbsp; The borrower accepts the offer, and only then is the loan <code>ACTIVE</code>. Or <code>declineOffer</code>: back to <code>APPLIED</code>.</span></div>
+      <div class="step refuse"><span class="n">REFUSED</span><span class="t">150% on a verified borrower: <code>collateral does not match the tier</code>. 150% before the borrower answers: <code>the borrower can prove until the quote lapses</code>.</span></div>
+      <div class="step local"><span class="n">ACCEPT</span><span class="t"><code>accept(expectedCollateral)</code> &nbsp; The borrower names the figure (any other: <code>offer changed</code>); only then is the loan <code>ACTIVE</code>. Or <code>declineOffer</code>: back to <code>APPLIED</code>.</span></div>
       <div class="step"><span class="n">CHAIN</span><span class="t"><code>disburse</code>, <code>repay &times; N</code>, <code>markDefault</code> after a 3-day grace. Lateness is block time.</span></div>
       <div class="step local"><span class="n">PROVE</span><span class="t"><code>proveTwoRepaid</code> &nbsp; Two private Merkle paths, <code>checkRoot</code> against the directory. Public result: &ldquo;2 repaid loans&rdquo;.</span></div>
     </div>
@@ -350,22 +350,22 @@
       <div class="card">
         <p class="n">4</p>
         <p class="k" style="margin-top:1.2vh">Compact contracts</p>
-        <p class="v">22 circuits plus exported pure helpers. Language 0.23, toolchain 0.31.1, compiled in CI on every push.</p>
+        <p class="v">23 circuits plus 8 exported pure helpers. Language 0.23, toolchain 0.31.1, compiled in CI on every push.</p>
       </div>
       <div class="card">
-        <p class="n pass-t" style="overflow-wrap:anywhere">307</p>
+        <p class="n pass-t" style="overflow-wrap:anywhere">339</p>
         <p class="k" style="margin-top:1.2vh">Offline tests</p>
         <p class="v">Drive the compiled contracts, every refusal included. <span class="mono">npm run test:unit</span></p>
       </div>
       <div class="card">
         <p class="n" style="color:var(--amber)">18</p>
         <p class="k" style="margin-top:1.2vh">Devnet cases</p>
-        <p class="v">Two wallets, real ZK proofs, node + indexer + proof server in Docker. Full flow: 31 tx, 45/45 read-back checks, <a href="https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md">DEVNET-PROOF.md</a>.</p>
+        <p class="v">Two wallets, real ZK proofs, node + indexer + proof server in Docker. Full flow at <span class="mono">b815b26</span>: 31 tx, 45/45 read-back checks, <a href="https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md">DEVNET-PROOF.md</a>.</p>
       </div>
       <div class="card">
-        <p class="n" style="overflow-wrap:anywhere">46</p>
+        <p class="n" style="overflow-wrap:anywhere">48</p>
         <p class="k" style="margin-top:1.2vh">Browser tests</p>
-        <p class="v">Playwright on the console build at 1440 and 390 px: the judge path and each refusal, in CI.</p>
+        <p class="v">Playwright on the console build, 24 at 1440 and 24 at 390 px: the judge path and each refusal, in CI.</p>
       </div>
     </div>
     <p class="say" style="margin-top:3vh">
@@ -403,11 +403,11 @@
     <table class="ledger">
       <thead><tr><th></th><th>Wave 1</th><th>Wave 2</th></tr></thead>
       <tbody>
-        <tr><td>Contracts / circuits</td><td>2 / 9</td><td class="pub">4 / 22 &middot; + Loan, LoanDirectory</td></tr>
+        <tr><td>Contracts / circuits</td><td>2 / 9</td><td class="pub">4 / 23 &middot; + Loan, LoanDirectory</td></tr>
         <tr><td>What a proof buys</td><td>PASS / FAIL</td><td class="pub">110% vs 150% collateral, enforced in-circuit, binding on the borrower&rsquo;s acceptance</td></tr>
         <tr><td>Compact features</td><td>Witness, commitments, Map/Set, Counter</td><td class="pub">+ block time, HistoricMerkleTree + checkRoot, salt and nonce witnesses, division-free quotient checks</td></tr>
-        <tr><td>Offline / browser tests / devnet cases</td><td>54 / 0 / 11</td><td class="pub">307 / 46 / 18</td></tr>
-        <tr><td>On-chain</td><td>Local devnet</td><td class="pub">Local devnet in CI on every push: 31 proven transactions, 45/45 read-back checks (<a href="https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md">DEVNET-PROOF.md</a>). Preprod: pending</td></tr>
+        <tr><td>Offline / browser tests / devnet cases</td><td>54 / 0 / 11</td><td class="pub">339 / 48 / 18</td></tr>
+        <tr><td>On-chain</td><td>Local devnet</td><td class="pub">Local devnet in CI on every push: 31 proven transactions, 45/45 read-back checks at commit <span class="mono">b815b26</span> (<a href="https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md">DEVNET-PROOF.md</a>). Preprod: pending</td></tr>
         <tr><td>Console</td><td>Solvency screens</td><td class="pub">+ loan desk, portfolio, auditor preview, Live view</td></tr>
         <tr><td>AKINDO record</td><td>Repo unlinked, private, tagged Base</td><td class="pub">Fix pending: connect the repo, make it public, tag Midnight</td></tr>
       </tbody>

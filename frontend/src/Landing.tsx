@@ -10,9 +10,9 @@ import { Link } from 'react-router-dom';
  *   CIRCUITS     impure circuits across the 4 contracts (zkir files), pure
  *                helpers not counted
  */
-const UNIT_TESTS = '307';
-const E2E_TESTS = '46';
-const CIRCUITS = '22';
+const UNIT_TESTS = '339';
+const E2E_TESTS = '48';
+const CIRCUITS = '23';
 /** tests/simulation: 11 Wave 1 + 7 Wave 2 cases. Recheck if the lifecycle adds one. */
 const DEVNET_CASES = '18';
 
@@ -217,19 +217,19 @@ function HowItWorks() {
       '02',
       'The lender quotes a bar',
       'Public',
-      'A net-worth floor and a debt-to-income limit, valid for at least 30 minutes. At most 3 quotes per loan, and none while a verified tier is live.',
+      'A net-worth floor and a debt-to-income limit, valid for at least 30 minutes. At most 3 quotes per loan. While it is live and unanswered, the lender can neither re-quote nor offer 150%.',
     ],
     [
       '03',
       'Prove the tier',
       'Zero knowledge',
-      'proveTier checks your facts against the commitment and the bar, in a circuit. It writes one word to the ledger: VERIFIED or STANDARD.',
+      'proveTier checks your facts against the commitment and the bar, in a circuit. It writes one word to the ledger: VERIFIED or STANDARD. Or waive the proof: nothing is revealed, and the offer is 150%.',
     ],
     [
       '04',
       'Offer 110%, you accept',
       'Contract',
-      'For a verified borrower the lender can offer only 11,000 on 10,000. A 150% ask is refused by the contract. Nothing binds until you accept.',
+      'For a verified borrower the lender can offer only 11,000 on 10,000. A 150% ask is refused by the contract. Nothing binds until you accept, naming the figure.',
     ],
   ];
 
