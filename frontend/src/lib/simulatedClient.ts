@@ -518,9 +518,11 @@ export class SimulatedKymiderClient implements KymiderClient {
     if (!inst) throw new Error(`no such instance: ${address}`);
     const me = this.me();
     inst.requestClaim(this.lenderSk.get(me.id)!, this.lenderPk.get(me.id)!, terms);
-    // The borrower answers by proving. On a real network that is their move,
-    // not the lender's, and the console would wait for it to land.
-    inst.proveSolvency(this.lenderPk.get(me.id)!);
+    // Answering is the borrower's move. This browser's own borrower answers
+    // from the Claims screen ("Generate proof"), so its claim stays PENDING
+    // until then. The seeded other borrowers have nobody to click, so they
+    // answer at once, as their own clients would.
+    if (inst !== this.mine) inst.proveSolvency(this.lenderPk.get(me.id)!);
     this.changed();
   }
 
