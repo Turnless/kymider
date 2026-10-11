@@ -215,12 +215,12 @@ export const STEPS = {
   proveHistoryC: step(
     'Borrower proves two repaid Kymider loans for application C',
     'The applicant holds two distinct repayment leaves under their own key: the directory records "2" for loan C.',
-    'Which two loans, which lenders, the amounts and dates. The new lender learns the count only.',
+    'The paths are circuit inputs, not on the ledger; but the borrower\'s REPAID listings are public, so with exactly two of them a reader can tell which loans these are.',
   ),
   proveRepaidC: step(
     'Borrower proves the two repaid loans on loan C itself: every collateral figure drops a step',
     'Two Merkle paths to repayment leaves under the borrower\'s own key lead to one LoanDirectory root, which the Loan publishes and any reader can check against the directory. Loan C now prices VERIFIED at 105% and STANDARD at 130%.',
-    'Which two loans, which lenders, the amounts and dates: only the root reaches the ledger.',
+    'Only the root reaches the ledger; the same caveat as the directory proof: a key with exactly two REPAID listings shows which they are.',
   ),
   quoteC: step(
     'Lender quotes the bar on loan C',

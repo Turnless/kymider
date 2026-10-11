@@ -9,6 +9,8 @@
 //           recorded by a second lender.
 //   Loan C: a new application. The borrower proves two repaid loans to the
 //           directory without saying which, and the directory records "2".
+//           Proven on the Loan itself, the same records lower its collateral:
+//           a 110% offer is refused, and it is offered and accepted at 105%.
 //
 // Plus the refusals that matter on-chain: a lender cannot re-quote away a live
 // VERIFIED tier or disburse before the borrower accepts, a lender cannot
@@ -217,5 +219,32 @@ describe(`Kymider Wave 2 simulation (${network})`, () => {
     await expect(borrower.proveTwoRepaid(directory, loanC, a, a)).rejects.toThrow();
     await borrower.proveTwoRepaid(directory, loanC, a, b);
     expect(await lender.historyProofCount(directory, loanC)).toBe(2n);
+  });
+
+  it('loan C: the two records proven on the Loan lower its collateral to 105%, and 110% is refused', async () => {
+    const a = { loan: loanA, lenderPk: lender.pubKeyOf(lenderASk) };
+    const b = { loan: loanB, lenderPk: lender.pubKeyOf(lenderBSk) };
+    await borrower.proveRepaidHistory(loanC, directory, a, b);
+    const proven = await lender.loanState(loanC);
+    expect(proven.priorRepaidProven).toBe(true);
+    // The Loan cannot read the directory; the lender checks the root it published.
+    expect(await lender.priorRepaidRootChecks(loanC, directory)).toBe(true);
+
+    await lender.quote(loanC, QUOTE);
+    expect(await borrower.proveTier(loanC, FACTS)).toBe(Tier.VERIFIED);
+    // 110% (5,500) ignores the track record: the circuit refuses it.
+    await expect(lender.callLoan(loanC, 'underwrite', [5_500n])).rejects.toThrow(
+      /collateral does not match the tier/,
+    );
+    const offer = await lender.underwrite(loanC, { directory });
+    expect(offer).toEqual({ tier: Tier.VERIFIED, collateral: 5_250n, priorRepaid: true });
+    // Proven once per loan: a second proof is refused.
+    await expect(borrower.proveRepaidHistory(loanC, directory, a, b)).rejects.toThrow(
+      /repayment history already proven/,
+    );
+    await borrower.acceptOffer(loanC, 5_250n);
+    const state = await borrower.loanState(loanC);
+    expect(state.status).toBe(LoanStatus.ACTIVE);
+    expect(state.collateralRequired).toBe(5_250n);
   });
 });

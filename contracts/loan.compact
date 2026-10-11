@@ -17,7 +17,8 @@ import CompactStandardLibrary;
 //   APPLIED --quoteTerms (lender, at most 3)--> APPLIED, quoted
 //   APPLIED --proveTier (borrower, once per quote)--> APPLIED, tier VERIFIED or STANDARD
 //   APPLIED --waiveProof (borrower, instead of proving)--> APPLIED, quote answered, no tier
-//   APPLIED --proveRepaidHistory (borrower, once)--> APPLIED, two prior repaid loans proven
+//   APPLIED or OFFERED --proveRepaidHistory (borrower, once)--> same status, two prior repaid loans proven
+//                        (a standing offer is re-priced to its tier's lower figure)
 //   APPLIED --underwrite (lender: the tier's figure, nothing else)--> OFFERED
 //   OFFERED --accept(figure) (borrower)--> ACTIVE  (only the borrower makes an offer binding)
 //   OFFERED --declineOffer (borrower)--> APPLIED   (the offer is cleared; the lender may offer again)
@@ -65,7 +66,9 @@ import CompactStandardLibrary;
 // lender) and publishes only their common root. Midnight has no
 // cross-contract reads, so, as with factsCommitment, the lender checks that
 // root is one of the directory's (LoanDirectory `repaid.checkRoot`) before
-// offering, and declines a loan whose root is not.
+// offering, and declines a loan whose root is not. A borrower may prove it
+// while an offer stands: the offer is re-priced in place to its tier's lower
+// figure, so a lender cannot keep the discount by offering first.
 //
 // Money: balances are figures in contract state. No token moves (Wave 2 is a
 // lifecycle demo; settlement is a later milestone, stated in the README).
@@ -335,17 +338,23 @@ export circuit waiveProof(): [] {
 // lender), written by that loan's lender when it was repaid; the loans,
 // lenders and paths are private inputs. Both paths must lead to one root,
 // which is published so the lender can check it against the directory. Once
-// per loan, while the application is open (before any offer is made), so an
-// offer never changes under the borrower.
+// per loan, before the loan is ACTIVE. While an offer stands, the borrower
+// names the re-priced figure (`offerAfter`, the offered tier's history ratio
+// of the principal; Compact has no division) and the offer drops to it; with
+// no offer standing, `offerAfter` must be 0. Re-pricing only ever lowers the
+// borrower's collateral, and only the borrower can call this; the lender may
+// still withdraw the offer (`decline`).
 // Honest limit (as in the directory): a record is only as good as the lender
 // who wrote it, so a borrower lending to themselves can mint records.
 export circuit proveRepaidHistory(
   loanA: Bytes<32>, lenderA: Bytes<32>, pathA: MerkleTreePath<10, Bytes<32>>,
   loanB: Bytes<32>, lenderB: Bytes<32>, pathB: MerkleTreePath<10, Bytes<32>>,
+  offerAfter: Uint<64>,
 ): [] {
   const me = getDappPubKey(localSk());
   assert(me == borrower, "only the borrower may prove a repayment history");
-  assert(status == LoanStatus.APPLIED, "loan is no longer open to proofs");
+  const st = status;
+  assert(st == LoanStatus.APPLIED || st == LoanStatus.OFFERED, "loan is no longer open to proofs");
   assert(!priorRepaidProven, "repayment history already proven");
   assert(loanA != loanB, "the two loans must differ");
   const self = kernel.self().bytes;
@@ -356,6 +365,14 @@ export circuit proveRepaidHistory(
   assert(root == merkleTreePathRoot<10, Bytes<32>>(pathB), "both records must come from one directory root");
   priorRepaidRoot = disclose(root);
   priorRepaidProven = true;
+  const after = disclose(offerAfter);
+  if (st == LoanStatus.OFFERED) {
+    const ratio = offeredTier == Tier.VERIFIED ? verifiedHistoryRatioBps() : standardHistoryRatioBps();
+    assert(isFloorOfBps(after, terms.principal, ratio), "re-priced offer does not match the tier");
+    offeredCollateral = after;
+  } else {
+    assert(after == 0, "there is no offer to re-price");
+  }
 }
 
 // Prove the committed facts clear the lender's quote. The verdict lands on the

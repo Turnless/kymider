@@ -444,22 +444,20 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
     expect(await desk.accept(address, 105_000n)).toEqual({ tier: 'VERIFIED', collateral: 105_000n });
   });
 
-  it('a history proved while an offer stands reaches the directory only; the offer is unchanged', async () => {
+  it('a history proved while an offer stands re-prices it: 110% becomes 105%', async () => {
     const address = await desk.apply(meId(), TERMS);
     await desk.quote(address, PASSING);
     await desk.proveTier(address);
-    await desk.underwrite(address);
+    expect(await desk.underwrite(address)).toEqual({ tier: 'VERIFIED', collateral: 110_000n });
     const [a, b] = desk.repaidRecords();
     await desk.proveHistory(address, a.loan, b.loan);
     const v = desk.loan(address)!;
+    expect(v.status).toBe('OFFERED');
     expect(v.historyProofCount).toBe(2);
-    expect(v.priorRepaidProven).toBe(false);
-    expect(v.offeredCollateral).toBe(110_000n);
-    // Declined, the application is open again and the record can reach the Loan.
-    await desk.declineOffer(address);
-    await desk.proveHistory(address, a.loan, b.loan);
-    expect(desk.loan(address)!.priorRepaidProven).toBe(true);
-    expect(await desk.underwrite(address)).toEqual({ tier: 'VERIFIED', collateral: 105_000n });
+    expect(v.priorRepaidProven).toBe(true);
+    expect(v.offeredCollateral).toBe(105_000n);
+    await expect(desk.accept(address, 110_000n)).rejects.toThrow(/^offer changed$/);
+    expect(await desk.accept(address, 105_000n)).toEqual({ tier: 'VERIFIED', collateral: 105_000n });
   });
 
   it('refuses a history proof naming a loan that was never recorded', async () => {

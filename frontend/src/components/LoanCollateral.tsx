@@ -1,5 +1,5 @@
 import { money } from '../lib/client';
-import type { TierName } from '../lib/loans';
+import { percentOfBps, type TierName } from '../lib/loans';
 import { collateralSplit } from './LoanFormat';
 
 /**
@@ -9,18 +9,25 @@ import { collateralSplit } from './LoanFormat';
  * principal itself).
  *
  * `applies` highlights the tier that holds for this loan; leave it out on a
- * form, where neither has been decided yet.
+ * form, where neither has been decided yet. `ratios` are the loan's own
+ * (105% / 130% once two repaid loans are proven on it); 110% / 150% by default.
  */
 export function LoanCollateralCompare({
   principal,
   applies,
+  ratios,
   dark = false,
 }: {
   principal: bigint;
   applies?: TierName;
+  ratios?: { verifiedBps: bigint; standardBps: bigint };
   dark?: boolean;
 }) {
-  const { verified, standard, kept } = collateralSplit(principal);
+  const vBps = ratios?.verifiedBps ?? 11_000n;
+  const sBps = ratios?.standardBps ?? 15_000n;
+  const { verified, standard, kept } = collateralSplit(principal, vBps, sBps);
+  const vPct = percentOfBps(vBps);
+  const sPct = percentOfBps(sBps);
   const ink = dark ? 'var(--color-cream)' : 'var(--color-ink)';
   const quiet = dark ? 'rgba(255,247,235,0.5)' : 'rgba(15,23,42,0.5)';
   const track = dark ? 'rgba(255,247,235,0.07)' : 'rgba(15,23,42,0.05)';
@@ -30,15 +37,15 @@ export function LoanCollateralCompare({
     {
       tier: 'VERIFIED' as const,
       label: 'With a solvency proof',
-      pct: '110%',
+      pct: vPct,
       amount: verified,
-      width: (110 / 150) * 100,
+      width: (Number(vBps) / Number(sBps)) * 100,
       color: 'var(--color-accent)',
     },
     {
       tier: 'STANDARD' as const,
       label: 'Without',
-      pct: '150%',
+      pct: sPct,
       amount: standard,
       width: 100,
       color: greyBar,
@@ -79,7 +86,7 @@ export function LoanCollateralCompare({
                 {/* 100%: the principal itself. */}
                 <span
                   className="absolute top-[-3px] h-[14px] w-px"
-                  style={{ left: `${(100 / 150) * 100}%`, background: quiet }}
+                  style={{ left: `${(10_000 / Number(sBps)) * 100}%`, background: quiet }}
                   aria-hidden="true"
                 />
               </div>
@@ -100,8 +107,8 @@ export function LoanCollateralCompare({
         </span>
       </div>
       <p className="tnum mt-3 text-[11px] leading-[1.6]" style={{ color: quiet }}>
-        Collateral with a solvency proof: {money(verified)} (110%) · without: {money(standard)}{' '}
-        (150%) · you keep {money(kept)} free
+        Collateral with a solvency proof: {money(verified)} ({vPct}) · without: {money(standard)}{' '}
+        ({sPct}) · you keep {money(kept)} free
       </p>
     </div>
   );

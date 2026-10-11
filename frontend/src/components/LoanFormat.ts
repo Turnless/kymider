@@ -20,9 +20,13 @@ export const collateralAt = (principal: bigint, ratioBps: bigint): bigint =>
   (principal * ratioBps) / 10_000n;
 
 /** The pitch for one principal: what each tier costs, and what proving keeps free. */
-export const collateralSplit = (principal: bigint) => {
-  const verified = collateralAt(principal, VERIFIED_RATIO_BPS);
-  const standard = collateralAt(principal, STANDARD_RATIO_BPS);
+export const collateralSplit = (
+  principal: bigint,
+  verifiedBps: bigint = VERIFIED_RATIO_BPS,
+  standardBps: bigint = STANDARD_RATIO_BPS,
+) => {
+  const verified = collateralAt(principal, verifiedBps);
+  const standard = collateralAt(principal, standardBps);
   return { verified, standard, kept: standard - verified };
 };
 

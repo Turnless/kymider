@@ -40,8 +40,9 @@ differs from it in these ways (24 circuits across the 4 contracts; `Loan` has 11
   place of the "no default in N months" circuits of section 5.
 - **A track record lowers the collateral.** `Loan.proveRepaidHistory` checks
   two directory Merkle paths (leaves `repaidLeaf(borrower, loan, lender)`, one
-  common root, neither the loan itself) while the application is open, and
-  publishes the root. `underwrite` then takes 105% for a live `VERIFIED` tier
+  common root, neither the loan itself) before the loan is `ACTIVE`, and
+  publishes the root; a standing offer is re-priced to its tier's lower
+  figure. `underwrite` then takes 105% for a live `VERIFIED` tier
   and 130% otherwise. The `Loan` cannot read the directory, so the lender
   checks the root with the directory's `checkRoot` before offering.
 

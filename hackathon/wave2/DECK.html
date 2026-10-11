@@ -288,7 +288,7 @@
       <tbody>
         <tr><td>Balance, debts, income</td><td class="priv">Private</td><td>Circuit inputs to <span class="mono">proveTier</span>; only a salted <span class="mono">persistentHash</span> of them is public</td></tr>
         <tr><td>Secret key, facts salt, history seed, payment nonces</td><td class="priv">Private</td><td>Witnesses <span class="mono">localSk</span>, <span class="mono">factsSalt</span>, <span class="mono">paymentNonce</span></td></tr>
-        <tr><td>Which loans back a history proof</td><td class="priv">Private</td><td><span class="mono">HistoricMerkleTree</span> paths + <span class="mono">checkRoot</span>. A key&rsquo;s repaid listings stay countable</td></tr>
+        <tr><td>Which loans back a history proof</td><td class="pub">Off the ledger, not secret</td><td><span class="mono">HistoricMerkleTree</span> paths + <span class="mono">checkRoot</span> are circuit inputs, but a key&rsquo;s repaid listings are public: with two, anyone can tell which</td></tr>
         <tr><td>Tier <span class="mono">VERIFIED</span> / <span class="mono">STANDARD</span> and its expiry</td><td class="pub">Public</td><td><span class="mono">disclose()</span>: one yes/no answer per proof, at most 3 per loan</td></tr>
         <tr><td>Quote, terms, collateral, balance owed, due date</td><td class="pub">Public</td><td>Enforced by block time and caller checks</td></tr>
         <tr><td>Each repay amount, payments made, late payments, history chain head</td><td class="pub">Public</td><td>Amounts are transaction inputs; <span class="mono">Counter</span> + hash chain an auditor can check offline</td></tr>
@@ -353,7 +353,7 @@
         <p class="v">24 circuits plus 13 exported pure helpers. Language 0.23, toolchain 0.31.1, compiled in CI on every push.</p>
       </div>
       <div class="card">
-        <p class="n pass-t" style="overflow-wrap:anywhere">363</p>
+        <p class="n pass-t" style="overflow-wrap:anywhere">366</p>
         <p class="k" style="margin-top:1.2vh">Offline tests</p>
         <p class="v">Drive the compiled contracts, every refusal included. <span class="mono">npm run test:unit</span></p>
       </div>
@@ -406,7 +406,7 @@
         <tr><td>Contracts / circuits</td><td>2 / 9</td><td class="pub">4 / 23 &middot; + Loan, LoanDirectory</td></tr>
         <tr><td>What a proof buys</td><td>PASS / FAIL</td><td class="pub">110% vs 150% collateral, enforced in-circuit, binding on the borrower&rsquo;s acceptance</td></tr>
         <tr><td>Compact features</td><td>Witness, commitments, Map/Set, Counter</td><td class="pub">+ block time, HistoricMerkleTree + checkRoot, salt and nonce witnesses, division-free quotient checks</td></tr>
-        <tr><td>Offline / browser tests / devnet cases</td><td>54 / 0 / 11</td><td class="pub">363 / 48 / 18</td></tr>
+        <tr><td>Offline / browser tests / devnet cases</td><td>54 / 0 / 11</td><td class="pub">366 / 48 / 19</td></tr>
         <tr><td>On-chain</td><td>Local devnet</td><td class="pub">Local devnet in CI on every push: 37 proven transactions, 54/54 read-back checks at commit <span class="mono">d03bf03</span> (<a href="https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md">DEVNET-PROOF.md</a>). Preprod: pending</td></tr>
         <tr><td>Console</td><td>Solvency screens</td><td class="pub">+ loan desk, portfolio, auditor preview, Live view</td></tr>
         <tr><td>AKINDO record</td><td>Repo unlinked, private, tagged Base</td><td class="pub">Fix pending: connect the repo, make it public, tag Midnight</td></tr>

@@ -393,10 +393,13 @@ export class LoanSimulator {
     return this.run((c) => this.contract.impureCircuits.markDefault(c));
   }
 
-  /** The borrower proves two prior repaid loans, by their directory records. */
-  proveRepaidHistory(a: RepaidRecordInput, b: RepaidRecordInput): this {
+  /**
+   * The borrower proves two prior repaid loans, by their directory records.
+   * `offerAfter` is the re-priced figure when an offer stands (0 otherwise).
+   */
+  proveRepaidHistory(a: RepaidRecordInput, b: RepaidRecordInput, offerAfter = 0n): this {
     return this.run((c) =>
-      this.contract.impureCircuits.proveRepaidHistory(c, a.loan, a.lender, a.path, b.loan, b.lender, b.path),
+      this.contract.impureCircuits.proveRepaidHistory(c, a.loan, a.lender, a.path, b.loan, b.lender, b.path, offerAfter),
     );
   }
 

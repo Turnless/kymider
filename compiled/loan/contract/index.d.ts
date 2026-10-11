@@ -57,7 +57,8 @@ export type ImpureCircuits<PS> = {
                                 path: { sibling: { field: bigint },
                                         goes_left: boolean
                                       }[]
-                              }): __compactRuntime.CircuitResults<PS, []>;
+                              },
+                     offerAfter_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,
@@ -95,7 +96,8 @@ export type ProvableCircuits<PS> = {
                                 path: { sibling: { field: bigint },
                                         goes_left: boolean
                                       }[]
-                              }): __compactRuntime.CircuitResults<PS, []>;
+                              },
+                     offerAfter_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,
@@ -157,7 +159,8 @@ export type Circuits<PS> = {
                                 path: { sibling: { field: bigint },
                                         goes_left: boolean
                                       }[]
-                              }): __compactRuntime.CircuitResults<PS, []>;
+                              },
+                     offerAfter_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,

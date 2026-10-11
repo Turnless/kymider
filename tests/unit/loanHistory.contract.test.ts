@@ -169,13 +169,47 @@ describe('Loan — proving two repaid loans', () => {
     expect(loan.ledger().offeredCollateral).toBe(1_050n);
   });
 
-  it('is refused while an offer stands, and once the loan is active, so an offer never changes under the borrower', () => {
+  it('re-prices a standing offer to its lower figure, so offering first cannot keep the discount (review R5-2)', () => {
+    // The race: the lender offers 110% the moment the tier lands. Proving the
+    // record now lowers that offer in place; no decline, no window to win.
     const dir = directory();
     const a = record(dir, LOAN_A, LENDER_A_PK);
     const b = record(dir, LOAN_B, LENDER_B_PK);
     const loan = quote(deploy()).as(BORROWER_SK).proveTier(FACTS).as(LENDER_SK).underwrite(1_100n).as(BORROWER_SK);
-    expect(() => loan.proveRepaidHistory(a, b)).toThrow('loan is no longer open to proofs');
-    loan.accept(1_100n);
+    expect(() => loan.proveRepaidHistory(a, b, 1_100n)).toThrow('re-priced offer does not match the tier');
+    expect(() => loan.proveRepaidHistory(a, b, 0n)).toThrow('re-priced offer does not match the tier');
+    loan.proveRepaidHistory(a, b, 1_050n);
+    const state = loan.ledger();
+    expect(state.status).toBe(LoanStatus.OFFERED);
+    expect([state.offeredTier, state.offeredCollateral]).toEqual([Tier.VERIFIED, 1_050n]);
+    expect(() => loan.accept(1_100n)).toThrow('offer changed');
+    loan.accept(1_050n);
+    expect(loan.ledger().collateralRequired).toBe(1_050n);
+  });
+
+  it('re-prices a 150% offer after a waiver to 130%', () => {
+    const dir = directory();
+    const loan = quote(deploy()).as(BORROWER_SK).waiveProof().as(LENDER_SK).underwrite(1_500n).as(BORROWER_SK);
+    loan.proveRepaidHistory(record(dir, LOAN_A, LENDER_A_PK), record(dir, LOAN_B, LENDER_B_PK), 1_300n);
+    expect(loan.ledger().offeredCollateral).toBe(1_300n);
+  });
+
+  it('with no offer standing there is nothing to re-price: the figure must be 0', () => {
+    const dir = directory();
+    expect(() =>
+      deploy()
+        .as(BORROWER_SK)
+        .proveRepaidHistory(record(dir, LOAN_A, LENDER_A_PK), record(dir, LOAN_B, LENDER_B_PK), 1_050n),
+    ).toThrow('there is no offer to re-price');
+  });
+
+  it('is refused once the loan is active: an accepted figure never changes', () => {
+    const dir = directory();
+    const a = record(dir, LOAN_A, LENDER_A_PK);
+    const b = record(dir, LOAN_B, LENDER_B_PK);
+    const loan = quote(deploy()).as(BORROWER_SK).proveTier(FACTS).as(LENDER_SK).underwrite(1_100n);
+    loan.as(BORROWER_SK).accept(1_100n);
+    expect(() => loan.proveRepaidHistory(a, b, 1_050n)).toThrow('loan is no longer open to proofs');
     expect(() => loan.proveRepaidHistory(a, b)).toThrow('loan is no longer open to proofs');
     expect(loan.ledger().collateralRequired).toBe(1_100n);
   });

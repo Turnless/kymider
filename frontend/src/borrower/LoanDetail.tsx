@@ -489,17 +489,14 @@ function HistoryProof({ loan, act }: { loan: LoanView; act: Act }) {
   const records = desk.repaidRecords().filter((r) => r.loan !== loan.address);
   const [picked, setPicked] = useState<string[]>([]);
 
-  // Proven on the Loan, or in the directory while an offer stood (the Loan
-  // takes the proof only while the application is open).
-  if (loan.priorRepaidProven || (loan.historyProofCount >= 2 && loan.status !== 'APPLIED')) {
+  if (loan.priorRepaidProven) {
     return (
       <section className="card p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="label">Repayment history</p>
           <span className="badge badge-pass">Two repaid loans proven</span>
         </div>
-        {loan.priorRepaidProven ? (
-          <p className="mt-3 text-[12px] leading-[1.6] text-[rgba(15,23,42,0.6)]">
+        <p className="mt-3 text-[12px] leading-[1.6] text-[rgba(15,23,42,0.6)]">
             Every collateral figure on this loan is a step lower: verified{' '}
             <span className="tnum font-semibold">
               {percentOfBps(loan.ratioIfVerifiedBps)} ({money(loan.collateralIfVerified)})
@@ -508,15 +505,9 @@ function HistoryProof({ loan, act }: { loan: LoanView; act: Act }) {
             <span className="tnum font-semibold">
               {percentOfBps(loan.ratioIfStandardBps)} ({money(loan.collateralIfStandard)})
             </span>
-            . The contract sets these figures, so {loan.lender.name} cannot quote them away. Which
-            loans, which lenders and how much stay with you.
+            . The contract sets these figures, so {loan.lender.name} cannot quote them away. The
+            proof does not name the loans, but your repaid listings are public under your key.
           </p>
-        ) : (
-          <p className="mt-3 text-[12px] leading-[1.6] text-[rgba(15,23,42,0.6)]">
-            The directory shows {loan.lender.name} two repaid loans on record. The standing offer
-            was made without them; decline it to have them lower this loan's collateral.
-          </p>
-        )}
       </section>
     );
   }
@@ -543,13 +534,15 @@ function HistoryProof({ loan, act }: { loan: LoanView; act: Act }) {
       </div>
       <p className="mb-4 text-[12px] leading-[1.6] text-[rgba(15,23,42,0.6)]">
         Attach a repayment history to this application and every collateral figure drops a step:
-        verified 110% to 105%, standard 150% to 130%. The lender learns that two repaid loans
-        exist in the directory under your key, not which loans, which lenders or how much.
+        verified 110% to 105%, standard 150% to 130%. The proof does not name the two loans. Your
+        repaid listings are public under your key, though: with only two on record, anyone can
+        tell which ones they are.
       </p>
       {loan.status === 'OFFERED' && (
         <p className="mb-4 text-[11px] leading-[1.5] text-[rgba(15,23,42,0.5)]">
-          An offer is standing, and an offer never changes under you: proving now records the
-          count in the directory only. Decline the offer first to lower its collateral.
+          An offer is standing at {money(loan.offeredCollateral)}. Proving now lowers it in place to{' '}
+          {money((loan.terms.principal * (loan.offeredTier === 'VERIFIED' ? 10_500n : 13_000n)) / 10_000n)}
+          ; you do not need to decline it first.
         </p>
       )}
 
@@ -666,7 +659,11 @@ function TermsCard({ loan }: { loan: LoanView }) {
                   : 'Set when you accept an offer'}
           </span>
         </div>
-        <LoanCollateralCompare principal={t.principal} applies={applies} />
+        <LoanCollateralCompare
+          principal={t.principal}
+          applies={applies}
+          ratios={{ verifiedBps: loan.ratioIfVerifiedBps, standardBps: loan.ratioIfStandardBps }}
+        />
       </div>
     </section>
   );

@@ -10,11 +10,11 @@ import { Link } from 'react-router-dom';
  *   CIRCUITS     impure circuits across the 4 contracts (zkir files), pure
  *                helpers not counted
  */
-const UNIT_TESTS = '363';
+const UNIT_TESTS = '366';
 const E2E_TESTS = '48';
-const CIRCUITS = '23';
+const CIRCUITS = '24';
 /** tests/simulation: 11 Wave 1 + 7 Wave 2 cases. Recheck if the lifecycle adds one. */
-const DEVNET_CASES = '18';
+const DEVNET_CASES = '19';
 
 const REPO = 'https://github.com/Turnless/kymider';
 

@@ -401,6 +401,11 @@ export class SimulatedLoanDesk implements LoanDesk {
     // The circuit's own test: a VERIFIED tier counts only while block time is
     // before its expiry. Anything else is offered at 150%.
     const verified = tierIsLive(led, this.clock);
+    // The Loan cannot read the directory, so the lender checks the root its
+    // track-record proof published before offering the lower figure.
+    if (led.priorRepaidProven && !this.directory.ledger().repaid.checkRoot(led.priorRepaidRoot)) {
+      throw new Error("the borrower's repayment-history root is not in the directory: decline instead");
+    }
     // Two prior repaid loans proven on the Loan lower each figure a step.
     const collateral = collateralFor(
       led.terms.principal,
@@ -881,14 +886,18 @@ export class SimulatedLoanDesk implements LoanDesk {
     const ra = record(a);
     const rb = record(b);
     const led = this.ledgerOf(target);
-    const onLoan = STATUS_NAMES[led.status] === 'APPLIED' && !led.priorRepaidProven;
+    const status = STATUS_NAMES[led.status];
+    const onLoan = (status === 'APPLIED' || status === 'OFFERED') && !led.priorRepaidProven;
+    // A standing offer is re-priced to its tier's lower figure, in the same call.
+    const offerAfter =
+      status === 'OFFERED' ? collateralFor(led.terms.principal, led.offeredTier, true) : 0n;
     const key = hex(target.listingKey);
     const inDirectory = (this.directory.snapshot().proofs.get(key) ?? 0n) >= 2n;
     if (!onLoan && inDirectory) throw new Error('loan is no longer open to proofs');
     // The directory first, where any lender browsing it sees the count, and
     // whose refusals name the record at fault ("... is not in the directory").
-    // Then the Loan, while the application is open: there the record lowers
-    // every collateral figure a step. Both take the same two paths, built from
+    // Then the Loan, until it is active: there the record lowers every
+    // collateral figure a step, a standing offer included. Both take the same two paths, built from
     // the current tree, so a pair the directory accepts the Loan accepts too.
     if (!inDirectory) {
       this.directory.call(this.client.borrowerSecretKey(), this.clock, (c, ctx) =>
@@ -897,7 +906,7 @@ export class SimulatedLoanDesk implements LoanDesk {
     }
     if (onLoan) {
       this.run(target, target.borrowerSk, (c, ctx) =>
-        c.proveRepaidHistory(ctx, ra.loan, ra.lender, ra.path, rb.loan, rb.lender, rb.path),
+        c.proveRepaidHistory(ctx, ra.loan, ra.lender, ra.path, rb.loan, rb.lender, rb.path, offerAfter),
       );
     }
     this.changed();
