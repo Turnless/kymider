@@ -5,6 +5,11 @@ import { blockDate, DAY, duration, percentOfBps, type LoanView } from '../lib/lo
 import { useKymider } from '../lib/useKymider';
 import { useLoans } from '../lib/useLoans';
 
+// The loan's own collateral ratios: 110% / 150%, or 105% / 130% once the
+// borrower has proven two repaid loans on it.
+const vPct = (l: LoanView): string => percentOfBps(l.ratioIfVerifiedBps);
+const sPct = (l: LoanView): string => percentOfBps(l.ratioIfStandardBps);
+
 /**
  * The underwriting desk for one loan: quote, offer the collateral for the tier
  * the borrower proved, wait for the borrower to accept, disburse, watch
@@ -168,7 +173,7 @@ function DeskLoan({ address }: { address: string }) {
               )}
 
               <div className="mb-3 flex items-baseline justify-between gap-3">
-                <p className="label-dark">1 · Quote the 110% bar</p>
+                <p className="label-dark">1 · Quote the {vPct(l)} bar</p>
                 <p className="tnum text-[11px] text-[rgba(255,247,235,0.5)]">
                   {l.quotesIssued === 0
                     ? `Up to ${l.quoteLimit} quotes`
@@ -274,13 +279,13 @@ function DeskLoan({ address }: { address: string }) {
                   onClick={() =>
                     run('underwrite', async () => {
                       const r = await desk.underwrite(l.address);
-                      return `Offered at ${r.tier === 'VERIFIED' ? '110%' : '150%'}: collateral ${desk$(r.collateral)}. Nothing binds until the borrower accepts.`;
+                      return `Offered at ${r.tier === 'VERIFIED' ? vPct(l) : sPct(l)}: collateral ${desk$(r.collateral)}. Nothing binds until the borrower accepts.`;
                     })
                   }
                 >
                   {busy === 'underwrite'
                     ? 'Offering…'
-                    : `Offer at ${l.tierLive ? '110%' : '150%'} · ${desk$(
+                    : `Offer at ${l.tierLive ? vPct(l) : sPct(l)} · ${desk$(
                         l.tierLive ? l.collateralIfVerified : l.collateralIfStandard,
                       )}`}
                 </button>
@@ -487,18 +492,21 @@ function DeskHero({
           {desk$(at)}
         </span>
         <span className="text-[18px] font-bold text-[rgba(255,247,235,0.7)]">
-          {verified ? '110%' : '150%'}
+          {verified ? vPct(l) : sPct(l)}
         </span>
+        {l.priorRepaidProven && (
+          <span className="text-[12px] font-semibold text-[#7BD9A5]">two repaid loans proven</span>
+        )}
       </p>
       <p className="tnum mt-2 text-[12px] text-[rgba(255,247,235,0.6)]">
         {verified ? (
           <>
-            150% would be <span className="line-through">{desk$(l.collateralIfStandard)}</span>. The
+            {sPct(l)} would be <span className="line-through">{desk$(l.collateralIfStandard)}</span>. The
             borrower posts {desk$(saved)} less.
           </>
         ) : (
           <>
-            A live VERIFIED tier would make it {desk$(l.collateralIfVerified)} (110%),{' '}
+            A live VERIFIED tier would make it {desk$(l.collateralIfVerified)} ({vPct(l)}),{' '}
             {desk$(saved)} less.
           </>
         )}
@@ -514,6 +522,8 @@ function DeskHero({
           be re-quoted away. There is no offer before a quote, and no 150% offer while the borrower
           can still prove against a live quote. You can only offer the tier's figure, and only the
           borrower can accept it.
+          {l.priorRepaidProven &&
+            ' This borrower proved two repaid loans on this Loan, so each figure is a step lower: 105% verified, 130% otherwise.'}
         </p>
 
         {windowOpen && (
@@ -686,7 +696,7 @@ function DeskOffered({ loan: l }: { loan: LoanView }) {
           {verified ? 'Verified' : 'Standard'}
         </span>
         <span className="tnum text-[13px] font-semibold text-cream">
-          Offered collateral {desk$(l.offeredCollateral)} ({verified ? '110%' : '150%'})
+          Offered collateral {desk$(l.offeredCollateral)} ({verified ? vPct(l) : sPct(l)})
         </span>
       </div>
       <p className="mt-3 text-[11px] leading-[1.55] text-[rgba(255,247,235,0.55)]">
@@ -711,12 +721,12 @@ function DeskUnderwritten({ loan: l }: { loan: LoanView }) {
           {verified ? 'Verified' : 'Standard'}
         </span>
         <span className="tnum text-[13px] font-semibold text-cream">
-          Collateral {desk$(l.collateralRequired)} ({verified ? '110%' : '150%'})
+          Collateral {desk$(l.collateralRequired)} ({verified ? vPct(l) : sPct(l)})
         </span>
       </div>
       {verified && (
         <p className="tnum mt-2 text-[11px] text-[rgba(255,247,235,0.5)]">
-          150% would have been {desk$(l.collateralIfStandard)}; the borrower posts{' '}
+          {sPct(l)} would have been {desk$(l.collateralIfStandard)}; the borrower posts{' '}
           {desk$(l.collateralIfStandard - l.collateralIfVerified)} less.
         </p>
       )}
@@ -864,11 +874,23 @@ function DeskRecord({ loan: l }: { loan: LoanView }) {
         <DeskRow
           label="Repayment history"
           value={
-            l.historyProofCount >= 2
-              ? `${l.historyProofCount} prior repaid loans proven`
-              : 'No history proof attached'
+            l.priorRepaidProven
+              ? l.priorRepaidRootChecks
+                ? '✓ 2 repaid loans proven on the Loan; root is in the directory'
+                : "✕ Proven against a root that is not the directory's: decline"
+              : l.historyProofCount >= 2
+                ? `${l.historyProofCount} prior repaid loans proven in the directory`
+                : 'No history proof attached'
           }
-          tone={l.historyProofCount >= 2 ? 'ok' : undefined}
+          tone={
+            l.priorRepaidProven
+              ? l.priorRepaidRootChecks
+                ? 'ok'
+                : 'fail'
+              : l.historyProofCount >= 2
+                ? 'ok'
+                : undefined
+          }
         />
         <DeskRow
           label="Directory listing"

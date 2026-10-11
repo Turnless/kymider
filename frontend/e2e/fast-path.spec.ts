@@ -20,7 +20,8 @@ import {
  *   refuses → lender tries to re-quote the tier away and the contract refuses →
  *   lender offers 110% → borrower accepts → disburse → borrower repays every
  *   installment, one of them late → lender records the repayment → borrower
- *   proves two repaid loans on a new application → borrower discloses the
+ *   proves two repaid loans on a new application, and its collateral drops
+ *   a step (150% to 130%, 110% to 105%) → borrower discloses the
  *   history → the auditor verifies it, and a tampered copy is rejected.
  *
  * Every figure asserted is derived from the terms entered here, the way the
@@ -175,11 +176,18 @@ test('judge fast path, end to end', async ({ page }) => {
   await expect(picks.nth(2)).toBeDisabled();
   await button(history, 'Prove two repaid loans').click();
   await expect(page.getByText('Two repaid loans proven')).toBeVisible();
+  // The contract's ratios for this loan drop a step: 20,000 at 105% and 130%.
+  const proven = page.locator('section', { hasText: 'Repayment history' });
+  await expect(proven).toContainText('Every collateral figure on this loan is a step lower');
+  await expect(proven).toContainText(`105% (${dollars(21_000)})`);
+  await expect(proven).toContainText(`130% (${dollars(26_000)})`);
 
-  // The lender sees the count, not which loans.
+  // The lender sees that two repaid loans are proven, not which, and checks
+  // the root against the directory. Its only figures are the lower ones.
   await switchRole(page, 'lender');
   await openLenderLoan(page, second);
-  await expect(page.getByText('2 prior repaid loans proven')).toBeVisible();
+  await expect(page.getByText('2 repaid loans proven on the Loan; root is in the directory')).toBeVisible();
+  await expect(button(page, /^Offer at 130%/)).toContainText(grouped(26_000));
 
   // 9. The borrower opens the repaid loan's history to an auditor.
   await switchRole(page, 'borrower');

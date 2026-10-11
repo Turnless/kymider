@@ -120,6 +120,8 @@ type WorldOptions = {
   recordB?: boolean;
   /** The borrower attaches the two-loan proof to loan C (default true). */
   historyC?: boolean;
+  /** Loan C proves the two records on the Loan and is offered and accepted at 105% (default true). */
+  trackC?: boolean;
   /** The Registry row points at a different instance. */
   registryElsewhere?: boolean;
   /** Loan A's borrower accepts the 110% offer (default true); if not, A stops at OFFERED. */
@@ -225,6 +227,26 @@ function world(opts: WorldOptions = {}): { deployments: Deployments; states: Onc
     );
   }
 
+  // Loan C, as prove:onchain runs it: the two records proven on the Loan
+  // itself, quoted, proved VERIFIED, 110% refused, offered and accepted at 105%.
+  const historyReady = (opts.recordB ?? true) && (opts.acceptA ?? true) && opts.listALender === undefined;
+  if ((opts.trackC ?? true) && historyReady) {
+    c.as(BORROWER_SK).proveRepaidHistory(
+      { loan: addrA!, lender: LENDER_A_PK, path: dir.pathFor(repaidLeaf(BORROWER_PK, addrA!, LENDER_A_PK)) },
+      { loan: addrB!, lender: LENDER_B_PK, path: dir.pathFor(repaidLeaf(BORROWER_PK, addrB!, LENDER_B_PK)) },
+    );
+    c.as(LENDER_A_SK).quoteTerms(QUOTE.thresholdNetWorth, QUOTE.maxDti, T0 + QUOTE.ttlSeconds);
+    c.as(BORROWER_SK).proveTier(facts);
+    const tierC = c.ledger().tier === Tier.VERIFIED ? Tier.VERIFIED : Tier.STANDARD;
+    if (tierC === Tier.VERIFIED) {
+      expect(() => c.as(LENDER_A_SK).underwrite(collateralFor(TERMS_C.principal, Tier.VERIFIED))).toThrow(
+        REFUSALS.overaskC.expected,
+      );
+    }
+    const figure = collateralFor(TERMS_C.principal, tierC, true);
+    c.as(LENDER_A_SK).underwrite(figure).as(BORROWER_SK).accept(figure);
+  }
+
   const contracts = {
     solvencyProof: sp.address,
     registry: registry.address,
@@ -247,12 +269,20 @@ function world(opts: WorldOptions = {}): { deployments: Deployments; states: Onc
       refusals:
         opts.refusals === false
           ? []
-          : [REFUSALS.overaskA, REFUSALS.requoteA].map((r, i) => ({
-              label: r.label,
-              contract: a.address,
-              circuit: i === 0 ? 'underwrite' : 'quoteTerms',
-              message: r.expected,
-            })),
+          : [
+              ...[REFUSALS.overaskA, REFUSALS.requoteA].map((r, i) => ({
+                label: r.label,
+                contract: a.address,
+                circuit: i === 0 ? 'underwrite' : 'quoteTerms',
+                message: r.expected,
+              })),
+              {
+                label: REFUSALS.overaskC.label,
+                contract: c.address,
+                circuit: 'underwrite',
+                message: REFUSALS.overaskC.expected,
+              },
+            ],
     }),
     states: {
       solvencyProof: sp.ledger(),
@@ -413,6 +443,7 @@ describe('deployments JSON', () => {
     expect(deployments.refusals.map((r) => r.message)).toEqual([
       'collateral does not match the tier',
       'a verified tier is live until it lapses',
+      'collateral does not match the tier',
     ]);
     expect(Object.keys(deployments.contracts)).toEqual(['solvencyProof', 'registry', 'loanDirectory', 'loans']);
     expect(deployments.contracts.loans).toHaveLength(3);
@@ -474,6 +505,7 @@ describe('verify:onchain claim checks, on states from the compiled contracts', (
     expect(byClaim(rows, 'Loan A: tier VERIFIED').actual).toContain('1100 on 1000');
     expect(byClaim(rows, 'Loan B: tier STANDARD').actual).toContain('3000 on 2000');
     expect(byClaim(rows, 'history proof').actual).toBe('2');
+    expect(byClaim(rows, 'Loan C: tier VERIFIED with two repaid loans').actual).toContain('5250 on 5000');
     expect(checkContractsCoverTxs(deployments).pass).toBe(true);
   });
 
@@ -495,6 +527,8 @@ describe('verify:onchain claim checks, on states from the compiled contracts', (
       'Loan A: REPAID in full, no late payments',
       'LoanDirectory: loans A and B are recorded as repaid',
       'LoanDirectory: Loan C carries a history proof of 2 repaid loans',
+      'Loan C: two repaid loans proven on the Loan, against a LoanDirectory root',
+      'Loan C: tier VERIFIED with two repaid loans, collateral 105% of principal, accepted; the refused 110% offer left no trace',
     ]);
     expect(states.loans[0]!.offeredCollateral).toBe(1_100n);
     expect(states.loans[0]!.collateralRequired).toBe(0n);
@@ -521,6 +555,25 @@ describe('verify:onchain claim checks, on states from the compiled contracts', (
     expect(failing(rows2)).toEqual(['LoanDirectory: Loan C carries a history proof of 2 repaid loans']);
   });
 
+  it('loan C without its track record on the Loan is held to 110%, and the 105% claims fail', () => {
+    const { deployments, states } = world({ trackC: false });
+    expect(failing(checkClaims(deployments, states))).toEqual([
+      'Loan C: two repaid loans proven on the Loan, against a LoanDirectory root',
+      'Loan C: tier VERIFIED with two repaid loans, collateral 105% of principal, accepted; the refused 110% offer left no trace',
+    ]);
+  });
+
+  it("a track-record root that is not the directory's fails, though the Loan accepted it", () => {
+    const honest = world();
+    const forgedRoot = { ...honest.states.loans[2]!, priorRepaidRoot: { field: 12345n } } as typeof honest.states.loans[2];
+    const rows = checkClaims(honest.deployments, {
+      ...honest.states,
+      loans: [...honest.states.loans.slice(0, 2), forgedRoot],
+    });
+    expect(byClaim(rows, 'against a LoanDirectory root').pass).toBe(false);
+    expect(byClaim(rows, 'against a LoanDirectory root').actual).toContain('NOT in the directory');
+  });
+
   it('the refusal claim needs the recorded refusals and a ledger they left untouched', () => {
     const honest = world();
     expect(byClaim(checkClaims(honest.deployments, honest.states), 'left no trace').actual).toBe(
@@ -529,6 +582,7 @@ describe('verify:onchain claim checks, on states from the compiled contracts', (
     const old = world({ refusals: false });
     expect(failing(checkClaims(old.deployments, old.states))).toEqual([
       'Loan A: the refused 150% offer and re-quote left no trace: 1 quote, offered and accepted at 110%',
+      'Loan C: tier VERIFIED with two repaid loans, collateral 105% of principal, accepted; the refused 110% offer left no trace',
     ]);
     // Had a re-quote landed, the ledger would count two quotes.
     const requoted = { ...honest.states.loans[0]!, quotesIssued: 2n } as typeof honest.states.loans[0];
@@ -628,7 +682,7 @@ describe('PROOF.md rendering', () => {
 
   it('lists each refused call with its assert message, and no hash', () => {
     const md = renderProofMd({ deployments: preprod, receipts });
-    expect(md).toContain('## Refused before submission (2)');
+    expect(md).toContain('## Refused before submission (3)');
     expect(md).toContain(
       `| ${REFUSALS.overaskA.label} | Loan A | \`underwrite\` | refused, not submitted: \`collateral does not match the tier\` |`,
     );
@@ -721,6 +775,8 @@ describe('the run\'s steps', () => {
   it('quote figures match what the claims check', () => {
     expect(collateralFor(TERMS_A.principal, Tier.VERIFIED)).toBe(1_100n);
     expect(collateralFor(TERMS_B.principal, Tier.STANDARD)).toBe(3_000n);
+    expect(collateralFor(TERMS_C.principal, Tier.VERIFIED, true)).toBe(5_250n);
+    expect(collateralFor(TERMS_C.principal, Tier.VERIFIED)).toBe(5_500n);
     expect(owedFor(TERMS_A)).toBe(1_100n);
     expect(installmentFor(owedFor(TERMS_A), TERMS_A.installments)).toBe(550n);
     expect(owedFor(TERMS_B)).toBe(2_100n);

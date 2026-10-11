@@ -43,6 +43,21 @@ export type ImpureCircuits<PS> = {
          expectedCollateral_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   declineOffer(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
   waiveProof(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  proveRepaidHistory(context: __compactRuntime.CircuitContext<PS>,
+                     loanA_0: Uint8Array,
+                     lenderA_0: Uint8Array,
+                     pathA_0: { leaf: Uint8Array,
+                                path: { sibling: { field: bigint },
+                                        goes_left: boolean
+                                      }[]
+                              },
+                     loanB_0: Uint8Array,
+                     lenderB_0: Uint8Array,
+                     pathB_0: { leaf: Uint8Array,
+                                path: { sibling: { field: bigint },
+                                        goes_left: boolean
+                                      }[]
+                              }): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,
@@ -66,6 +81,21 @@ export type ProvableCircuits<PS> = {
          expectedCollateral_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   declineOffer(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
   waiveProof(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  proveRepaidHistory(context: __compactRuntime.CircuitContext<PS>,
+                     loanA_0: Uint8Array,
+                     lenderA_0: Uint8Array,
+                     pathA_0: { leaf: Uint8Array,
+                                path: { sibling: { field: bigint },
+                                        goes_left: boolean
+                                      }[]
+                              },
+                     loanB_0: Uint8Array,
+                     lenderB_0: Uint8Array,
+                     pathB_0: { leaf: Uint8Array,
+                                path: { sibling: { field: bigint },
+                                        goes_left: boolean
+                                      }[]
+                              }): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,
@@ -74,15 +104,30 @@ export type ProvableCircuits<PS> = {
 }
 
 export type PureCircuits = {
+  verifiedRatioBps(): bigint;
+  standardRatioBps(): bigint;
+  verifiedHistoryRatioBps(): bigint;
+  standardHistoryRatioBps(): bigint;
   quoteLimit(): bigint;
   minQuoteSeconds(): bigint;
   getDappPubKey(sk_0: Uint8Array): Uint8Array;
+  repaidLeaf(borrowerPk_0: Uint8Array,
+             loanAddr_0: Uint8Array,
+             lenderPk_0: Uint8Array): Uint8Array;
 }
 
 export type Circuits<PS> = {
+  verifiedRatioBps(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, bigint>;
+  standardRatioBps(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, bigint>;
+  verifiedHistoryRatioBps(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, bigint>;
+  standardHistoryRatioBps(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, bigint>;
   quoteLimit(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, bigint>;
   minQuoteSeconds(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, bigint>;
   getDappPubKey(context: __compactRuntime.CircuitContext<PS>, sk_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
+  repaidLeaf(context: __compactRuntime.CircuitContext<PS>,
+             borrowerPk_0: Uint8Array,
+             loanAddr_0: Uint8Array,
+             lenderPk_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
   quoteTerms(context: __compactRuntime.CircuitContext<PS>,
              thresholdNetWorth_0: bigint,
              maxDti_0: bigint,
@@ -98,6 +143,21 @@ export type Circuits<PS> = {
          expectedCollateral_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   declineOffer(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
   waiveProof(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
+  proveRepaidHistory(context: __compactRuntime.CircuitContext<PS>,
+                     loanA_0: Uint8Array,
+                     lenderA_0: Uint8Array,
+                     pathA_0: { leaf: Uint8Array,
+                                path: { sibling: { field: bigint },
+                                        goes_left: boolean
+                                      }[]
+                              },
+                     loanB_0: Uint8Array,
+                     lenderB_0: Uint8Array,
+                     pathB_0: { leaf: Uint8Array,
+                                path: { sibling: { field: bigint },
+                                        goes_left: boolean
+                                      }[]
+                              }): __compactRuntime.CircuitResults<PS, []>;
   proveTier(context: __compactRuntime.CircuitContext<PS>,
             balance_0: bigint,
             debts_0: bigint,
@@ -120,6 +180,8 @@ export type Ledger = {
   readonly collateralRequired: bigint;
   readonly offeredCollateral: bigint;
   readonly offeredTier: Tier;
+  readonly priorRepaidProven: boolean;
+  readonly priorRepaidRoot: { field: bigint };
   readonly balanceOwed: bigint;
   readonly installmentAmount: bigint;
   readonly nextDueAt: bigint;

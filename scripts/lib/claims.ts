@@ -24,7 +24,7 @@ import {
 import { collateralFor } from '../../client/proof/loanMath.js';
 import { bytesEqual, bytesToHex } from '../../client/utils.js';
 import type { Deployments, DeploymentTx } from './deployments.js';
-import { LOAN_SHORT_NAMES, REFUSALS } from './flow.js';
+import { LOAN_SHORT_NAMES, REFUSALS, REFUSALS_A } from './flow.js';
 
 export type OnchainStates = {
   solvencyProof: SolvencyLedger | null;
@@ -214,7 +214,7 @@ function loanClaims(d: Deployments, s: OnchainStates): ClaimResult[] {
     out.push(missing(refusedA, '1 quote, 110%', name(0)));
   } else {
     const want = collateralFor(a.terms.principal, Tier.VERIFIED);
-    const expected = Object.values(REFUSALS).map((r) => r.expected);
+    const expected = REFUSALS_A.map((r) => r.expected);
     const recorded = expected.every((m) => tried.some((r) => r.message === m));
     out.push(
       result(
@@ -283,6 +283,7 @@ function loanClaims(d: Deployments, s: OnchainStates): ClaimResult[] {
       missing(listed, 'listed', 'LoanDirectory'),
       missing(recorded, 'REPAID', 'LoanDirectory'),
       missing(history, '2', 'LoanDirectory'),
+      missing(`${name(2)}: two repaid loans proven on the Loan, against a LoanDirectory root`, 'proven; root in the directory', 'LoanDirectory'),
     );
     return out;
   }
@@ -333,6 +334,50 @@ function loanClaims(d: Deployments, s: OnchainStates): ClaimResult[] {
   const keyC = keys[2];
   const count = keyC && dir.historyProofs.member(keyC) ? dir.historyProofs.lookup(keyC) : 0n;
   out.push(result(history, '2', String(count), count === 2n));
+
+  // Loan C: the track record has an economic effect. The Loan proved the two
+  // records itself and published their root, which must be the directory's
+  // (the Loan cannot read the directory; this is the reader's half).
+  const trackC = `${name(2)}: two repaid loans proven on the Loan, against a LoanDirectory root`;
+  if (!c) {
+    out.push(missing(trackC, 'proven; root in the directory', name(2)));
+  } else {
+    const inDirectory = c.priorRepaidProven && dir.repaid.checkRoot(c.priorRepaidRoot);
+    out.push(
+      result(
+        trackC,
+        'proven; root in the directory',
+        `${c.priorRepaidProven ? 'proven' : 'not proven'}${c.priorRepaidProven ? `; root ${inDirectory ? 'in the directory' : 'NOT in the directory'}` : ''}`,
+        inDirectory,
+      ),
+    );
+  }
+
+  const tierC = `${name(2)}: tier VERIFIED with two repaid loans, collateral 105% of principal, accepted; the refused 110% offer left no trace`;
+  if (!c) {
+    out.push(missing(tierC, '105%', name(2)));
+  } else {
+    const want = collateralFor(c.terms.principal, Tier.VERIFIED, true);
+    const without = collateralFor(c.terms.principal, Tier.VERIFIED);
+    const refused = d.refusals.some(
+      (r) => r.contract === d.contracts.loans[2] && r.message === REFUSALS.overaskC.expected,
+    );
+    out.push(
+      result(
+        tierC,
+        `VERIFIED, ${want} on ${c.terms.principal}; 1 refusal recorded`,
+        `${tierLabel(c.tier)}, ${c.collateralRequired} on ${c.terms.principal} (110% would be ${without}); ${refused ? 1 : 0} refusal(s) recorded`,
+        c.status === LoanStatus.ACTIVE &&
+          c.priorRepaidProven &&
+          c.tier === Tier.VERIFIED &&
+          c.offeredTier === Tier.VERIFIED &&
+          c.collateralRequired === want &&
+          c.offeredCollateral === want &&
+          want < without &&
+          refused,
+      ),
+    );
+  }
 
   return out;
 }

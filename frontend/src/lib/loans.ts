@@ -102,6 +102,20 @@ export type LoanView = {
   /** The pitch, for this principal: what each tier would cost the borrower. */
   collateralIfVerified: bigint;
   collateralIfStandard: bigint;
+  /** The ratios behind those figures, basis points (11000 / 15000, or 10500 / 13000 with a track record). */
+  ratioIfVerifiedBps: bigint;
+  ratioIfStandardBps: bigint;
+  /**
+   * Two prior repaid loans proven on the Loan itself (proveRepaidHistory):
+   * every collateral figure is a step lower (105% / 130%).
+   */
+  priorRepaidProven: boolean;
+  /**
+   * The root that proof published is one of the LoanDirectory's. The Loan
+   * cannot read the directory, so this is the lender's check; true when no
+   * history was proven.
+   */
+  priorRepaidRootChecks: boolean;
   disbursed: boolean;
   balanceOwed: bigint;
   installmentAmount: bigint;
@@ -190,7 +204,11 @@ export interface LoanDesk {
   paymentLog(address: string): Payment[];
   /** Repaid loans recorded in the directory under this borrower. */
   repaidRecords(): RepaidRecord[];
-  /** Prove two repaid loans for an open application, without naming them. */
+  /**
+   * Prove two repaid loans for an application, without naming them: on the
+   * Loan while it is open (every collateral figure drops a step) and in the
+   * directory (the count lenders see).
+   */
   proveHistory(forLoan: string, a: string, b: string): Promise<void>;
   /** Open one loan's payment history for an auditor (Wave 3 preview). */
   disclose(address: string): AuditDisclosure;

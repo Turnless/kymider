@@ -23,6 +23,9 @@ export type CommittedFacts = { balance: bigint; debts: bigint; income: bigint };
 
 export const VERIFIED_RATIO_BPS = 11_000n; // 110%
 export const STANDARD_RATIO_BPS = 15_000n; // 150%
+// With two prior repaid loans proven on the Loan (proveRepaidHistory).
+export const VERIFIED_HISTORY_RATIO_BPS = 10_500n; // 105%
+export const STANDARD_HISTORY_RATIO_BPS = 13_000n; // 130%
 export const GRACE_SECONDS = 259_200n; // 3 days
 export const MAX_PRINCIPAL = 1n << 40n;
 /** The shortest life a quote may have (Loan.minQuoteSeconds): 30 minutes. */
@@ -31,9 +34,18 @@ export const MIN_QUOTE_SECONDS = 1_800n;
 // floor(principal * ratioBps / 10000), the circuit's isFloorOfBps.
 const floorOfBps = (principal: bigint, ratioBps: bigint): bigint => (principal * ratioBps) / 10_000n;
 
-/** The collateral the circuit accepts for a tier: 110% if VERIFIED, else 150%. */
-export const collateralFor = (principal: bigint, tier: Tier): bigint =>
-  floorOfBps(principal, tier === Tier.VERIFIED ? VERIFIED_RATIO_BPS : STANDARD_RATIO_BPS);
+/**
+ * The collateral ratio the circuit applies, in basis points: 110% if VERIFIED,
+ * else 150%; 105% and 130% once two prior repaid loans are proven.
+ */
+export const ratioBpsFor = (tier: Tier, priorRepaid = false): bigint =>
+  tier === Tier.VERIFIED
+    ? priorRepaid ? VERIFIED_HISTORY_RATIO_BPS : VERIFIED_RATIO_BPS
+    : priorRepaid ? STANDARD_HISTORY_RATIO_BPS : STANDARD_RATIO_BPS;
+
+/** The collateral the circuit accepts for a tier (see ratioBpsFor). */
+export const collateralFor = (principal: bigint, tier: Tier, priorRepaid = false): bigint =>
+  floorOfBps(principal, ratioBpsFor(tier, priorRepaid));
 
 /** Principal plus flat interest, floored. */
 export const owedFor = (terms: LoanTerms): bigint =>

@@ -17,6 +17,7 @@ import CompactStandardLibrary;
 //   APPLIED --quoteTerms (lender, at most 3)--> APPLIED, quoted
 //   APPLIED --proveTier (borrower, once per quote)--> APPLIED, tier VERIFIED or STANDARD
 //   APPLIED --waiveProof (borrower, instead of proving)--> APPLIED, quote answered, no tier
+//   APPLIED --proveRepaidHistory (borrower, once)--> APPLIED, two prior repaid loans proven
 //   APPLIED --underwrite (lender: the tier's figure, nothing else)--> OFFERED
 //   OFFERED --accept(figure) (borrower)--> ACTIVE  (only the borrower makes an offer binding)
 //   OFFERED --declineOffer (borrower)--> APPLIED   (the offer is cleared; the lender may offer again)
@@ -54,6 +55,17 @@ import CompactStandardLibrary;
 // could binary-search the borrower's net worth, so a loan takes at most
 // quoteLimit() quotes and one tier proof per quote: at most three answers,
 // all counted on the public ledger (`quotesIssued`, `tierProven`).
+//
+// Track record: a borrower who has repaid two earlier Kymider loans proves it
+// here (proveRepaidHistory), against the LoanDirectory's repayment records,
+// and every collateral figure drops a step: 150% to 130% without a tier,
+// 110% to 105% with one. The discount is in the contract, not in the quote,
+// so the lender cannot quote it away. The proof names neither loan nor
+// lender: it checks two Merkle paths to leaves repaidLeaf(borrower, loan,
+// lender) and publishes only their common root. Midnight has no
+// cross-contract reads, so, as with factsCommitment, the lender checks that
+// root is one of the directory's (LoanDirectory `repaid.checkRoot`) before
+// offering, and declines a loan whose root is not.
 //
 // Money: balances are figures in contract state. No token moves (Wave 2 is a
 // lifecycle demo; settlement is a later milestone, stated in the README).
@@ -97,6 +109,11 @@ export ledger collateralRequired: Uint<64>;  // principal * tier ratio, binding 
 export ledger offeredCollateral: Uint<64>;
 export ledger offeredTier: Tier;
 
+// Two prior repaid loans proven in this instance (proveRepaidHistory), and
+// the LoanDirectory repayment-tree root the proof was made against.
+export ledger priorRepaidProven: Boolean;
+export ledger priorRepaidRoot: MerkleTreeDigest;
+
 export ledger balanceOwed: Uint<64>;
 export ledger installmentAmount: Uint<64>;
 export ledger nextDueAt: Uint<64>;
@@ -116,9 +133,13 @@ witness paymentNonce(): Bytes<32>;
 // The blinding salt behind `factsCommitment` (the borrower's; a lender's is unused).
 witness factsSalt(): Bytes<32>;
 
-// Collateral ratios, basis points of principal.
-pure circuit verifiedRatioBps(): Uint<64> { return 11000; }
-pure circuit standardRatioBps(): Uint<64> { return 15000; }
+// Collateral ratios, basis points of principal. With two prior repaid loans
+// proven, each tier takes the lower figure. Exported so clients read them
+// from the contract rather than restating them.
+export pure circuit verifiedRatioBps(): Uint<64> { return 11000; }
+export pure circuit standardRatioBps(): Uint<64> { return 15000; }
+export pure circuit verifiedHistoryRatioBps(): Uint<64> { return 10500; }
+export pure circuit standardHistoryRatioBps(): Uint<64> { return 13000; }
 // A missed installment can be called a default this long after it fell due.
 pure circuit graceSeconds(): Uint<64> { return 259200; } // 3 days
 // Quotes a lender may make on one loan. Exported so clients read the cap from
@@ -130,6 +151,12 @@ export pure circuit minQuoteSeconds(): Uint<64> { return 1800; }
 
 export pure circuit getDappPubKey(sk: Bytes<32>): Bytes<32> {
   return persistentHash<Vector<2, Bytes<32>>>([pad(32, "kymider:pk:"), sk]);
+}
+
+// Same leaf as LoanDirectory.repaidLeaf, so a path to a directory record
+// verifies here unchanged.
+export pure circuit repaidLeaf(borrowerPk: Bytes<32>, loanAddr: Bytes<32>, lenderPk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<4, Bytes<32>>>([pad(32, "kymider:repaid:"), borrowerPk, loanAddr, lenderPk]);
 }
 
 // Same encoding as SolvencyProof.commitFacts, so the commitment carries over:
@@ -176,6 +203,7 @@ constructor(lenderPk: Bytes<32>, loanTerms: LoanTerms, commitment: Bytes<32>) {
   tierProven = false;
   tier = Tier.NONE;
   offeredTier = Tier.NONE;
+  priorRepaidProven = false;
   historyCommitment = persistentHash<Vector<1, Bytes<32>>>([pad(32, "kymider:loan:history:")]);
 }
 
@@ -212,15 +240,18 @@ export circuit quoteTerms(thresholdNetWorth: Uint<64>, maxDti: Uint<64>, expires
 // (VERIFIED or STANDARD), waives the proof, or lets the quote lapse.
 // `collateral` is the lender's arithmetic. The circuit takes it only if it is
 // exactly the tier's ratio of the principal: while a VERIFIED tier is live the
-// only figure the lender can offer is 110%. The offer binds nobody until the
-// borrower accepts it.
+// only figure the lender can offer is 110% (105% with a proven track record).
+// The offer binds nobody until the borrower accepts it.
 export circuit underwrite(collateral: Uint<64>): [] {
   assert(getDappPubKey(localSk()) == lender, "only the lender may underwrite");
   assert(status == LoanStatus.APPLIED, "loan is not awaiting underwriting");
   assert(quoted, "quote first");
   const verified = tier == Tier.VERIFIED && blockTimeLt(tierExpiresAt);
   assert(verified || tierProven || !blockTimeLt(quote.expiresAt), "the borrower can prove until the quote lapses");
-  const ratio = verified ? verifiedRatioBps() : standardRatioBps();
+  const history = priorRepaidProven;
+  const ratio = verified
+    ? (history ? verifiedHistoryRatioBps() : verifiedRatioBps())
+    : (history ? standardHistoryRatioBps() : standardRatioBps());
   assert(isFloorOfBps(disclose(collateral), terms.principal, ratio), "collateral does not match the tier");
   offeredTier = verified ? Tier.VERIFIED : Tier.STANDARD;
   offeredCollateral = disclose(collateral);
@@ -297,6 +328,34 @@ export circuit waiveProof(): [] {
   assert(!tierProven, "already proven against this quote");
   tier = Tier.NONE;
   tierProven = true;
+}
+
+// Prove two earlier Kymider loans were repaid, without saying which. Each
+// record is a LoanDirectory leaf repaidLeaf(this loan's borrower, loan,
+// lender), written by that loan's lender when it was repaid; the loans,
+// lenders and paths are private inputs. Both paths must lead to one root,
+// which is published so the lender can check it against the directory. Once
+// per loan, while the application is open (before any offer is made), so an
+// offer never changes under the borrower.
+// Honest limit (as in the directory): a record is only as good as the lender
+// who wrote it, so a borrower lending to themselves can mint records.
+export circuit proveRepaidHistory(
+  loanA: Bytes<32>, lenderA: Bytes<32>, pathA: MerkleTreePath<10, Bytes<32>>,
+  loanB: Bytes<32>, lenderB: Bytes<32>, pathB: MerkleTreePath<10, Bytes<32>>,
+): [] {
+  const me = getDappPubKey(localSk());
+  assert(me == borrower, "only the borrower may prove a repayment history");
+  assert(status == LoanStatus.APPLIED, "loan is no longer open to proofs");
+  assert(!priorRepaidProven, "repayment history already proven");
+  assert(loanA != loanB, "the two loans must differ");
+  const self = kernel.self().bytes;
+  assert(loanA != self && loanB != self, "a loan cannot vouch for itself");
+  assert(pathA.leaf == repaidLeaf(me, loanA, lenderA), "first record is not yours");
+  assert(pathB.leaf == repaidLeaf(me, loanB, lenderB), "second record is not yours");
+  const root = merkleTreePathRoot<10, Bytes<32>>(pathA);
+  assert(root == merkleTreePathRoot<10, Bytes<32>>(pathB), "both records must come from one directory root");
+  priorRepaidRoot = disclose(root);
+  priorRepaidProven = true;
 }
 
 // Prove the committed facts clear the lender's quote. The verdict lands on the

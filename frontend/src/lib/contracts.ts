@@ -87,6 +87,7 @@ export {
   VERIFIED_RATIO_BPS,
   amountDue,
   collateralFor,
+  ratioBpsFor,
   commitFacts,
   defaultableFrom,
   installmentFor,
