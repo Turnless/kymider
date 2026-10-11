@@ -11,12 +11,12 @@ network, is pending the owner's wallet (see the README's
 
 | | |
 |---|---|
-| CI run | [37105707040](https://github.com/Turnless/kymider/actions/runs/37105707040) (run 48), job `Devnet simulation`, all steps green |
-| Commit | `5c704e2`: round 4 contracts (proof window, `waiveProof`, accept with the figure, listing keys, no directory defaults), on top of the salted facts commitment, re-quote cap and borrower consent step |
+| CI run | [38152734953](https://github.com/Turnless/kymider/actions/runs/38152734953) (run 54), job `Devnet simulation`, all steps green |
+| Commit | `d03bf03` on branch `ccr-b84b6751-3p9bb3`: round 5, a proven track record lowers the collateral (`Loan.proveRepaidHistory`), on top of the round 4 contracts (proof window, `waiveProof`, accept with the figure, listing keys) |
 | Network | `local` (Midnight node 1.0.0, indexer-standalone 4.3.3, proof server 8.1.0) |
-| Transactions | 32, all `SUCCESS` |
-| Refusals | 2, refused by the contract before submission (none reached the chain) |
-| Read-back checks | **47 of 47 PASS** (`verify:onchain`) |
+| Transactions | 37, all `SUCCESS` |
+| Refusals | 3, refused by the contract before submission (none reached the chain) |
+| Read-back checks | **54 of 54 PASS** (`verify:onchain`) |
 | Full record | the run's `proof-local` artifact (PROOF.md + deployments JSON, kept 14 days) |
 
 Every CI run on every branch repeats this from an empty chain, so the hashes
@@ -26,12 +26,12 @@ below are one instance of a flow that is re-proved on each push.
 
 | Contract | Address |
 |---|---|
-| Registry | `6eeecf32cf49ea486f2759b1b67d829851c81966475dee95e3ea5892a1b51828` |
-| SolvencyProof | `2d41fab54f7f04f11157cd8c6e21026779c1ff611249b2e5d52cc776091f1f8f` |
-| LoanDirectory | `0f01eb3ebcb69acac72895a9dc5ca809c5bc3dad9dccd2d6bd04be80b8987991` |
-| Loan A (1,000, proved VERIFIED) | `1fd777aa910b8ce9f0291d606ba164dc7c4f07851eb32f5fb8c9a38745a66224` |
-| Loan B (2,000, proof waived) | `d7af3fc52c3e2e563266aa44d3241fd92135e5cc63f1076ca918311a4c09abc2` |
-| Loan C (5,000, new application) | `75b19fea38e01235b70a9f665bf846d559b0e7c48a2aa996d2b9c516fbccd078` |
+| Registry | `67fbdb21720a1ee03eb3518b118fa98acbf73e3be37b037d4793f3338faff293` |
+| SolvencyProof | `76c1c68af7bd34ff88e450c8b3be06ae51fbb1644abae3f53ff293ca3956fba1` |
+| LoanDirectory | `abebf9f9527fdb1f283dc0f895170802160f057f6bf9a0857832230385a8f995` |
+| Loan A (1,000, proved VERIFIED) | `1fa23848cca9aa3f78e537a58c68f6e3595f68565bc61d4aa50f83c02a918264` |
+| Loan B (2,000, proof waived) | `a47d8b42ccacc667563da8940490c8af7fd5c0596c02c1f30b555ce1fdd35e10` |
+| Loan C (5,000, two repaid loans proven, VERIFIED) | `4304e867a4960406b95971a7386c80e1654eee63ce4d7665058d97a50c82cc41` |
 
 ## What the chain says, read back
 
@@ -42,10 +42,12 @@ below are one instance of a flow that is re-proved on each push.
 | Loan B: proof waived, tier STANDARD, collateral 150%, accepted by the borrower | STANDARD, 3,000 on 2,000 |
 | Loans A and B repaid in full | REPAID, 0 owed; A 2 payments, B 1; 0 late |
 | Loans A, B and C bind the SolvencyProof facts commitment | all three match |
-| Quotes within the cap of 3 | A 1, B 1, C 0 |
+| Quotes within the cap of 3 | A 1, B 1, C 1 |
 | LoanDirectory: A, B and C listed under their own borrowers, naming their lenders | all three listed; parties match each Loan |
 | LoanDirectory: A and B recorded as repaid | both REPAID and recorded |
-| Loan C carries a history proof of 2 repaid loans | 2 |
+| Loan C carries a history proof of 2 repaid loans (directory) | 2 |
+| Loan C: two repaid loans proven on the Loan, against a LoanDirectory root | proven; root in the directory |
+| Loan C: tier VERIFIED with two repaid loans, collateral 105%, accepted; the refused 110% offer left no trace | VERIFIED, 5,250 on 5,000 (110% would be 5,500); 1 refusal recorded |
 | SolvencyProof: one lender attestation, PASS; claim APPROVED | PASS; APPROVED |
 | Registry row points at the SolvencyProof instance and its commitment | ACTIVE; address and commitment match |
 
@@ -55,53 +57,60 @@ tier reach the ledger.
 
 ## Refused, not submitted
 
-Between the tier proof and the offer on Loan A, `prove:onchain` asks the Loan
-contract for two things a lender must not be able to do. Each call fails in
-the circuit, so no transaction is built and nothing reaches the chain; the
-read-back then confirms Loan A still shows 1 quote and the 110% offer.
+Between the tier proof and the offer, `prove:onchain` asks the Loan contract
+for three things a lender must not be able to do. Each call fails in the
+circuit, so no transaction is built and nothing reaches the chain; the
+read-back then confirms Loan A still shows 1 quote and the 110% offer, and
+Loan C the 105% offer.
 
 | Attempt | Contract's answer |
 |---|---|
 | Lender offers loan A at 150% (1,500) while its VERIFIED tier is live | `collateral does not match the tier` |
 | Lender re-quotes loan A while its VERIFIED tier is live | `a verified tier is live until it lapses` |
+| Lender offers loan C at 110% (5,500), ignoring its proven track record | `collateral does not match the tier` |
 
 ## Transactions
 
 | # | Step | Circuit | Block | Tx hash |
 |---|---|---|---|---|
-| 1 | Borrower deploys the shared Registry | `Registry.deploy` | 145 | `b6c0cc7fc8bff7efa9d83ee339e45a6ea7d3aef3f29a5c4572a17eea22e0436d` |
-| 2 | Borrower deploys their SolvencyProof instance | `SolvencyProof.deploy` | 148 | `563b5aed7da27df3d61f901b35f594a07b1bf33f7daa18bbd2f4f7cbb642f7c1` |
-| 3 | Borrower indexes the instance in the Registry | `Registry.register` | 151 | `0ce512af6961ab2d99ac5aa7ec6931606005394a1855180fbeecddf4c97edbf5` |
-| 4 | Borrower authorizes the lender | `SolvencyProof.addLender` | 154 | `51a5db97af8bce6a4384fb9af60eb021e35dca960c16b6d9c7feb1ab3d965b4d` |
-| 5 | Lender requests a solvency claim (net worth ≥ 500,000, DTI ≤ 40%) | `SolvencyProof.requestClaim` | 157 | `54f9f1eb8d48e878995b17e9b721fede2309b7873167618c4bae8c86b4631fe9` |
-| 6 | Borrower proves solvency in zero knowledge | `SolvencyProof.proveSolvency` | 161 | `f0d6ce87c048fa86cb5d702ebb5d704250e535ba837fbbe7007bfc1745686495` |
-| 7 | Lender approves the claim | `SolvencyProof.approve` | 164 | `b3ce3f78eefb774f824307fc268270670a4b2b58fdf750e8510f160ad76ba8da` |
-| 8 | Borrower deploys the shared LoanDirectory | `LoanDirectory.deploy` | 167 | `fbde4fe920456771398d8b7faa2744c52c563fc063c0242daeab842ed39921a8` |
-| 9 | Borrower opens loan A (principal 1,000), bound to the committed facts | `Loan.deploy` | 170 | `e66bda653abac02983659084f79453e194d52008654d8c4a2bf716956139ea70` |
-| 10 | Borrower lists loan A in the LoanDirectory | `LoanDirectory.list` | 174 | `590c612644d972fcd5b2b082b421bb851cb3a51120d0d91af6036e35c129ec84` |
-| 11 | Lender quotes the bar for the 110% tier on loan A | `Loan.quoteTerms` | 177 | `02f05d65f1432bf8a3e866fcea539c084a2428db9cf11e04e099cc81225411e7` |
-| 12 | Borrower proves the tier on loan A in zero knowledge: VERIFIED | `Loan.proveTier` | 181 | `b5a164df38c0f2c3a5076e4604bdaa400ad94ccc7d3c4800fb1d6c660810c428` |
-| 13 | Lender offers loan A at 110% collateral (1,100) | `Loan.underwrite` | 184 | `425bc7eab185d7c683dcf9002eddb3da0046b8bf5b9a66127bd29df6db5c4c27` |
-| 14 | Borrower accepts the offer on loan A | `Loan.accept` | 187 | `b1e1a3fe8b0ca97f3766137dfc37072300b788ceb70f3b9a2c186b75db78fbeb` |
-| 15 | Lender marks loan A ACTIVE in the LoanDirectory | `LoanDirectory.updateStatus` | 190 | `6a9336d931bfa3a4cd2087514061e81d4734a5bc95b01d0081e090649db21b5c` |
-| 16 | Lender disburses loan A | `Loan.disburse` | 193 | `9b7104552ac9b850545349744bf1f1925ba2aa19834060f4b307e46c96ecd974` |
-| 17 | Borrower repays an installment of loan A | `Loan.repay` | 197 | `045c3e7470857e16ef20814449b8e19e0def6818691417bf08925776db4390ce` |
-| 18 | Borrower repays an installment of loan A | `Loan.repay` | 200 | `18704b72ae283f7e12a4d306b8ab57b8eaa9f9a7bae9ec7ac7293235cee1a922` |
-| 19 | Lender records loan A as repaid | `LoanDirectory.recordRepaid` | 204 | `8354f9e056c26c06fed13a00abf13c69beccda6f48c2f991ec33e658a6c66029` |
-| 20 | Borrower opens loan B (principal 2,000), bound to the committed facts | `Loan.deploy` | 207 | `cf8922c1a1ad352eb48d9ad0b99a21f58e4457283e80613a415a6b1f14efe082` |
-| 21 | Borrower lists loan B in the LoanDirectory | `LoanDirectory.list` | 211 | `57e5b87d920387d0b1a96311e52952e67f328c79a7aee9e7080023d5ffa6033b` |
-| 22 | Lender quotes the bar on loan B | `Loan.quoteTerms` | 214 | `12b3b6c08eb1805690b9979fe17f2bc2648f800b73ca0a53f40eefc841336af3` |
-| 23 | Borrower waives the tier proof on loan B | `Loan.waiveProof` | 217 | `dc26f7a9a4b4e182425264c2431dca2247de3cf95000b68cd55fe1d3bc75217c` |
-| 24 | Lender offers loan B at 150% collateral (3,000): proof waived | `Loan.underwrite` | 220 | `a80482fcd7d4b26a045608e4972a37e4805845b8301b1b3288a0ea1916e13436` |
-| 25 | Borrower accepts the offer on loan B | `Loan.accept` | 223 | `756a80961a46cd4ca48de43d90cc5653a4a637a4c55e50b5497e6d8a1c9b3399` |
-| 26 | Lender marks loan B ACTIVE in the LoanDirectory | `LoanDirectory.updateStatus` | 226 | `29d360d7dea139d44a0f0968995977298361f74763f228d754d441d9a01eefc9` |
-| 27 | Lender disburses loan B | `Loan.disburse` | 229 | `324892da7b474f421fef793b00f07a951582bc75532f352f5cd54dfe74596c5a` |
-| 28 | Borrower repays loan B | `Loan.repay` | 232 | `b0906d0267ad326bd19c779c97a31fb1c560bdd6a3f41403b1a380370b787bf1` |
-| 29 | Lender records loan B as repaid | `LoanDirectory.recordRepaid` | 236 | `48f61140aa2faf2ce78305c0cea38e7a8fcfc7d6451c0a5795c082d121d2362a` |
-| 30 | Borrower opens loan C (principal 5,000), a new application | `Loan.deploy` | 239 | `6dc2821919c501b05a98db91deeb6abe915ecb586fcec9f5e74ae626d2bda1ef` |
-| 31 | Borrower lists loan C in the LoanDirectory | `LoanDirectory.list` | 243 | `ede5818e42d8623e75bdee2b4c0f516e54e365112df209a2ef86c226c8834e00` |
-| 32 | Borrower proves two repaid Kymider loans for application C | `LoanDirectory.proveTwoRepaid` | 247 | `68691d8b2ebe9302c1b8b3ce421a855920429cf00523cbad9d2f40af67176c37` |
+| 1 | Borrower deploys the shared Registry | `Registry.deploy` | 157 | `8edd84f398d56cb0889aed70651be5c78eeda9b02e4893105ea7e6c006a945cf` |
+| 2 | Borrower deploys their SolvencyProof instance | `SolvencyProof.deploy` | 160 | `7a3c53d212dd06086c64b0c71561c8d0ed97531c076468477efb5c4f5ca606fe` |
+| 3 | Borrower indexes the instance in the Registry | `Registry.register` | 164 | `7aa12ad35caae897dbe6732bfe1056f7cb17f8555e6e1356d1ddeca89572a8af` |
+| 4 | Borrower authorizes the lender | `SolvencyProof.addLender` | 168 | `fd895ac42f174c57f8fe0b624a5f88124504c5f3fe0bdaef09c7a86592283c92` |
+| 5 | Lender requests a solvency claim (net worth ≥ 500,000, DTI ≤ 40%) | `SolvencyProof.requestClaim` | 172 | `087fbfa7dc3fba3c2cf03ecf96f856a92bbee76ac1125d051a9449632be3db9f` |
+| 6 | Borrower proves solvency in zero knowledge | `SolvencyProof.proveSolvency` | 176 | `ba53b5e8ca541e690dbdd098bf0576e5e775f842a0c2a375b84a132186c45bda` |
+| 7 | Lender approves the claim | `SolvencyProof.approve` | 180 | `10f9b7e6ed0417358f98af1fa72282b09340b4fa915362c5573f553a93d113f3` |
+| 8 | Borrower deploys the shared LoanDirectory | `LoanDirectory.deploy` | 183 | `ea8d390bc4bdd966bc2ec497d6295e8d426cdcc775ea396250e3a083d6c173fa` |
+| 9 | Borrower opens loan A (principal 1,000), bound to the committed facts | `Loan.deploy` | 186 | `70ac5a60c23cd6380d9e30e39f48226a5041363452ca3ffae76bedaa7b4c88eb` |
+| 10 | Borrower lists loan A in the LoanDirectory | `LoanDirectory.list` | 190 | `cefb1040bf185e1dcc855679fdd58b8deea170c2467abb71751177958fe4b2cc` |
+| 11 | Lender quotes the bar for the 110% tier on loan A | `Loan.quoteTerms` | 194 | `44a7235877adae443e6642449f87c3981367c8507596b58a60ca7f3b07e153a9` |
+| 12 | Borrower proves the tier on loan A in zero knowledge: VERIFIED | `Loan.proveTier` | 198 | `6933b1c1bd1ed85cdbad1720c57e3be23c42e302e9826284b2ed57213d4cc327` |
+| 13 | Lender offers loan A at 110% collateral (1,100) | `Loan.underwrite` | 202 | `9765d5e7e9d4343a6219b83304dc03eb7c7c6a1e5077b946a2b7aa88e3281e1e` |
+| 14 | Borrower accepts the offer on loan A | `Loan.accept` | 206 | `a2254fcdd7d694f3ac8fae8281cadda52302c881efd56ba4fef93fc4960ffa6f` |
+| 15 | Lender marks loan A ACTIVE in the LoanDirectory | `LoanDirectory.updateStatus` | 210 | `63257848158778d2b7a1f737052440dee1a7ce4c61dd4eed52c98c008fe3d836` |
+| 16 | Lender disburses loan A | `Loan.disburse` | 214 | `8ede078fdefb10be96429c8b1b246c9967d1d517f8ae44ccf5d3f150f1c9799e` |
+| 17 | Borrower repays an installment of loan A | `Loan.repay` | 218 | `cc7192926f2aefc4b7776543eee15e18cdc0a3462e27a2d6b9e000cd12e0b033` |
+| 18 | Borrower repays an installment of loan A | `Loan.repay` | 222 | `f55d20da2b15ae6300714daf45f123c9ce07a2ba3e8095c624bdd275a7807032` |
+| 19 | Lender records loan A as repaid | `LoanDirectory.recordRepaid` | 226 | `848568e20d3812c3c059f77542139d20b9bf33837dc19ba683e983bf9b59ca6b` |
+| 20 | Borrower opens loan B (principal 2,000), bound to the committed facts | `Loan.deploy` | 229 | `256d5dbe2c4022dc93d714ff2d4ebe56988dcd95908086cda2aa29bb0e44384d` |
+| 21 | Borrower lists loan B in the LoanDirectory | `LoanDirectory.list` | 233 | `8d68bf78db7a1cc63388d1ff5db8922587a7051aeaa62e7ed2a8c85b11f3d654` |
+| 22 | Lender quotes the bar on loan B | `Loan.quoteTerms` | 237 | `388a623b13f31a3c328294953ec1443898e8d78b17b2c4d294133c08db2cd578` |
+| 23 | Borrower waives the tier proof on loan B | `Loan.waiveProof` | 241 | `d8079ce4892bff615ed52cf5a4871cd69e8eb49f963928e8331e3ea1c72a6378` |
+| 24 | Lender offers loan B at 150% collateral (3,000): proof waived | `Loan.underwrite` | 245 | `69826cd6d91db039c2d39cd80314c1b4b24ade6b6d6d0dbce89ec1cb010d3ab7` |
+| 25 | Borrower accepts the offer on loan B | `Loan.accept` | 249 | `40cdf4808745868f965d81797a1cbdf551018c710e581bcd4004eec5d3b64db9` |
+| 26 | Lender marks loan B ACTIVE in the LoanDirectory | `LoanDirectory.updateStatus` | 253 | `c6f6be32da5ad96adc9f516f68bb9b27a54a4f4a7a51ea6ab65b57b23b14c67e` |
+| 27 | Lender disburses loan B | `Loan.disburse` | 257 | `11ae1053adbd94be4c38f67b254f5769c3876b20d9e6f544b37cd3771931444d` |
+| 28 | Borrower repays loan B | `Loan.repay` | 261 | `f4f0074d8539459b7485167f2764a4582f3f97684f89f4e4de7cfb1f52b172eb` |
+| 29 | Lender records loan B as repaid | `LoanDirectory.recordRepaid` | 265 | `2eace08da2e7ed0614b1a34517b6619908b68079cfaeea297d85a9cf85739a03` |
+| 30 | Borrower opens loan C (principal 5,000), a new application | `Loan.deploy` | 268 | `31752d6614685e97198b2fbb1361f775941dc57033eff34bcf59813827609bbb` |
+| 31 | Borrower lists loan C in the LoanDirectory | `LoanDirectory.list` | 272 | `98ee742b3d2cfab7ff30635a96c584b960325af2b78b1d95e468a4637d174367` |
+| 32 | Borrower proves two repaid Kymider loans for application C | `LoanDirectory.proveTwoRepaid` | 277 | `f43a4d2238983cfe30fe589e51ff80be39a4b99afb63f113971a0ae03a19e996` |
+| 33 | Borrower proves the two repaid loans on loan C itself: every collateral figure drops a step | `Loan.proveRepaidHistory` | 281 | `e59f239e9c04c12906844899d9a415d9bb59bd101fc08cb7365bc1829cf2ec04` |
+| 34 | Lender quotes the bar on loan C | `Loan.quoteTerms` | 285 | `32d83be58149db7fba59d05b18d2bf5adc836836f8b5caaa284dd3ca4dca47f2` |
+| 35 | Borrower proves the tier on loan C in zero knowledge: VERIFIED | `Loan.proveTier` | 289 | `f63aeaabd384137d162c4baa86365b866cc69efe81cbfca2dc3d66065de2ab0d` |
+| 36 | Lender offers loan C at 105% collateral (5,250): VERIFIED with two repaid loans | `Loan.underwrite` | 293 | `1f293908a780544152b04fb4cb7c9c68848e1f13bbc2d58371f64df61e125d13` |
+| 37 | Borrower accepts the offer on loan C | `Loan.accept` | 297 | `4cca380ed7e4e33250b8eb3990aec96fe8b23007471b48935caabc4e40805f02` |
 
-Copied from the job log of run 37105707040 (each line `tx <Contract>.<circuit>
+Copied from the job log of run 38152734953 (each line `tx <Contract>.<circuit>
 at block <n>: <hash>`), and cross-checked against `verify:onchain`'s lookups of
 every hash at its block on the same devnet.

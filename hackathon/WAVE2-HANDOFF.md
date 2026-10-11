@@ -24,6 +24,12 @@ to merge anything to `main` for now: keep pushing to that branch.**
   (a gate requirement) and the AKINDO record is not fixed. Both are the
   owner's (see "Owner's to-do"). With those plus Preprod, the reviewer's
   estimate is about 7.8.
+- **Round 5 (2026-10-11), on `ccr-b84b6751-3p9bb3` only:** the track record
+  lowers the collateral (see "Round 5 changes"). CI run 54 on `d03bf03` is
+  green on every job, devnet included; `DEVNET-PROOF.md`, README, SUBMISSION,
+  deck (+ PDF) and video script cite it. **Not merged to `main`, by the
+  owner's instruction.** Until it is, the `blob/main/...` links in the
+  submission text and Pages still show round 4 (Pages serves `main`).
 - **Next for Claude, in order:**
   1. ~~Refresh `DEVNET-PROOF.md` from run 48~~ **Done 2026-10-11**: copied
      from run 48's job log (`get_job_logs` on job 111153747787): 32 tx, 2
@@ -279,7 +285,8 @@ Evidence history (each later run supersedes the earlier):
 | [34](https://github.com/Turnless/kymider/actions/runs/37092735681) | `5a56372` | First full green devnet run: 27 tx, 40/40 checks (before the salt and the consent step) |
 | [38](https://github.com/Turnless/kymider/actions/runs/37098203726) | `b815b26` | Salted commitment + consent step: 31 tx, 45/45 checks |
 | [39](https://github.com/Turnless/kymider/actions/runs/37098216655) | `b815b26` | Failed: `Wallet.InsufficientFunds: could not balance dust` on the first deploy. DUST was checked at the runner's clock but the SDK pays fees at the indexer tip's time. Fixed in `6cad506` (`client/wallet.ts` waits until the fee estimate succeeds) |
-| [47](https://github.com/Turnless/kymider/actions/runs/37105699882), [48](https://github.com/Turnless/kymider/actions/runs/37105707040) | `5c704e2` | Round 4 contracts: every job green. Run 48: 32 tx, 2 refusals before submission, 47/47 checks. **This is the run `DEVNET-PROOF.md` records** |
+| [47](https://github.com/Turnless/kymider/actions/runs/37105699882), [48](https://github.com/Turnless/kymider/actions/runs/37105707040) | `5c704e2` | Round 4 contracts: every job green. Run 48: 32 tx, 2 refusals before submission, 47/47 checks |
+| [54](https://github.com/Turnless/kymider/actions/runs/38152734953) | `d03bf03` (branch `ccr-b84b6751-3p9bb3`) | Round 5: every job green. 37 tx, 3 refusals before submission, 54/54 checks; Loan C proved its track record on the Loan and was accepted at 105% (5,250 on 5,000). **This is the run `DEVNET-PROOF.md` records** |
 
 ## Round 5 changes (the track record has a price)
 

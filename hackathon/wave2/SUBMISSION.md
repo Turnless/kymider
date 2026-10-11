@@ -100,7 +100,7 @@ Evidence: 4 Compact contracts (24 circuits) compiled in CI on
 toolchain 0.31.1; 363 offline tests on the compiled contracts;
 48 browser tests of the console; an 18-case devnet simulation with
 real proofs on every push, followed by the full flow proven and re-read on
-that devnet (recorded run on commit 5c704e2: 32 transactions, 47 of 47
+that devnet (recorded run on commit d03bf03: 37 transactions, 54 of 54
 read-back checks: https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md).
 Preprod deployment: pending.
 
@@ -154,8 +154,9 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
    untested on Preprod.
 8. **On-chain proof scripts**: `prove:onchain` runs the flow and records every
    transaction; `verify:onchain` re-reads them. CI runs both on a local devnet
-   on every push; run 37105707040 on commit 5c704e2 (32 transactions, including
-   Loan B's waiver, two refusals recorded before submission, 47 of 47 checks)
+   on every push; run 38152734953 on commit d03bf03 (37 transactions, including
+   Loan B's waiver and Loan C accepted at 105% on its proven track record,
+   three refusals recorded before submission, 54 of 54 checks)
    is recorded in https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. A manually triggered Preprod job writes
    `PROOF.md`; that run is pending the owner's funded wallet.
 9. **Wave 3 preview**: an auditor checks a borrower's exported payment log
@@ -186,7 +187,7 @@ verified borrower and the borrower must accept.
   `kernel.self()` in the Loan, more witnesses (`factsSalt`,
   `paymentNonce`), division-free quotient checks.
 - On-chain: local devnet only → the full flow proven and re-read on a devnet in
-  CI on every push (32 transactions, 47 of 47 checks in run 37105707040, commit 5c704e2);
+  CI on every push (37 transactions, 54 of 54 checks in run 38152734953, commit d03bf03);
   Preprod deployment pending.
   https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md
 - Console: solvency screens → plus loan desk, portfolio, auditor preview and a
@@ -252,7 +253,7 @@ for the Live view (untested on Preprod).
 | Live console | https://turnless.github.io/kymider/ |
 | Demo video (narrated) | {{VIDEO_URL}} |
 | Slide deck | https://turnless.github.io/kymider/deck/ (PDF: https://github.com/Turnless/kymider/blob/main/hackathon/wave2/DECK.pdf) |
-| On-chain proof | Devnet, run 37105707040 on commit 5c704e2, 32 transactions, 47 of 47 checks: https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. Re-run on every push: https://github.com/Turnless/kymider/actions/workflows/ci.yml (job "Devnet simulation", artifact `proof-local`). Preprod: pending; after the run, https://github.com/Turnless/kymider/blob/main/PROOF.md |
+| On-chain proof | Devnet, run 38152734953 on commit d03bf03, 37 transactions, 54 of 54 checks: https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. Re-run on every push: https://github.com/Turnless/kymider/actions/workflows/ci.yml (job "Devnet simulation", artifact `proof-local`). Preprod: pending; after the run, https://github.com/Turnless/kymider/blob/main/PROOF.md |
 | Preprod transaction | {{PREPROD_TX}} |
 | Build with (tech tag) | Midnight |
 | Category | DeFi, lending, privacy |

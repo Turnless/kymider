@@ -25,8 +25,8 @@ console source (`frontend/src/lender/LenderLoan.tsx`,
 - The console seeds two repaid loans for the borrower, so the history proof at
   2:05 needs no preparation.
 - A second tab with `DEVNET-PROOF.md` on GitHub
-  (<https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md>): 32 transactions, 2 refusals and 47 of 47
-  read-back checks from CI run 37105707040 on commit `5c704e2` (the current
+  (<https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md>): 37 transactions, 3 refusals and 54 of 54
+  read-back checks from CI run 38152734953 on commit `d03bf03` (the current
   contracts). Preprod is pending; once the
   Preprod run has committed `PROOF.md`, use that file instead, and the 2:25
   alternative below.
@@ -144,7 +144,7 @@ lender's application list shows **2 prior repaid loans proven**.
 ### 2:25-2:40 · On-chain proof
 **Show:** the `DEVNET-PROOF.md` tab.
 
-**2:25** - **Do:** Point at "Read-back checks: 47 of 47 PASS", then scroll the
+**2:25** - **Do:** Point at "Read-back checks: 54 of 54 PASS", then scroll the
 Transactions table to rows 12-14 (`Loan.proveTier`, `Loan.underwrite` at 1,100,
 `Loan.accept`).
 

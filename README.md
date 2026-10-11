@@ -25,7 +25,7 @@ step: 105% verified, 130% without a proof.
 
 | Live console | Video | Deck | On-chain proof | Tests | What is simulated |
 |---|---|---|---|---|---|
-| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | Narrated video: being recorded, link added before Oct 17 | [Slides](https://turnless.github.io/kymider/deck/) · [PDF](./hackathon/wave2/DECK.pdf) | Devnet: 32 tx, 47/47 read-back checks on commit `5c704e2` ([DEVNET-PROOF.md](./DEVNET-PROOF.md)), re-run in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 363 offline, 48 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
+| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | Narrated video: being recorded, link added before Oct 17 | [Slides](https://turnless.github.io/kymider/deck/) · [PDF](./hackathon/wave2/DECK.pdf) | Devnet: 37 tx, 54/54 read-back checks on commit `d03bf03` ([DEVNET-PROOF.md](./DEVNET-PROOF.md)), re-run in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 363 offline, 48 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
 
 ---
 
@@ -434,16 +434,21 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
   (the full flow, every transaction recorded) and `npm run verify:onchain`
   (re-reads each claim and transaction through the indexer). The record is
   uploaded as the `proof-local` artifact of that run.
-- **Recorded run:** [run 48](https://github.com/Turnless/kymider/actions/runs/37105707040)
-  (commit `5c704e2`: the round 4 contracts, with the proof window,
-  `waiveProof`, `accept(expectedCollateral)` and listing keys) proved the full
-  flow in **32 transactions** and `verify:onchain` passed **47 of 47 checks**:
+- **Recorded run:** [run 54](https://github.com/Turnless/kymider/actions/runs/38152734953)
+  (commit `d03bf03`: round 5, a proven track record lowers the collateral, on
+  the round 4 contracts with the proof window, `waiveProof`,
+  `accept(expectedCollateral)` and listing keys) proved the full flow in
+  **37 transactions** and `verify:onchain` passed **54 of 54 checks**:
   Loan A offered and accepted at 110% (1,100 on 1,000), Loan B's proof waived
-  and offered at 150% (3,000 on 2,000), both repaid and recorded, Loan C
-  carrying a two-loan history proof. Two attempts on verified Loan A were
-  refused by the circuit before submission (a raw 150% offer, `collateral does
-  not match the tier`; a re-quote, `a verified tier is live until it lapses`),
-  and the read-back shows they left no trace. Every address and transaction
+  and offered at 150% (3,000 on 2,000), both repaid and recorded. Loan C
+  proved those two repaid loans in the directory and on the Loan itself (root
+  checked against the directory), proved VERIFIED, and was offered and
+  accepted at 105% (5,250 on 5,000). Three attempts were refused by the
+  circuit before submission: on verified Loan A a raw 150% offer
+  (`collateral does not match the tier`) and a re-quote (`a verified tier is
+  live until it lapses`); on Loan C a 110% offer that ignored the track record
+  (`collateral does not match the tier`). The read-back shows they left no
+  trace. Every address and transaction
   hash is in [DEVNET-PROOF.md](./DEVNET-PROOF.md), labelled as a local devnet.
 - **Preprod: pending the owner's wallet.** [`preprod.yml`](./.github/workflows/preprod.yml)
   runs the same proof on Preprod when dispatched with a funded wallet secret
