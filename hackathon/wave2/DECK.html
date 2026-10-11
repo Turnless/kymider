@@ -271,7 +271,7 @@
       <div class="step refuse"><span class="n">REFUSED</span><span class="t">150% on a verified borrower: <code>collateral does not match the tier</code>. 150% before the borrower answers: <code>the borrower can prove until the quote lapses</code>.</span></div>
       <div class="step local"><span class="n">ACCEPT</span><span class="t"><code>accept(expectedCollateral)</code> &nbsp; The borrower names the figure (any other: <code>offer changed</code>); only then is the loan <code>ACTIVE</code>. Or <code>declineOffer</code>: back to <code>APPLIED</code>.</span></div>
       <div class="step"><span class="n">CHAIN</span><span class="t"><code>disburse</code>, <code>repay &times; N</code>, <code>markDefault</code> after a 3-day grace. Lateness is block time.</span></div>
-      <div class="step local"><span class="n">PROVE</span><span class="t"><code>proveTwoRepaid</code> &nbsp; Two private Merkle paths, <code>checkRoot</code> against the directory. Public result: &ldquo;2 repaid loans&rdquo;.</span></div>
+      <div class="step local"><span class="n">PROVE</span><span class="t"><code>proveTwoRepaid</code> &nbsp; Two private Merkle paths, <code>checkRoot</code> against the directory. Public result: &ldquo;2 repaid loans&rdquo;. On the next Loan, <code>proveRepaidHistory</code> drops its ratios a step: 105% / 130%.</span></div>
     </div>
     <p class="say" style="margin-top:2.4vh">
       Compact has no division. The client computes each quotient; the circuit checks it by
@@ -350,10 +350,10 @@
       <div class="card">
         <p class="n">4</p>
         <p class="k" style="margin-top:1.2vh">Compact contracts</p>
-        <p class="v">23 circuits plus 8 exported pure helpers. Language 0.23, toolchain 0.31.1, compiled in CI on every push.</p>
+        <p class="v">24 circuits plus 13 exported pure helpers. Language 0.23, toolchain 0.31.1, compiled in CI on every push.</p>
       </div>
       <div class="card">
-        <p class="n pass-t" style="overflow-wrap:anywhere">339</p>
+        <p class="n pass-t" style="overflow-wrap:anywhere">363</p>
         <p class="k" style="margin-top:1.2vh">Offline tests</p>
         <p class="v">Drive the compiled contracts, every refusal included. <span class="mono">npm run test:unit</span></p>
       </div>
@@ -406,7 +406,7 @@
         <tr><td>Contracts / circuits</td><td>2 / 9</td><td class="pub">4 / 23 &middot; + Loan, LoanDirectory</td></tr>
         <tr><td>What a proof buys</td><td>PASS / FAIL</td><td class="pub">110% vs 150% collateral, enforced in-circuit, binding on the borrower&rsquo;s acceptance</td></tr>
         <tr><td>Compact features</td><td>Witness, commitments, Map/Set, Counter</td><td class="pub">+ block time, HistoricMerkleTree + checkRoot, salt and nonce witnesses, division-free quotient checks</td></tr>
-        <tr><td>Offline / browser tests / devnet cases</td><td>54 / 0 / 11</td><td class="pub">339 / 48 / 18</td></tr>
+        <tr><td>Offline / browser tests / devnet cases</td><td>54 / 0 / 11</td><td class="pub">363 / 48 / 18</td></tr>
         <tr><td>On-chain</td><td>Local devnet</td><td class="pub">Local devnet in CI on every push: 32 proven transactions, 47/47 read-back checks at commit <span class="mono">5c704e2</span> (<a href="https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md">DEVNET-PROOF.md</a>). Preprod: pending</td></tr>
         <tr><td>Console</td><td>Solvency screens</td><td class="pub">+ loan desk, portfolio, auditor preview, Live view</td></tr>
         <tr><td>AKINDO record</td><td>Repo unlinked, private, tagged Base</td><td class="pub">Fix pending: connect the repo, make it public, tag Midnight</td></tr>

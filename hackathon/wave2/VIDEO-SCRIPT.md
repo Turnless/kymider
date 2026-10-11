@@ -149,7 +149,7 @@ Transactions table to rows 12-14 (`Loan.proveTier`, `Loan.underwrite` at 1,100,
 `Loan.accept`).
 
 > In CI, the same contracts run on a Midnight devnet with real proofs, on
-> every push. Every transaction is recorded and read back. 339 offline tests
+> every push. Every transaction is recorded and read back. 363 offline tests
 > and 48 browser tests back every step.
 
 *After the Preprod run (owner):* show `PROOF.md` on GitHub instead, click one

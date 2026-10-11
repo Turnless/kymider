@@ -91,8 +91,8 @@ Image: `06-repaid-history.jpg`.
 **5/7**
 
 > Evidence:
-> - 4 Compact contracts, 23 circuits, compiled in CI
-> - 339 offline tests on the compiled contracts
+> - 4 Compact contracts, 24 circuits, compiled in CI
+> - 363 offline tests on the compiled contracts
 > - 48 browser tests of the console
 > - 18 devnet cases with real ZK proofs, every push
 > - Preprod: pending

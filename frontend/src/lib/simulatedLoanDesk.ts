@@ -885,17 +885,19 @@ export class SimulatedLoanDesk implements LoanDesk {
     const key = hex(target.listingKey);
     const inDirectory = (this.directory.snapshot().proofs.get(key) ?? 0n) >= 2n;
     if (!onLoan && inDirectory) throw new Error('loan is no longer open to proofs');
-    // On the Loan first, while the application is open: there the record
-    // lowers every collateral figure a step. Then the directory, where any
-    // lender browsing it sees the count. Both use the same two paths.
-    if (onLoan) {
-      this.run(target, target.borrowerSk, (c, ctx) =>
-        c.proveRepaidHistory(ctx, ra.loan, ra.lender, ra.path, rb.loan, rb.lender, rb.path),
-      );
-    }
+    // The directory first, where any lender browsing it sees the count, and
+    // whose refusals name the record at fault ("... is not in the directory").
+    // Then the Loan, while the application is open: there the record lowers
+    // every collateral figure a step. Both take the same two paths, built from
+    // the current tree, so a pair the directory accepts the Loan accepts too.
     if (!inDirectory) {
       this.directory.call(this.client.borrowerSecretKey(), this.clock, (c, ctx) =>
         c.proveTwoRepaid(ctx, target.bytes, ra.loan, ra.lender, ra.path, rb.loan, rb.lender, rb.path),
+      );
+    }
+    if (onLoan) {
+      this.run(target, target.borrowerSk, (c, ctx) =>
+        c.proveRepaidHistory(ctx, ra.loan, ra.lender, ra.path, rb.loan, rb.lender, rb.path),
       );
     }
     this.changed();

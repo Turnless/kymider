@@ -92,10 +92,12 @@ Each repayment extends a hash chain on the loan. An auditor can check an
 exported payment log against that on-chain hash offline. A shared LoanDirectory
 records repaid loans in a HistoricMerkleTree, so a borrower can prove "two
 prior loans repaid" on a new application without naming the loans, lenders or
-amounts.
+amounts. Proven on the new Loan itself, that track record lowers every
+collateral figure a step, 110% to 105% and 150% to 130%. The ratios are
+constants in the contract, so the lender cannot quote the discount away.
 
-Evidence: 4 Compact contracts (23 circuits) compiled in CI on
-toolchain 0.31.1; 339 offline tests on the compiled contracts;
+Evidence: 4 Compact contracts (24 circuits) compiled in CI on
+toolchain 0.31.1; 363 offline tests on the compiled contracts;
 48 browser tests of the console; an 18-case devnet simulation with
 real proofs on every push, followed by the full flow proven and re-read on
 that devnet (recorded run on commit 5c704e2: 32 transactions, 47 of 47
@@ -112,7 +114,7 @@ VERIFIED tier costs nothing to get today. Attested data provenance is Wave 3.
 All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
 (https://github.com/Turnless/kymider/tree/main).
 
-1. **`Loan` contract** (`contracts/loan.compact`, 10 circuits):
+1. **`Loan` contract** (`contracts/loan.compact`, 11 circuits):
    per-loan lifecycle from application to repaid, defaulted or declined;
    `proveTier` against the borrower's salted facts commitment; 110% vs 150%
    collateral enforced with an exact-floor check (`isFloorOfBps`), because
@@ -121,8 +123,11 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
    can neither offer 150% nor re-quote, and `waiveProof` for a borrower who
    takes 150% without proving; block-time quote expiry, a 30-minute minimum
    quote life, due dates, lateness and a 3-day grace period; at most 3 quotes
-   per loan; a payment-history hash chain with seed-derived nonces. Circuits:
-   `quoteTerms`, `proveTier`, `waiveProof`, `underwrite` (the offer),
+   per loan; a payment-history hash chain with seed-derived nonces; and
+   `proveRepaidHistory`, which checks two directory Merkle paths in the Loan
+   and lowers its ratios to 105% / 130% (the lender checks the published root
+   against the directory). Circuits: `quoteTerms`, `proveTier`, `waiveProof`,
+   `proveRepaidHistory`, `underwrite` (the offer),
    `accept(expectedCollateral)`, `declineOffer`, `decline`, `disburse`,
    `repay`, `markDefault`.
 2. **`LoanDirectory` contract** (`contracts/loanDirectory.compact`, 4 circuits):
@@ -133,7 +138,7 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
    default is read from the `Loan`); repayment records in a
    `HistoricMerkleTree<10>`; and `proveTwoRepaid`, which checks two private
    Merkle paths with `checkRoot`.
-3. **339 offline tests** in 12 files, all driving
+3. **363 offline tests** in 13 files, all driving
    the compiled contracts (Wave 1 had 54), plus **48 Playwright
    tests** that run the README's judge path and each refusal at 1440 and 390 px
    in CI.
@@ -159,7 +164,8 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
     the borrower-acceptance step, listing status rules and no seed characters
     in logs (first review); the proof window and `waiveProof`, acceptance that
     names the figure, listing keys, and no defaults set in the directory
-    (second review).
+    (second review); and, from the second review's suggestions, a track
+    record with an economic effect (105% / 130% with two repaid loans).
 
 ---
 
@@ -169,14 +175,15 @@ Wave 1 proved creditworthiness as a PASS/FAIL attestation. Wave 2 makes the
 proof buy something: a lower collateral ratio that the lender cannot raise for a
 verified borrower and the borrower must accept.
 
-- Contracts: 2 → 4 (+ `Loan`, `LoanDirectory`); circuits 9 → 23.
+- Contracts: 2 → 4 (+ `Loan`, `LoanDirectory`); circuits 9 → 24.
   https://github.com/Turnless/kymider/blob/main/contracts/loan.compact
-- Offline tests: 54 → 339; browser tests: 0 → 48.
+- Offline tests: 54 → 363; browser tests: 0 → 48.
   https://github.com/Turnless/kymider/tree/main/tests/unit
 - Devnet simulation: 11 → 18 cases.
   https://github.com/Turnless/kymider/tree/main/tests/simulation
 - New Compact features in use: block time (`blockTimeLt/Lte/Gt/Gte`),
-  `HistoricMerkleTree` with `checkRoot`, more witnesses (`factsSalt`,
+  `HistoricMerkleTree` with `checkRoot`, `merkleTreePathRoot` and
+  `kernel.self()` in the Loan, more witnesses (`factsSalt`,
   `paymentNonce`), division-free quotient checks.
 - On-chain: local devnet only → the full flow proven and re-read on a devnet in
   CI on every push (32 transactions, 47 of 47 checks in run 37105707040, commit 5c704e2);

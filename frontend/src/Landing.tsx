@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom';
  *   CIRCUITS     impure circuits across the 4 contracts (zkir files), pure
  *                helpers not counted
  */
-const UNIT_TESTS = '339';
+const UNIT_TESTS = '363';
 const E2E_TESTS = '48';
 const CIRCUITS = '23';
 /** tests/simulation: 11 Wave 1 + 7 Wave 2 cases. Recheck if the lifecycle adds one. */

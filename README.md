@@ -15,7 +15,9 @@ the lender: the tier's, which is 110% for a verified borrower. That figure is
 an offer. The loan becomes binding only when the borrower accepts it. The
 verdict, the collateral and the repayment schedule settle on Midnight's public
 ledger. The figures behind the verdict stay in the borrower's private state and
-never enter a transaction.
+never enter a transaction. A borrower who has repaid two earlier Kymider loans
+can prove that on the new loan without naming them. Every figure then drops a
+step: 105% verified, 130% without a proof.
 
 > **A lender can only offer the tier's figure (110% for a verified borrower),
 > and only the borrower can make it binding:** 10,000 borrowed against 11,000
@@ -23,7 +25,7 @@ never enter a transaction.
 
 | Live console | Video | Deck | On-chain proof | Tests | What is simulated |
 |---|---|---|---|---|---|
-| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | Narrated video: being recorded, link added before Oct 17 | [Slides](https://turnless.github.io/kymider/deck/) · [PDF](./hackathon/wave2/DECK.pdf) | Devnet: 32 tx, 47/47 read-back checks on commit `5c704e2` ([DEVNET-PROOF.md](./DEVNET-PROOF.md)), re-run in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 339 offline, 48 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
+| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | Narrated video: being recorded, link added before Oct 17 | [Slides](https://turnless.github.io/kymider/deck/) · [PDF](./hackathon/wave2/DECK.pdf) | Devnet: 32 tx, 47/47 read-back checks on commit `5c704e2` ([DEVNET-PROOF.md](./DEVNET-PROOF.md)), re-run in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 363 offline, 48 browser, 18 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
 
 ---
 
@@ -76,10 +78,13 @@ contract's own `assert` message, raised by the compiled `Loan` and
 8. **Record, then prove two repaid loans.** As the lender: **Record repayment in
    the directory**. As the borrower, apply for a second loan; on it, under
    **Prove two repaid loans**, tick two of your repaid loans and click
-   **Prove two repaid loans**. The lender's application list now shows
-   **2 prior repaid loans proven**. The proof does not say which loans,
-   lenders or amounts. It does not hide that your key has repaid loans:
-   listings are public ([limits](#honest-limits)).
+   **Prove two repaid loans**. The card now reads **Every collateral figure on
+   this loan is a step lower**: 105% ($21,000) verified, 130% ($26,000)
+   standard. As the lender, the loan's public record shows **2 repaid loans
+   proven on the Loan; root is in the directory**, and the only offer it can
+   make before a proof is **Offer at 130% · 26,000**. The proof does not say
+   which loans, lenders or amounts. It does not hide that your key has repaid
+   loans: listings are public ([limits](#honest-limits)).
 9. **Auditor check (Wave 3 preview).** On the repaid loan: **Open history to an
    auditor** → **Copy JSON**. Switch to **Auditor** → paste →
    **Verify against the chain**: **Verified**, "3 payments, 1 late, $11,000
@@ -141,12 +146,12 @@ Sep 27 and Oct 17, 2026, on the `wave2` branch, now merged to [`main`](https://g
 
 | | Wave 1 | Wave 2 |
 |---|---|---|
-| Contracts | 2 (`SolvencyProof`, `Registry`), 9 circuits | 4: + [`Loan`](./contracts/loan.compact) (10 circuits) and [`LoanDirectory`](./contracts/loanDirectory.compact) (4 circuits); 23 circuits in total, plus 8 exported pure helpers |
-| What a proof buys | A PASS/FAIL attestation | A collateral ratio: 110% vs 150%, enforced in-circuit with an exact-floor check, binding only on the borrower's acceptance |
+| Contracts | 2 (`SolvencyProof`, `Registry`), 9 circuits | 4: + [`Loan`](./contracts/loan.compact) (11 circuits) and [`LoanDirectory`](./contracts/loanDirectory.compact) (4 circuits); 24 circuits in total, plus 13 exported pure helpers |
+| What a proof buys | A PASS/FAIL attestation | A collateral ratio: 110% vs 150%, enforced in-circuit with an exact-floor check, binding only on the borrower's acceptance. Two repaid loans proven on the loan lower both a step: 105% / 130% |
 | Lifecycle | Claim → verdict | Apply → quote → prove tier (or waive the proof) → lender offers → borrower accepts the named figure → disburse → repay / default |
 | Time | None | Block time: quote expiry, a minimum quote life, due dates, late flags, a 3-day grace period before default |
-| History | None | Payment-history hash chain per loan; two-repaid-loans proof over a `HistoricMerkleTree` |
-| Offline tests | 54 in 3 files (`main` at Wave 1, `fde02de`) | 339 in 12 files |
+| History | None | Payment-history hash chain per loan; two-repaid-loans proof over a `HistoricMerkleTree`, in the directory and on the `Loan` itself (`proveRepaidHistory`), where it lowers the collateral |
+| Offline tests | 54 in 3 files (`main` at Wave 1, `fde02de`) | 363 in 13 files |
 | Browser tests | None | 48 Playwright tests (24 at 1440 px, 24 at 390 px), in CI |
 | Devnet simulation | 11 cases, 2 wallets | 18 cases (+7 Wave 2 lifecycle), run in CI on every push |
 | Client | `KymiderClient` | + [`LoanClient`](./client/loans.ts), `npm run loan:deploy`, `npm run loan:demo`, `prove:onchain` / `verify:onchain` |
@@ -213,6 +218,8 @@ sequenceDiagram
     Note over L: or markDefault after due + 3 days → DEFAULTED (on the Loan)
     K->>D: recordRepaid(listingKey(loan, borrower)) on an ACTIVE listing → leaf in HistoricMerkleTree
     B->>D: proveTwoRepaid(newLoan, private paths) → historyProofs[listingKey(newLoan, borrower)] = 2
+    B->>L: proveRepaidHistory(private paths) on the new loan → priorRepaidRoot published<br/>its ratios become 105% / 130%
+    Note over K,D: lender checks priorRepaidRoot with the directory's checkRoot (no cross-contract reads)
 ```
 
 The full state machine is in [`contracts/loan.compact`](./contracts/loan.compact)
@@ -234,6 +241,29 @@ The borrower answers with `proveTier` (VERIFIED or STANDARD) or with
 once. While a VERIFIED tier is live the lender cannot re-quote it away, and the
 only figure it can offer is 110%. Once that tier lapses with its quote, the
 lender may offer 150%; that offer binds only if the borrower accepts it.
+
+### Why a track record lowers the ratio, not the bar
+
+A borrower with two repaid Kymider loans proves them on the new `Loan`
+(`proveRepaidHistory`): two Merkle paths to the directory's leaves
+`repaidLeaf(borrower, loan, lender)`, both leading to one root, which is the only
+thing published. From then on `underwrite` takes 105% instead of 110% for a live
+VERIFIED tier, and 130% instead of 150% otherwise.
+
+The discount is in the contract's ratios, because the bar would not hold it. The
+lender writes the bar in every quote. A rule like "history lowers the bar by
+20%" would let the lender quote a bar 25% higher and cancel it. The ratios
+are constants in `loan.compact` (`verifiedHistoryRatioBps`,
+`standardHistoryRatioBps`), so once the record is proven, 110% is refused like
+150% is for a verified borrower (`collateral does not match the tier`).
+
+The `Loan` cannot read the directory, so it cannot tell a real root from a tree
+the borrower built themselves. As with the facts commitment, the reader checks:
+the lender runs the directory's `checkRoot` on the published root
+(`LoanClient.priorRepaidRootChecks`; `underwrite(loan, { directory })` refuses
+to offer on a root that fails), and declines if it is not the directory's. The
+proof is accepted once per loan, and only while the application is open, so an
+offer never changes under the borrower.
 
 ### Why one `Loan` instance per loan
 
@@ -275,7 +305,8 @@ increments the counter before the witness runs.
 | Witnesses | `localSk`, `factsSalt`, `paymentNonce` in [`loan.compact`](./contracts/loan.compact); implementations in [`witnesses.ts`](./contracts/witnesses.ts) | The caller's secret key, the facts salt and the derived payment nonce enter circuits from private state |
 | `disclose()` | Every ledger write of a caller-supplied value, e.g. `tier = disclose(qualified ? VERIFIED : STANDARD)` | Makes each disclosure explicit; the compiler rejects an undisclosed private value reaching the ledger |
 | `persistentHash` commitments | `commitFacts` (salted), `getDappPubKey`, the history chain, `repaidLeaf`, `listingKey` | Binds proofs to committed facts; derives identities; commits payment history; gives each borrower's listing its own slot |
-| `HistoricMerkleTree` + `checkRoot` | `LoanDirectory.repaid`, `proveTwoRepaid` | Proves membership of two repaid-loan leaves against any past root, so later inserts do not invalidate a path |
+| `HistoricMerkleTree` + `checkRoot` | `LoanDirectory.repaid`, `proveTwoRepaid`; `merkleTreePathRoot` in `Loan.proveRepaidHistory` | Proves membership of two repaid-loan leaves against any past root, so later inserts do not invalidate a path. The `Loan` publishes the root its proof used; a reader checks it with `checkRoot` |
+| `kernel.self()` | `Loan.proveRepaidHistory` | A loan's own address cannot be one of the two records that lower its collateral |
 | Block time | `blockTimeLt/Lte/Gt/Gte` in `quoteTerms`, `underwrite`, `disburse`, `repay`, `markDefault` | Quote expiry and minimum quote life, tier expiry, on-time vs late, the grace period, a disburse start no more than 1 hour old |
 | `Counter` | `paymentsMade`, `latePayments`, `quotesIssued`, `listingCount` | Public counts the lender can rely on |
 | `Map` / `Set` | `listings`, `historyProofs`, `recordedLoans` (directory); `claims`, `authorizedLenders`, `openClaims` (Wave 1) | Indexes and one-shot guards (a loan is recorded once) |
@@ -297,8 +328,8 @@ increments the counter before the witness runs.
 | Offer, acceptance, terms, collateral, balance owed, installment, due date | Public | Anyone. A lender must be able to enforce them |
 | Each repay amount, `paymentsMade`, `latePayments`, `historyCommitment` | Public | Anyone. `repay` takes the amount as a disclosed input, and the late counter's change per transaction shows which payment was late |
 | Listings: borrower key, lender key, principal, status | Public | Anyone. A key's `REPAID` listings can be counted |
-| Which loans back a two-repaid-loans proof, their lenders and Merkle paths | **Private** (circuit inputs to `proveTwoRepaid`) | Borrower |
-| The fact that an application carries a 2-loan history proof | Public | Anyone |
+| Which loans back a two-repaid-loans proof, their lenders and Merkle paths | **Private** (circuit inputs to `proveTwoRepaid` and `proveRepaidHistory`) | Borrower |
+| The fact that an application carries a 2-loan history proof, and the directory root the `Loan`'s proof used | Public | Anyone. The root dates the proof to a directory state |
 
 The privacy claim is narrow on purpose: **the facts behind the tier are
 private, and so is which loans back a history proof.** The loan itself,
@@ -313,7 +344,7 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 
 ### Engineering & Implementation (40%)
 
-- **Compact contracts that compile:** 4 contracts, 23 circuits plus 8
+- **Compact contracts that compile:** 4 contracts, 24 circuits plus 13
   exported pure helpers, Compact language 0.23 / toolchain 0.31.1, compiled by
   the `contracts` job in [CI](./.github/workflows/ci.yml) on every push;
   compiled modules are tracked in [`compiled/*/contract/`](./compiled/).
@@ -332,7 +363,7 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 
 ### Quality Assurance & Reliability (15%)
 
-- **339 offline tests** in 12 files that drive the
+- **363 offline tests** in 13 files that drive the
   compiled contracts through simulators ([`tests/unit/`](./tests/unit/)),
   including every refusal, time edge cases to the second, and a byte-for-byte
   rebuild of the history chain from the seed.
@@ -497,7 +528,7 @@ a real selective disclosure; that needs token settlement and is not built.
 ## Tests and scripts
 
 Totals are from `npm run test:unit` and `cd frontend && npm run e2e` on this
-branch: 339 offline tests in 12 files, and
+branch: 363 offline tests in 13 files, and
 48 browser tests (24 per width). Per-file counts: `npx vitest run tests/unit --reporter=verbose`.
 
 | Suite | Drives |
@@ -505,6 +536,7 @@ branch: 339 offline tests in 12 files, and
 | [`loan.contract.test.ts`](./tests/unit/loan.contract.test.ts) | Compiled `Loan`, own block clock: quotes, the proof window, tiers, waivers, offers, acceptance, repayment, default |
 | [`privacy.contract.test.ts`](./tests/unit/privacy.contract.test.ts) | Salted commitment, re-quote cap, the dictionary search with and without the salt |
 | [`loanDirectory.contract.test.ts`](./tests/unit/loanDirectory.contract.test.ts) | Compiled `LoanDirectory`: listing keys, status rules, a squatted listing, records, `proveTwoRepaid` |
+| [`loanHistory.contract.test.ts`](./tests/unit/loanHistory.contract.test.ts) | Directory paths run through the compiled `Loan`: 105% / 130% once two repaid loans are proven, the lender cannot quote it away, no proof while an offer stands; one loan twice, a loan vouching for itself, another borrower's record, mixed roots, and a self-built tree that only the lender's root check catches |
 | [`loanMath.unit.test.ts`](./tests/unit/loanMath.unit.test.ts) | Client arithmetic vs compiled `Loan`, principal 1 to 2^40 |
 | [`audit.unit.test.ts`](./tests/unit/audit.unit.test.ts) | The auditor's off-chain chain rebuild, honest and tampered |
 | [`simulatedLoanDesk.unit.test.ts`](./tests/unit/simulatedLoanDesk.unit.test.ts) | The console's loan desk on the real contracts |
@@ -526,7 +558,7 @@ Preprod when dispatched with a funded wallet secret.
 
 | Command | What it does |
 |---|---|
-| `npm run test:unit` | 339 offline tests, no Docker |
+| `npm run test:unit` | 363 offline tests, no Docker |
 | `npm run typecheck` | `tsc --noEmit` |
 | `cd frontend && npm run e2e` | 48 Playwright tests on the production build |
 | `npm run build:contracts` | Compile all 4 contracts (Linux-only compiler) |
@@ -606,6 +638,17 @@ all of it on every push.
   stranger who lists your loan address with a lender key they hold, but the
   leaf names the stranger, not you: it is the same as self-lending. A lender
   allowlist is the Wave 3 fix.
+- **A track record now has a price, and can be minted.** Two repaid loans
+  lower the collateral (105% / 130%), so the self-lending record above is
+  worth something: a borrower who lends to themselves twice from a second key,
+  with no tokens moving in Wave 2, gets the lower figures. The lender cannot
+  see which lenders wrote the records (that is the privacy claim). The same
+  allowlist is the fix. Until then the discount is a mechanism, like a
+  `VERIFIED` tier on self-reported facts.
+- **Off-chain root check.** The `Loan` accepts any root its two paths lead to;
+  only a reader's `checkRoot` against the directory tells a real one from a
+  private tree. The console and `LoanClient.underwrite(loan, { directory })`
+  make that check. A lender who skips it can be fooled.
 - **Up to 3 answers per loan.** Each `proveTier` answers one comparison against
   a public quote; a loan caps this at 3 quotes and one proof per quote
   ([privacy hardening](#privacy-hardening-in-wave-2)). Each new loan against the
