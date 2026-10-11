@@ -3,7 +3,7 @@
 Everything a fresh session needs to continue the Midnight Buildathon Wave 2
 work. Start here, then read `program.md` and `wave1-results.md`.
 
-Last updated: 2026-10-08 (after round 4). Branches: `wave2` (work) and `main`
+Last updated: 2026-10-11 (DEVNET-PROOF refreshed from run 48). Branches: `wave2` (work) and `main`
 (default; Pages publishes from it). Both carry the same code.
 
 ## Where we stopped (read this first)
@@ -23,16 +23,11 @@ Last updated: 2026-10-08 (after round 4). Branches: `wave2` (work) and `main`
   owner's (see "Owner's to-do"). With those plus Preprod, the reviewer's
   estimate is about 7.8.
 - **Next for Claude, in order:**
-  1. Refresh `DEVNET-PROOF.md` from run 48's devnet job log
-     (https://github.com/Turnless/kymider/actions/runs/37105707040; read it
-     with the GitHub MCP tool `get_job_logs`, since artifact downloads are
-     blocked here). It still records run 38 on `b815b26` (31 tx, 45 checks);
-     the round 4 flow should show 32 transactions, Loan B's waiver, two
-     "refused, not submitted" rows on Loan A, and 47 checks. Copy the real
-     numbers from the log, never the expected ones. Then update the README's
-     on-chain section, `wave2/SUBMISSION.md`, deck slides 1/8/10 (and
-     `npm run deck:pdf`), the landing evidence card and the video script's
-     2:25 beat, all of which cite 31/45 "on `b815b26`".
+  1. ~~Refresh `DEVNET-PROOF.md` from run 48~~ **Done 2026-10-11**: copied
+     from run 48's job log (`get_job_logs` on job 111153747787): 32 tx, 2
+     refusals, 47/47 checks on `5c704e2`. README, SUBMISSION, deck slides
+     1/8/10 + `DECK.pdf`, and the video script now cite those. (The landing
+     card only links DEVNET-PROOF.md, no counts.)
   2. After the owner's Preprod run: replace every "Preprod pending" with
      links (list in `wave2/SUBMISSION.md`), re-capture `08-live.jpg`
      (`cd frontend && npm run shots`), and consider one wallet-backed action
@@ -269,7 +264,7 @@ driving the compiled contracts through `LoanSimulator` and
 | Accept with the figure (N5) | `accept(expectedCollateral)` refuses any other figure (`offer changed`) | `contracts/loan.compact`, `client/loans.ts` (`acceptOffer(loan, expectedCollateral)`); "Loan — borrower consent" |
 | Listing keys (N2) | Listings keyed by `listingKey(loan, borrower)`; `updateStatus` / `recordRepaid` take the key; readers check each listing's parties against the Loan | `contracts/loanDirectory.compact`, `client/loans.ts` (`listingMatchesLoan`), `scripts/lib/claims.ts`; "LoanDirectory — a squatted listing (judge N2)" |
 | No directory defaults (N3) | `updateStatus` refuses `DEFAULTED` (`a default is the Loan's own status (markDefault), not set here`); console reads "defaulted (from the Loan)" | `contracts/loanDirectory.compact`, `frontend/src/lender/LenderLoan.tsx` |
-| `prove:onchain` | Adds Loan B's waiver transaction and two refusals on verified Loan A recorded before submission. **Green in CI** (runs 47 and 48 on `5c704e2`); the exact transaction and check counts are in run 48's log, not yet copied into `DEVNET-PROOF.md` | `scripts/prove-onchain.ts`, `scripts/lib/claims.ts` |
+| `prove:onchain` | Adds Loan B's waiver transaction and two refusals on verified Loan A recorded before submission. **Green in CI** (runs 47 and 48 on `5c704e2`); run 48's 32 tx / 47 checks are in `DEVNET-PROOF.md` | `scripts/prove-onchain.ts`, `scripts/lib/claims.ts` |
 
 Counts after round 4 (measured): 23 circuits (Loan 10, LoanDirectory 4,
 SolvencyProof 6, Registry 3) plus 8 exported pure helpers, 339 offline tests
@@ -280,9 +275,9 @@ Evidence history (each later run supersedes the earlier):
 | Run | Commit | What it proved |
 |---|---|---|
 | [34](https://github.com/Turnless/kymider/actions/runs/37092735681) | `5a56372` | First full green devnet run: 27 tx, 40/40 checks (before the salt and the consent step) |
-| [38](https://github.com/Turnless/kymider/actions/runs/37098203726) | `b815b26` | Salted commitment + consent step: 31 tx, 45/45 checks. **This is the run `DEVNET-PROOF.md` records** |
+| [38](https://github.com/Turnless/kymider/actions/runs/37098203726) | `b815b26` | Salted commitment + consent step: 31 tx, 45/45 checks |
 | [39](https://github.com/Turnless/kymider/actions/runs/37098216655) | `b815b26` | Failed: `Wallet.InsufficientFunds: could not balance dust` on the first deploy. DUST was checked at the runner's clock but the SDK pays fees at the indexer tip's time. Fixed in `6cad506` (`client/wallet.ts` waits until the fee estimate succeeds) |
-| [47](https://github.com/Turnless/kymider/actions/runs/37105699882), [48](https://github.com/Turnless/kymider/actions/runs/37105707040) | `5c704e2` | Round 4 contracts: every job green, devnet simulation, `prove:onchain` and `verify:onchain` included. Not yet copied into `DEVNET-PROOF.md` |
+| [47](https://github.com/Turnless/kymider/actions/runs/37105699882), [48](https://github.com/Turnless/kymider/actions/runs/37105707040) | `5c704e2` | Round 4 contracts: every job green. Run 48: 32 tx, 2 refusals before submission, 47/47 checks. **This is the run `DEVNET-PROOF.md` records** |
 
 ## Owner's to-do (not Claude's)
 
