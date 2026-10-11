@@ -25,7 +25,7 @@ step: 105% verified, 130% without a proof.
 
 | Live console | Video | Deck | On-chain proof | Tests | What is simulated |
 |---|---|---|---|---|---|
-| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | Narrated video: being recorded, link added before Oct 17 | [Slides](https://turnless.github.io/kymider/deck/) · [PDF](./hackathon/wave2/DECK.pdf) | Devnet: 37 tx, 54/54 read-back checks on commit `d03bf03` ([DEVNET-PROOF.md](./DEVNET-PROOF.md)), re-run in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 366 offline, 48 browser, 19 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
+| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | Narrated video: being recorded, link added before Oct 17 | [Slides](https://turnless.github.io/kymider/deck/) · [PDF](./hackathon/wave2/DECK.pdf) | Devnet: 37 tx, 54/54 read-back checks on commit `93cc853` ([DEVNET-PROOF.md](./DEVNET-PROOF.md)), re-run in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 366 offline, 48 browser, 19 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
 
 ---
 
@@ -439,8 +439,8 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
   (the full flow, every transaction recorded) and `npm run verify:onchain`
   (re-reads each claim and transaction through the indexer). The record is
   uploaded as the `proof-local` artifact of that run.
-- **Recorded run:** [run 54](https://github.com/Turnless/kymider/actions/runs/38152734953)
-  (commit `d03bf03`: round 5, a proven track record lowers the collateral, on
+- **Recorded run:** [run 56](https://github.com/Turnless/kymider/actions/runs/38165213326)
+  (commit `93cc853`: round 5, a proven track record lowers the collateral, on
   the round 4 contracts with the proof window, `waiveProof`,
   `accept(expectedCollateral)` and listing keys) proved the full flow in
   **37 transactions** and `verify:onchain` passed **54 of 54 checks**:

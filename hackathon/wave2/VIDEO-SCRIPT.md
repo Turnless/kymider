@@ -26,7 +26,7 @@ console source (`frontend/src/lender/LenderLoan.tsx`,
   proof at 2:00 needs no preparation.
 - A second tab with `DEVNET-PROOF.md` on GitHub
   (<https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md>): 37 transactions, 3 refusals and 54 of 54
-  read-back checks from CI run 38152734953 on commit `d03bf03` (the current
+  read-back checks from CI run 38165213326 on commit `93cc853` (the current
   contracts). Preprod is pending; once the
   Preprod run has committed `PROOF.md`, use that file instead, and the 2:25
   alternative below.
