@@ -4,9 +4,10 @@ Everything a fresh session needs to continue the Midnight Buildathon Wave 2
 work. Start here, then read `program.md` and `wave1-results.md`.
 
 Last updated: 2026-10-11 (round 5: the track record lowers the collateral).
-Branches: `main` (default; Pages publishes from it) and `wave2` carry round 4.
-**Round 5 is on `ccr-b84b6751-3p9bb3` only. The owner said on 2026-10-11 not
-to merge anything to `main` for now: keep pushing to that branch.**
+Branches: `main` (default; Pages publishes from it). On 2026-10-12 the owner
+merged round 5 (`ccr-b84b6751-3p9bb3`) into `main` and deleted `wave2` and the
+old session branch `ccr-b641e109-4okr4q`, both already contained in `main`.
+New work branches off `main`.
 
 ## Where we stopped (read this first)
 
@@ -14,10 +15,8 @@ to merge anything to `main` for now: keep pushing to that branch.**
   (`326dde6`, which merges `wave2` @ `5c704e2`). CI runs 47 and 48 on
   `5c704e2` passed every job, including the devnet simulations,
   `prove:onchain` and `verify:onchain` on the round 4 contracts.
-- **Nothing is unpushed.** `wave2` and `origin/wave2` are at `5c704e2`; `main`
-  is one merge commit ahead of `wave2` (`326dde6`). Before new work on `wave2`,
-  run `git fetch && git merge origin/main` (a fast-forward) so the two don't
-  drift.
+- **Branches:** `wave2` no longer exists; work branches off `main` and merges
+  back into it.
 - **Judge score** (an independent review agent, run against `main` @
   `5437a29`, before round 4): **7.1 / 10** on the merits, about 3rd against
   the Wave 1 winners' evidence. **As submitted it still scores 0**: no video
@@ -28,9 +27,8 @@ to merge anything to `main` for now: keep pushing to that branch.**
   lowers the collateral (see "Round 5 changes"), plus the fixes from its
   review. CI run 56 on `93cc853` is green on every job, devnet (19 cases)
   included; `DEVNET-PROOF.md`, README, SUBMISSION,
-  deck (+ PDF) and video script cite it. **Not merged to `main`, by the
-  owner's instruction.** Until it is, the `blob/main/...` links in the
-  submission text and Pages still show round 4 (Pages serves `main`).
+  deck (+ PDF) and video script cite it. Merged to `main` on 2026-10-12
+  (by the owner), so Pages and the `blob/main/...` links show round 5.
 - **Next for Claude, in order:**
   1. ~~Refresh `DEVNET-PROOF.md` from run 48~~ **Done 2026-10-11**: copied
      from run 48's job log (`get_job_logs` on job 111153747787): 32 tx, 2
