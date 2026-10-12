@@ -1,13 +1,14 @@
 # Kymider - build-in-public drafts for X
 
-Drafts for the owner to post. Nothing here has been posted. Each post is under
-280 characters, counting every link as 23 characters, as X does. Tag
+Drafts for the owner to post. Nothing here has been posted. Posts 1 and 2 are
+under 280 characters, counting every link as 23 characters, as X does; post 3
+is one long post. Tag
 `@MidnightNtwrk` and use `#MidnightBuildathon` only where shown, so the feed does
 not read as spam. Attach the named image where one is suggested; the paths are
 the deck screenshots in `hackathon/wave2/deck/shots/`.
 
-Post 2 waits for the Preprod run, which is pending the owner's wallet. Post 3,
-5/7 says "Preprod: pending"; change that line once `PROOF.md` exists.
+Post 2 waits for the Preprod run, which is pending the owner's wallet. Post 3
+cites the devnet run; switch it to Preprod once `PROOF.md` exists.
 
 ---
 
@@ -45,77 +46,62 @@ Image: `05-refusal-150.jpg`.
 
 ---
 
-## 3. Launch thread (submission day)
+## 3. Launch post (submission day): one long post, four images
 
-**1/7**
+One post, not a thread (X Premium long post; about 1,500 characters). Attach
+the four 16:9 images from `hackathon/wave2/x/` in this order; X shows them as a
+2×2 grid and opens each full size on tap:
 
-> Kymider, Wave 2 of the #MidnightBuildathon: prove solvency privately, post
-> 110% collateral instead of 150%.
+1. `x-1-lender-sees-tier.jpg`: Harbor Bank's desk. VERIFIED, 11,000 at 110%,
+   and the list of what never leaves the borrower.
+2. `x-2-refused-150.jpg`: "Ask for 150% anyway", refused by the contract.
+3. `x-3-track-record-105.jpg`: two repaid loans proven; 105% ($21,000) and
+   130% ($26,000) on a 20,000 loan.
+4. `x-4-auditor.jpg`: the auditor's exported history matching the on-chain hash.
+
+> Borrowing 10,000 in DeFi means locking 15,000, because the lender can't see
+> your books.
 >
-> Live console, no install: https://turnless.github.io/kymider/
+> Kymider (Wave 2, #MidnightBuildathon) lets you prove you clear the lender's
+> bar without showing it. You lock 11,000.
+>
+> How it works on @MidnightNtwrk:
+>
+> → Your balance, debts and income stay in your browser. The chain holds a
+> salted hash of them.
+>
+> → The lender quotes a bar: net worth ≥ 500,000, debt under 40% of income.
+> Your proof answers one word: VERIFIED or STANDARD.
+>
+> → The Loan contract then takes exactly one collateral figure. 110% if
+> verified. Ask a verified borrower for 150% and the contract refuses:
+> "collateral does not match the tier" (image 2). The offer binds only when
+> you accept it, naming the figure.
+>
+> → Repay on Midnight's block clock; late is the chain's call, and a default
+> needs 3 days past due.
+>
+> → New this week: prove two earlier Kymider loans were repaid.
+> Every figure drops a step: 105% verified, 130% without a proof (image 3).
+> The ratios live in the contract, so the lender can't quote them away.
+>
+> → An auditor checks your exported payments against the loan's on-chain
+> hash. Change one amount: rejected (image 4).
+>
+> Proof it runs: 37 transactions on a Midnight devnet with real ZK proofs, 54
+> of 54 claims read back. 366 offline tests, 48 browser tests.
+>
+> Honest limits: figures are self-reported, no tokens move yet, and a track
+> record can be faked by lending to yourself. Wave 3 has a data provider sign
+> the figures and only listed lenders count.
+>
+> Try it, no install: https://turnless.github.io/kymider/
 > Video: {{VIDEO_URL}}
->
-> What it does and what it doesn't, below.
+> Code: https://github.com/Turnless/kymider
 
-Image: `01-landing.jpg`.
-
-**2/7**
-
-> Each loan is its own Compact contract instance. The lender quotes a
-> net-worth floor and a max debt-to-income. The borrower's proveTier circuit
-> checks their private figures against an on-chain hash and writes one word:
-> VERIFIED or STANDARD.
-
-Image: `03-prove-tier.jpg`.
-
-**3/7**
-
-> What the lender sees: the tier. Balance, debts, income: not disclosed.
->
-> What the contract enforces: collateral = exactly floor(principal × 110%).
-> Ask a verified borrower for 150% and it's refused. The offer binds only
-> when the borrower accepts.
-
-Image: `04-lender-underwrite.jpg`, then `05-refusal-150.jpg`.
-
-**4/7**
-
-> Repayments run on block time: late is decided by the chain, and a default
-> can't be called until 3 days past due.
->
-> Each payment extends a hash chain. Later, the borrower can prove "2 loans
-> repaid" on a new application without naming which, via a Merkle tree.
-
-Image: `06-repaid-history.jpg`.
-
-**5/7**
-
-> Evidence:
-> - 4 Compact contracts, 23 circuits, compiled in CI
-> - 339 offline tests on the compiled contracts
-> - 48 browser tests of the console
-> - 18 devnet cases with real ZK proofs, every push
-> - Preprod: pending
->
-> https://github.com/Turnless/kymider
-
-**6/7**
-
-> What's simulated: no token moves yet, and the figures are self-reported, so
-> today anyone can get VERIFIED. ZK proves the arithmetic, not that the inputs
-> are true.
->
-> Wave 3: data providers co-sign facts. The auditor check is already in the
-> console.
-
-Image: `07-auditor.jpg`.
-
-**7/7**
-
-> If you run a lending protocol and a cheaper verified tier interests you, or
-> you provide financial data and would co-sign facts, my DMs are open.
->
-> Apache-2.0. Built with Compact + MidnightJS on @MidnightNtwrk.
+Before posting: replace `{{VIDEO_URL}}`; once Preprod has run, change the
+"Proof it runs" line to the Preprod record and a transaction link from
+`PROOF.md`. If the Preprod link exists, it is worth more than the devnet line.
 
 ---
 

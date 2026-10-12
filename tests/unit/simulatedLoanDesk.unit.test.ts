@@ -428,6 +428,38 @@ describe('SimulatedLoanDesk — borrower and lender flows', () => {
     expect(desk.loan(address)!.historyProofCount).toBe(2);
   });
 
+  it('two repaid loans proven on an open application lower its collateral to 105% / 130%', async () => {
+    const address = await desk.apply(meId(), TERMS);
+    const [a, b] = desk.repaidRecords();
+    await desk.proveHistory(address, a.loan, b.loan);
+    const v = desk.loan(address)!;
+    expect(v.priorRepaidProven).toBe(true);
+    expect(v.priorRepaidRootChecks).toBe(true);
+    expect([v.ratioIfVerifiedBps, v.ratioIfStandardBps]).toEqual([10_500n, 13_000n]);
+    expect([v.collateralIfVerified, v.collateralIfStandard]).toEqual([105_000n, 130_000n]);
+    await desk.quote(address, PASSING);
+    await desk.proveTier(address);
+    await expect(desk.underwriteAt(address, 110_000n)).rejects.toThrow(/^collateral does not match the tier$/);
+    expect(await desk.underwrite(address)).toEqual({ tier: 'VERIFIED', collateral: 105_000n });
+    expect(await desk.accept(address, 105_000n)).toEqual({ tier: 'VERIFIED', collateral: 105_000n });
+  });
+
+  it('a history proved while an offer stands re-prices it: 110% becomes 105%', async () => {
+    const address = await desk.apply(meId(), TERMS);
+    await desk.quote(address, PASSING);
+    await desk.proveTier(address);
+    expect(await desk.underwrite(address)).toEqual({ tier: 'VERIFIED', collateral: 110_000n });
+    const [a, b] = desk.repaidRecords();
+    await desk.proveHistory(address, a.loan, b.loan);
+    const v = desk.loan(address)!;
+    expect(v.status).toBe('OFFERED');
+    expect(v.historyProofCount).toBe(2);
+    expect(v.priorRepaidProven).toBe(true);
+    expect(v.offeredCollateral).toBe(105_000n);
+    await expect(desk.accept(address, 110_000n)).rejects.toThrow(/^offer changed$/);
+    expect(await desk.accept(address, 105_000n)).toEqual({ tier: 'VERIFIED', collateral: 105_000n });
+  });
+
   it('refuses a history proof naming a loan that was never recorded', async () => {
     const address = await desk.apply(meId(), TERMS);
     const unrecorded = await desk.apply(meId(), TERMS);

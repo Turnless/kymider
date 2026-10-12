@@ -12,7 +12,7 @@
 This document is the plan and is kept as written. The code in
 [`contracts/loan.compact`](../contracts/loan.compact) and
 [`contracts/loanDirectory.compact`](../contracts/loanDirectory.compact)
-differs from it in these ways (23 circuits across the 4 contracts; `Loan` has 10):
+differs from it in these ways (24 circuits across the 4 contracts; `Loan` has 11):
 
 - **Tiers, not a Wave 1 check.** The lender quotes a bar (`quoteTerms`, at most
   3 per loan, each holding at least 30 minutes); the borrower's `proveTier`
@@ -38,6 +38,13 @@ differs from it in these ways (23 circuits across the 4 contracts; `Loan` has 10
 - **Payment history.** A public hash chain per loan (`historyCommitment`) and a
   two-repaid-loans proof over a `HistoricMerkleTree` (`proveTwoRepaid`), in
   place of the "no default in N months" circuits of section 5.
+- **A track record lowers the collateral.** `Loan.proveRepaidHistory` checks
+  two directory Merkle paths (leaves `repaidLeaf(borrower, loan, lender)`, one
+  common root, neither the loan itself) before the loan is `ACTIVE`, and
+  publishes the root; a standing offer is re-priced to its tier's lower
+  figure. `underwrite` then takes 105% for a live `VERIFIED` tier
+  and 130% otherwise. The `Loan` cannot read the directory, so the lender
+  checks the root with the directory's `checkRoot` before offering.
 
 ---
 

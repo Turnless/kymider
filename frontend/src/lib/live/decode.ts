@@ -175,6 +175,14 @@ export type LoanView = {
   latePayments: bigint;
   disbursed: boolean;
   historyCommitment: Hex;
+  /**
+   * Two prior repaid loans proven on this Loan (proveRepaidHistory): every
+   * collateral figure is a step lower (105% / 130%). `priorRepaidRoot` is the
+   * LoanDirectory root the proof used, as a decimal field element; a reader
+   * checks it against the directory's root history (`repaidRoots`).
+   */
+  priorRepaidProven: boolean;
+  priorRepaidRoot: string;
 };
 
 export type ListingRowView = {
@@ -200,6 +208,8 @@ export type LoanDirectoryView = {
    * `loan` is the listing's loan address (null if the key has no listing).
    */
   historyProofs: { key: Hex; loan: Hex | null; proven: bigint }[];
+  /** Every root the repaid-records tree has had (decimal field elements), for checking a Loan's priorRepaidRoot. */
+  repaidRoots: string[];
 };
 
 export type ContractView = SolvencyProofView | RegistryView | LoanView | LoanDirectoryView;
@@ -270,8 +280,17 @@ export function loanView(l: LoanLedger): LoanView {
     latePayments: l.latePayments,
     disbursed: l.disbursed,
     historyCommitment: bytesToHex(l.historyCommitment),
+    priorRepaidProven: l.priorRepaidProven,
+    priorRepaidRoot: l.priorRepaidRoot.field.toString(),
   };
 }
+
+/** The tree's root history; the ledger hands it out as a bare Iterator. */
+const rootsOf = (it: Iterator<{ field: bigint }>): string[] => {
+  const out: string[] = [];
+  for (let r = it.next(); !r.done; r = it.next()) out.push(r.value.field.toString());
+  return out;
+};
 
 export function loanDirectoryView(l: LoanDirectoryLedger): LoanDirectoryView {
   const listings = [...l.listings].map(([key, x]) => ({
@@ -294,6 +313,7 @@ export function loanDirectoryView(l: LoanDirectoryLedger): LoanDirectoryView {
       loan: loanOf.get(bytesToHex(key)) ?? null,
       proven,
     })),
+    repaidRoots: rootsOf(l.repaid.history()),
   };
 }
 

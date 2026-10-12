@@ -13,7 +13,10 @@
 //           accepted, disbursed, repaid, recorded.
 //           loan B: the borrower waives the proof; offered at 150%, accepted,
 //           disbursed, repaid, recorded.
-//           loan C: a new application that proves "two repaid loans".
+//           loan C: a new application that proves "two repaid loans" in the
+//           directory and on the Loan; quoted and proved VERIFIED, the
+//           lender's 110% offer is refused, and it is offered and accepted
+//           at 105%.
 //
 // Every finalized transaction's public data (tx id, hash, block) is recorded
 // through the clients' receipt sink, then written to:
@@ -357,6 +360,32 @@ try {
   const count = await borrowerLoans.historyProofCount(directory, loanC);
   check(count === 2n, `history proof count is ${count}, expected 2`);
   show('History proof on loan C', `${count} repaid loans`);
+
+  // The same two records, proven on loan C itself: the Loan's collateral
+  // ratios drop a step (VERIFIED 105%, STANDARD 130%). The lender checks the
+  // root the Loan published is the directory's before it offers.
+  await step(STEPS.proveRepaidC, () =>
+    borrowerLoans.proveRepaidHistory(
+      loanC,
+      directory,
+      { loan: loanA, lenderPk: lenderLoans.pubKeyOf(lenderASk) },
+      { loan: loanB, lenderPk: lenderLoans.pubKeyOf(lenderBSk) },
+    ),
+  );
+  check(
+    await lenderLoans.priorRepaidRootChecks(loanC, directory),
+    "loan C's repayment-history root is not one of the directory's",
+  );
+  await step(STEPS.quoteC, () => lenderLoans.quote(loanC, QUOTE));
+  const tierC = await step(STEPS.proveTierC, () => borrowerLoans.proveTier(loanC, FACTS));
+  check(tierC === Tier.VERIFIED, `loan C tier is ${tierName(tierC)}, expected VERIFIED`);
+  await mustRefuse(REFUSALS.overaskC, loanC, 'underwrite', () =>
+    lenderLoans.callLoan(loanC, 'underwrite', [collateralFor(TERMS_C.principal, Tier.VERIFIED)]),
+  );
+  const underC = await step(STEPS.underwriteC, () => lenderLoans.underwrite(loanC, { directory }));
+  check(underC.tier === Tier.VERIFIED && underC.priorRepaid, `loan C offered at ${tierName(underC.tier, underC.priorRepaid)}`);
+  show('Loan C collateral offered', `${underC.collateral} on ${TERMS_C.principal} (105%)`);
+  await step(STEPS.acceptC, () => borrowerLoans.acceptOffer(loanC, underC.collateral));
 
   // --- the record ------------------------------------------------------------------
 

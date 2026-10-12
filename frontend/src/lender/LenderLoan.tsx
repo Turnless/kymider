@@ -5,6 +5,11 @@ import { blockDate, DAY, duration, percentOfBps, type LoanView } from '../lib/lo
 import { useKymider } from '../lib/useKymider';
 import { useLoans } from '../lib/useLoans';
 
+// The loan's own collateral ratios: 110% / 150%, or 105% / 130% once the
+// borrower has proven two repaid loans on it.
+const vPct = (l: LoanView): string => percentOfBps(l.ratioIfVerifiedBps);
+const sPct = (l: LoanView): string => percentOfBps(l.ratioIfStandardBps);
+
 /**
  * The underwriting desk for one loan: quote, offer the collateral for the tier
  * the borrower proved, wait for the borrower to accept, disburse, watch
@@ -93,8 +98,9 @@ function DeskLoan({ address }: { address: string }) {
   const l = loan;
   const quoteLive = l.quote !== null && now < l.quote.expiresAt;
   // Why the tier's offer cannot be made yet, in the contract's words (null if it can).
-  const offerBlocked =
-    l.quote === null
+  const offerBlocked = !l.priorRepaidRootChecks
+    ? "the borrower's repayment-history root is not in the directory: decline instead"
+    : l.quote === null
       ? 'quote first'
       : !l.tierLive && l.proofWindowOpen
         ? 'the borrower can prove until the quote lapses'
@@ -163,12 +169,12 @@ function DeskLoan({ address }: { address: string }) {
                 <DeskNotice tone="fail" title="Facts do not match">
                   This loan's facts commitment does not match the borrower's SolvencyProof instance.
                   A tier proven here would not be about the statement you know. Decline it, or
-                  offer only 150%.
+                  offer only {sPct(l)}.
                 </DeskNotice>
               )}
 
               <div className="mb-3 flex items-baseline justify-between gap-3">
-                <p className="label-dark">1 · Quote the 110% bar</p>
+                <p className="label-dark">1 · Quote the {vPct(l)} bar</p>
                 <p className="tnum text-[11px] text-[rgba(255,247,235,0.5)]">
                   {l.quotesIssued === 0
                     ? `Up to ${l.quoteLimit} quotes`
@@ -274,13 +280,13 @@ function DeskLoan({ address }: { address: string }) {
                   onClick={() =>
                     run('underwrite', async () => {
                       const r = await desk.underwrite(l.address);
-                      return `Offered at ${r.tier === 'VERIFIED' ? '110%' : '150%'}: collateral ${desk$(r.collateral)}. Nothing binds until the borrower accepts.`;
+                      return `Offered at ${r.tier === 'VERIFIED' ? vPct(l) : sPct(l)}: collateral ${desk$(r.collateral)}. Nothing binds until the borrower accepts.`;
                     })
                   }
                 >
                   {busy === 'underwrite'
                     ? 'Offering…'
-                    : `Offer at ${l.tierLive ? '110%' : '150%'} · ${desk$(
+                    : `Offer at ${l.tierLive ? vPct(l) : sPct(l)} · ${desk$(
                         l.tierLive ? l.collateralIfVerified : l.collateralIfStandard,
                       )}`}
                 </button>
@@ -296,9 +302,11 @@ function DeskLoan({ address }: { address: string }) {
               </div>
               {offerBlocked !== null && (
                 <p className="mt-3 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.55)]" data-testid="offer-blocked">
-                  {l.quote === null
+                  {!l.priorRepaidRootChecks
+                    ? "This loan's repayment-history proof was made against a root that is not in the directory: the records behind it were never written there. Decline it."
+                    : l.quote === null
                     ? 'No offer before a quote: the contract refuses it ("quote first"). The borrower needs a bar to prove against.'
-                    : `The 150% offer opens when the borrower proves or waives, or when the quote lapses (${blockDate(l.quote.expiresAt)}). Until then the contract refuses it: "the borrower can prove until the quote lapses".`}
+                    : `The ${sPct(l)} offer opens when the borrower proves or waives, or when the quote lapses (${blockDate(l.quote.expiresAt)}). Until then the contract refuses it: "the borrower can prove until the quote lapses".`}
                 </p>
               )}
               {(refusal?.action === 'underwrite' || refusal?.action === 'decline') && (
@@ -487,18 +495,21 @@ function DeskHero({
           {desk$(at)}
         </span>
         <span className="text-[18px] font-bold text-[rgba(255,247,235,0.7)]">
-          {verified ? '110%' : '150%'}
+          {verified ? vPct(l) : sPct(l)}
         </span>
+        {l.priorRepaidProven && (
+          <span className="text-[12px] font-semibold text-[#7BD9A5]">two repaid loans proven</span>
+        )}
       </p>
       <p className="tnum mt-2 text-[12px] text-[rgba(255,247,235,0.6)]">
         {verified ? (
           <>
-            150% would be <span className="line-through">{desk$(l.collateralIfStandard)}</span>. The
+            {sPct(l)} would be <span className="line-through">{desk$(l.collateralIfStandard)}</span>. The
             borrower posts {desk$(saved)} less.
           </>
         ) : (
           <>
-            A live VERIFIED tier would make it {desk$(l.collateralIfVerified)} (110%),{' '}
+            A live VERIFIED tier would make it {desk$(l.collateralIfVerified)} ({vPct(l)}),{' '}
             {desk$(saved)} less.
           </>
         )}
@@ -514,6 +525,8 @@ function DeskHero({
           be re-quoted away. There is no offer before a quote, and no 150% offer while the borrower
           can still prove against a live quote. You can only offer the tier's figure, and only the
           borrower can accept it.
+          {l.priorRepaidProven &&
+            ' This borrower proved two repaid loans on this Loan, so each figure is a step lower: 105% verified, 130% otherwise.'}
         </p>
 
         {windowOpen && (
@@ -530,7 +543,7 @@ function DeskHero({
               onClick={onOverask}
               title="Expected to be refused by the contract"
             >
-              {pending ? 'Submitting…' : `Offer 150% before they prove · ${desk$(l.collateralIfStandard)}`}
+              {pending ? 'Submitting…' : `Offer ${sPct(l)} before they prove · ${desk$(l.collateralIfStandard)}`}
             </button>
             <p className="mt-[6px] text-center text-[10px] text-[rgba(255,247,235,0.4)]">
               Try it. Front-running the borrower's proof is the move the contract refuses.
@@ -552,7 +565,7 @@ function DeskHero({
               onClick={onOverask}
               title="Expected to be refused by the contract"
             >
-              {pending ? 'Submitting…' : `Ask for 150% anyway · ${desk$(l.collateralIfStandard)}`}
+              {pending ? 'Submitting…' : `Ask for ${sPct(l)} anyway · ${desk$(l.collateralIfStandard)}`}
             </button>
             <p className="mt-[6px] text-center text-[10px] text-[rgba(255,247,235,0.4)]">
               Try it. The call runs through the compiled contract, and the contract decides.
@@ -574,13 +587,13 @@ function DeskHero({
             </p>
             <p className="mt-2 text-[14px] font-semibold leading-[1.45] text-cream">
               The contract refused: <span className="mono text-[#F09484]">{refusal}</span>.
-              {tierRefusal && ' A verified borrower can only be offered 110%.'}
+              {tierRefusal && ` A verified borrower can only be offered ${vPct(l)}.`}
               {windowRefusal && ' The borrower may prove until the quote lapses.'}
             </p>
             <p className="tnum mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.55)]">
               {windowRefusal
                 ? 'Nothing was written. The loan is still open; you can offer once the borrower proves or waives, or the quote lapses.'
-                : `Nothing was written. The loan is still open; ${desk$(l.collateralIfVerified)} at 110% is the only collateral you can offer this borrower while the tier holds.`}
+                : `Nothing was written. The loan is still open; ${desk$(l.collateralIfVerified)} at ${vPct(l)} is the only collateral you can offer this borrower while the tier holds.`}
             </p>
           </div>
         )}
@@ -621,7 +634,7 @@ function DeskTierLine({ loan: l, now }: { loan: LoanView; now: bigint }) {
           Verified, lapsed
         </span>
         <p className="tnum mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.5)]">
-          Lapsed {blockDate(l.tierExpiresAt)}. An offer now is 150%. Quote again and the borrower
+          Lapsed {blockDate(l.tierExpiresAt)}. An offer now is {sPct(l)}. Quote again and the borrower
           can prove once more.
         </p>
       </div>
@@ -634,7 +647,7 @@ function DeskTierLine({ loan: l, now }: { loan: LoanView; now: bigint }) {
           Standard
         </span>
         <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.5)]">
-          The borrower proved against your bar and did not clear it. That is a usable answer: 150%
+          The borrower proved against your bar and did not clear it. That is a usable answer: {sPct(l)}
           collateral. You are not told by how much they missed.
         </p>
       </div>
@@ -648,7 +661,7 @@ function DeskTierLine({ loan: l, now }: { loan: LoanView; now: bigint }) {
         </span>
         <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.5)]">
           The borrower answered this quote without a proof: you learn nothing about their facts. An
-          offer now is 150%, which the borrower may accept or decline.
+          offer now is {sPct(l)}, which the borrower may accept or decline.
         </p>
       </div>
     );
@@ -657,14 +670,14 @@ function DeskTierLine({ loan: l, now }: { loan: LoanView; now: bigint }) {
     return (
       <p className="text-[12px] text-[rgba(255,247,235,0.5)]">
         The borrower can prove against this quote until {blockDate(l.quote.expiresAt)} (in{' '}
-        {duration(l.quote.expiresAt - now)}). Until they prove or waive, the contract refuses a 150%
+        {duration(l.quote.expiresAt - now)}). Until they prove or waive, the contract refuses a {sPct(l)}
         offer and a new quote.
       </p>
     );
   }
   return (
     <p className="text-[12px] text-[rgba(255,247,235,0.5)]">
-      The quote lapsed without an answer. An offer now is 150%, which the borrower may decline.
+      The quote lapsed without an answer. An offer now is {sPct(l)}, which the borrower may decline.
     </p>
   );
 }
@@ -686,7 +699,7 @@ function DeskOffered({ loan: l }: { loan: LoanView }) {
           {verified ? 'Verified' : 'Standard'}
         </span>
         <span className="tnum text-[13px] font-semibold text-cream">
-          Offered collateral {desk$(l.offeredCollateral)} ({verified ? '110%' : '150%'})
+          Offered collateral {desk$(l.offeredCollateral)} ({verified ? vPct(l) : sPct(l)})
         </span>
       </div>
       <p className="mt-3 text-[11px] leading-[1.55] text-[rgba(255,247,235,0.55)]">
@@ -711,12 +724,12 @@ function DeskUnderwritten({ loan: l }: { loan: LoanView }) {
           {verified ? 'Verified' : 'Standard'}
         </span>
         <span className="tnum text-[13px] font-semibold text-cream">
-          Collateral {desk$(l.collateralRequired)} ({verified ? '110%' : '150%'})
+          Collateral {desk$(l.collateralRequired)} ({verified ? vPct(l) : sPct(l)})
         </span>
       </div>
       {verified && (
         <p className="tnum mt-2 text-[11px] text-[rgba(255,247,235,0.5)]">
-          150% would have been {desk$(l.collateralIfStandard)}; the borrower posts{' '}
+          {sPct(l)} would have been {desk$(l.collateralIfStandard)}; the borrower posts{' '}
           {desk$(l.collateralIfStandard - l.collateralIfVerified)} less.
         </p>
       )}
@@ -864,11 +877,23 @@ function DeskRecord({ loan: l }: { loan: LoanView }) {
         <DeskRow
           label="Repayment history"
           value={
-            l.historyProofCount >= 2
-              ? `${l.historyProofCount} prior repaid loans proven`
-              : 'No history proof attached'
+            l.priorRepaidProven
+              ? l.priorRepaidRootChecks
+                ? '✓ 2 repaid loans proven on the Loan; root is in the directory'
+                : "✕ Proven against a root that is not the directory's: decline"
+              : l.historyProofCount >= 2
+                ? `${l.historyProofCount} prior repaid loans proven in the directory`
+                : 'No history proof attached'
           }
-          tone={l.historyProofCount >= 2 ? 'ok' : undefined}
+          tone={
+            l.priorRepaidProven
+              ? l.priorRepaidRootChecks
+                ? 'ok'
+                : 'fail'
+              : l.historyProofCount >= 2
+                ? 'ok'
+                : undefined
+          }
         />
         <DeskRow
           label="Directory listing"

@@ -190,19 +190,37 @@ export class LoanClient {
   }
 
   // Offer the loan at the tier the borrower holds now, with the exact
-  // collateral the circuit will take for it. The loan is OFFERED, not ACTIVE:
-  // it binds once the borrower accepts. Refused before any quote, and refused
-  // at 150% while the borrower's proof window is open (checked here first).
-  async underwrite(loan: ContractAddress): Promise<{ tier: Tier; collateral: bigint }> {
+  // collateral the circuit will take for it (a step lower if the borrower has
+  // proven two repaid loans). The loan is OFFERED, not ACTIVE: it binds once
+  // the borrower accepts. Refused before any quote, and refused at 150% while
+  // the borrower's proof window is open (checked here first). A loan with a
+  // proven track record needs `directory`, and one whose root is not that
+  // directory's is refused here: the Loan cannot check it, so the lender must
+  // (priorRepaidRootChecks).
+  async underwrite(
+    loan: ContractAddress,
+    opts: { directory?: ContractAddress } = {},
+  ): Promise<{ tier: Tier; collateral: bigint; priorRepaid: boolean }> {
     const state = await this.loanState(loan);
     const now = nowSeconds();
     const refusal = underwriteRefusal(state, now);
     if (refusal) throw new Error(refusal);
+    if (state.priorRepaidProven) {
+      // The Loan cannot read the directory; a lender who skipped this check
+      // could be offering 105% / 130% on records nobody wrote.
+      if (!opts.directory) {
+        throw new Error('this loan carries a repayment history: pass the LoanDirectory to check its root');
+      }
+      if (!(await this.priorRepaidRootChecks(loan, opts.directory))) {
+        throw new Error("the borrower's repayment-history root is not in the directory: decline instead");
+      }
+    }
     const tier = tierIsLive(state, now) ? Tier.VERIFIED : Tier.STANDARD;
-    const collateral = collateralFor(state.terms.principal, tier);
+    const priorRepaid = state.priorRepaidProven;
+    const collateral = collateralFor(state.terms.principal, tier, priorRepaid);
     await this.callLoan(loan, 'underwrite', [collateral]);
-    this.logger.info(`Offered ${loan} at ${tierName(tier)}, collateral ${collateral}`);
-    return { tier, collateral };
+    this.logger.info(`Offered ${loan} at ${tierName(tier, priorRepaid)}, collateral ${collateral}`);
+    return { tier, collateral, priorRepaid };
   }
 
   async decline(loan: ContractAddress): Promise<void> {
@@ -259,6 +277,49 @@ export class LoanClient {
     await this.callLoan(loan, 'waiveProof', []);
   }
 
+  // Prove two earlier repaid loans on this application, by their LoanDirectory
+  // records: every collateral figure on the loan drops a step (150% to 130%,
+  // 110% to 105%). The loans, lenders and paths are private inputs; the Loan
+  // publishes only the directory root both paths lead to. Both paths are
+  // built from the directory's current state, so they share its root. Allowed
+  // while an offer stands: the offer is re-priced to its tier's lower figure.
+  // Returns that figure, or 0n when no offer stood.
+  async proveRepaidHistory(
+    loan: ContractAddress,
+    directory: ContractAddress,
+    a: RepaidRecord,
+    b: RepaidRecord,
+  ): Promise<bigint> {
+    const state = await this.loanState(loan);
+    if (state.status !== LoanStatus.APPLIED && state.status !== LoanStatus.OFFERED) {
+      throw new Error('loan is no longer open to proofs');
+    }
+    if (state.priorRepaidProven) throw new Error('repayment history already proven');
+    if (a.loan === b.loan) throw new Error('the two loans must differ');
+    if (a.loan === loan || b.loan === loan) throw new Error('a loan cannot vouch for itself');
+    const { sk } = await this.requireLoanPrivateState(loan);
+    const me = this.pubKeyOf(sk);
+    const dir = await this.directoryState(directory);
+    const offerAfter =
+      state.status === LoanStatus.OFFERED ? collateralFor(state.terms.principal, state.offeredTier, true) : 0n;
+    const pathOf = (r: RepaidRecord) => {
+      const leaf = loanPureCircuits.repaidLeaf(me, encodeContractAddress(r.loan), r.lenderPk);
+      const path = dir.repaid.findPathForLeaf(leaf);
+      if (!path) throw new Error(`no repayment record for ${r.loan} under this borrower and lender`);
+      return path;
+    };
+    await this.callLoan(loan, 'proveRepaidHistory', [
+      encodeContractAddress(a.loan),
+      a.lenderPk,
+      pathOf(a),
+      encodeContractAddress(b.loan),
+      b.lenderPk,
+      pathOf(b),
+      offerAfter,
+    ]);
+    return offerAfter;
+  }
+
   // Make the lender's offer binding. `expectedCollateral` is the figure the
   // borrower was shown and agrees to; the circuit refuses any other ("offer
   // changed"), so the transcript names what was accepted.
@@ -267,7 +328,7 @@ export class LoanClient {
     if (state.status !== LoanStatus.OFFERED) throw new Error('there is no offer to accept');
     if (state.offeredCollateral !== expectedCollateral) throw new Error('offer changed');
     await this.callLoan(loan, 'accept', [expectedCollateral]);
-    this.logger.info(`Accepted ${loan} at ${tierName(state.offeredTier)}, collateral ${state.offeredCollateral}`);
+    this.logger.info(`Accepted ${loan} at ${tierName(state.offeredTier, state.priorRepaidProven)}, collateral ${state.offeredCollateral}`);
     return { tier: state.offeredTier, collateral: state.offeredCollateral };
   }
 
@@ -295,6 +356,15 @@ export class LoanClient {
     ]);
     if (!s) throw new Error(`no contract state for ${solvency}`);
     return bytesEqual(l.factsCommitment, solvencyLedger(s.data).commitment);
+  }
+
+  // The lender's half of the track-record proof: the Loan checked the two
+  // paths but cannot read the directory, so a lender checks the root the
+  // proof published is one of the directory's (current or earlier). True
+  // when no history was proven, since there is nothing to check.
+  async priorRepaidRootChecks(loan: ContractAddress, directory: ContractAddress): Promise<boolean> {
+    const [l, d] = await Promise.all([this.loanState(loan), this.directoryState(directory)]);
+    return !l.priorRepaidProven || d.repaid.checkRoot(l.priorRepaidRoot);
   }
 
   // --- directory ----------------------------------------------------------
@@ -482,8 +552,8 @@ type Rest<F> = F extends (ctx: never, ...rest: infer A) => unknown ? A : never;
 type LoanCircuitArgs = { [K in LoanCircuits]: Rest<LoanContractCircuits[K]> };
 type LoanDirectoryCircuitArgs = { [K in LoanDirectoryCircuits]: Rest<LoanDirectoryContractCircuits[K]> };
 
-export function tierName(t: Tier): string {
-  if (t === Tier.VERIFIED) return 'VERIFIED (110%)';
-  if (t === Tier.STANDARD) return 'STANDARD (150%)';
+export function tierName(t: Tier, priorRepaid = false): string {
+  if (t === Tier.VERIFIED) return priorRepaid ? 'VERIFIED (105%, two repaid loans)' : 'VERIFIED (110%)';
+  if (t === Tier.STANDARD) return priorRepaid ? 'STANDARD (130%, two repaid loans)' : 'STANDARD (150%)';
   return 'NONE';
 }

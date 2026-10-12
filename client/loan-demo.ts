@@ -150,6 +150,10 @@ if (repaid.length >= 2) {
   const [a, b] = repaid.slice(-2).map((r) => ({ loan: r.loan, lenderPk: hexToBytes(r.lenderPk) }));
   await borrower.proveTwoRepaid(directory, loan, a!, b!);
   show('Directory records for this application', `${await lender.historyProofCount(directory, loan)} repaid loans`);
+  // The same two records on the Loan itself: its collateral ratios drop a
+  // step (105% VERIFIED, 130% STANDARD). The lender checks the root.
+  await borrower.proveRepaidHistory(loan, directory, a!, b!);
+  show("Track record on the Loan, root in the directory", await lender.priorRepaidRootChecks(loan, directory));
 }
 
 console.log('\n--- borrower: prove the tier (ZK, verified by the network) ---');
@@ -157,8 +161,11 @@ const tier = await borrower.proveTier(loan, FACTS);
 show('Tier on the ledger', tierName(tier));
 
 console.log('\n--- lender: offer the tier\'s collateral; borrower: accept it ---');
-const { collateral } = await lender.underwrite(loan);
-show('Collateral offered', `${collateral} (150% would be ${collateralFor(TERMS.principal, Tier.STANDARD)})`);
+const { collateral, priorRepaid } = await lender.underwrite(loan, { directory });
+show(
+  'Collateral offered',
+  `${collateral} at ${tierName(tier, priorRepaid)} (150% would be ${collateralFor(TERMS.principal, Tier.STANDARD)})`,
+);
 // The borrower names the figure they accept; the circuit refuses any other.
 await borrower.acceptOffer(loan, collateral);
 show('Collateral required (accepted)', (await borrower.loanState(loan)).collateralRequired);

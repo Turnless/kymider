@@ -3,8 +3,11 @@
 Everything a fresh session needs to continue the Midnight Buildathon Wave 2
 work. Start here, then read `program.md` and `wave1-results.md`.
 
-Last updated: 2026-10-08 (after round 4). Branches: `wave2` (work) and `main`
-(default; Pages publishes from it). Both carry the same code.
+Last updated: 2026-10-11 (round 5: the track record lowers the collateral).
+Branches: `main` (default; Pages publishes from it). On 2026-10-12 the owner
+merged round 5 (`ccr-b84b6751-3p9bb3`) into `main` and deleted `wave2` and the
+old session branch `ccr-b641e109-4okr4q`, both already contained in `main`.
+New work branches off `main`.
 
 ## Where we stopped (read this first)
 
@@ -12,36 +15,35 @@ Last updated: 2026-10-08 (after round 4). Branches: `wave2` (work) and `main`
   (`326dde6`, which merges `wave2` @ `5c704e2`). CI runs 47 and 48 on
   `5c704e2` passed every job, including the devnet simulations,
   `prove:onchain` and `verify:onchain` on the round 4 contracts.
-- **Nothing is unpushed.** `wave2` and `origin/wave2` are at `5c704e2`; `main`
-  is one merge commit ahead of `wave2` (`326dde6`). Before new work on `wave2`,
-  run `git fetch && git merge origin/main` (a fast-forward) so the two don't
-  drift.
+- **Branches:** `wave2` no longer exists; work branches off `main` and merges
+  back into it.
 - **Judge score** (an independent review agent, run against `main` @
   `5437a29`, before round 4): **7.1 / 10** on the merits, about 3rd against
   the Wave 1 winners' evidence. **As submitted it still scores 0**: no video
   (a gate requirement) and the AKINDO record is not fixed. Both are the
   owner's (see "Owner's to-do"). With those plus Preprod, the reviewer's
   estimate is about 7.8.
+- **Round 5 (2026-10-11), on `ccr-b84b6751-3p9bb3` only:** the track record
+  lowers the collateral (see "Round 5 changes"), plus the fixes from its
+  review. CI run 56 on `93cc853` is green on every job, devnet (19 cases)
+  included; `DEVNET-PROOF.md`, README, SUBMISSION,
+  deck (+ PDF) and video script cite it. Merged to `main` on 2026-10-12
+  (by the owner), so Pages and the `blob/main/...` links show round 5.
 - **Next for Claude, in order:**
-  1. Refresh `DEVNET-PROOF.md` from run 48's devnet job log
-     (https://github.com/Turnless/kymider/actions/runs/37105707040; read it
-     with the GitHub MCP tool `get_job_logs`, since artifact downloads are
-     blocked here). It still records run 38 on `b815b26` (31 tx, 45 checks);
-     the round 4 flow should show 32 transactions, Loan B's waiver, two
-     "refused, not submitted" rows on Loan A, and 47 checks. Copy the real
-     numbers from the log, never the expected ones. Then update the README's
-     on-chain section, `wave2/SUBMISSION.md`, deck slides 1/8/10 (and
-     `npm run deck:pdf`), the landing evidence card and the video script's
-     2:25 beat, all of which cite 31/45 "on `b815b26`".
+  1. ~~Refresh `DEVNET-PROOF.md` from run 48~~ **Done 2026-10-11**: copied
+     from run 48's job log (`get_job_logs` on job 111153747787): 32 tx, 2
+     refusals, 47/47 checks on `5c704e2`. README, SUBMISSION, deck slides
+     1/8/10 + `DECK.pdf`, and the video script now cite those. (The landing
+     card only links DEVNET-PROOF.md, no counts.)
   2. After the owner's Preprod run: replace every "Preprod pending" with
      links (list in `wave2/SUBMISSION.md`), re-capture `08-live.jpg`
      (`cd frontend && npm run shots`), and consider one wallet-backed action
      in the Live view (the borrower runs `proveTier` or `accept` on a
      deployed Loan through Lace and reads it back). The reviewer rated that
      the biggest remaining UX/engineering gain.
-  3. Optional, from the second review: give the two-repaid-loans proof an
-     economic effect (e.g. a relaxed bar when `historyProofs ≥ 2`), and name
-     a buyer for Business Development.
+  3. ~~Give the two-repaid-loans proof an economic effect~~ **Done
+     2026-10-11 (round 5, below).** Still open from the second review: name a
+     buyer for Business Development.
 - **Environment limits in a cloud session** (all checked on 2026-10-03):
   - The proxy blocks AKINDO (app and API) and every Midnight host (indexers,
     RPC, `srs.midnight.network`). So no devnet locally, no live Preprod reads
@@ -269,7 +271,7 @@ driving the compiled contracts through `LoanSimulator` and
 | Accept with the figure (N5) | `accept(expectedCollateral)` refuses any other figure (`offer changed`) | `contracts/loan.compact`, `client/loans.ts` (`acceptOffer(loan, expectedCollateral)`); "Loan — borrower consent" |
 | Listing keys (N2) | Listings keyed by `listingKey(loan, borrower)`; `updateStatus` / `recordRepaid` take the key; readers check each listing's parties against the Loan | `contracts/loanDirectory.compact`, `client/loans.ts` (`listingMatchesLoan`), `scripts/lib/claims.ts`; "LoanDirectory — a squatted listing (judge N2)" |
 | No directory defaults (N3) | `updateStatus` refuses `DEFAULTED` (`a default is the Loan's own status (markDefault), not set here`); console reads "defaulted (from the Loan)" | `contracts/loanDirectory.compact`, `frontend/src/lender/LenderLoan.tsx` |
-| `prove:onchain` | Adds Loan B's waiver transaction and two refusals on verified Loan A recorded before submission. **Green in CI** (runs 47 and 48 on `5c704e2`); the exact transaction and check counts are in run 48's log, not yet copied into `DEVNET-PROOF.md` | `scripts/prove-onchain.ts`, `scripts/lib/claims.ts` |
+| `prove:onchain` | Adds Loan B's waiver transaction and two refusals on verified Loan A recorded before submission. **Green in CI** (runs 47 and 48 on `5c704e2`); run 48's 32 tx / 47 checks are in `DEVNET-PROOF.md` | `scripts/prove-onchain.ts`, `scripts/lib/claims.ts` |
 
 Counts after round 4 (measured): 23 circuits (Loan 10, LoanDirectory 4,
 SolvencyProof 6, Registry 3) plus 8 exported pure helpers, 339 offline tests
@@ -280,9 +282,25 @@ Evidence history (each later run supersedes the earlier):
 | Run | Commit | What it proved |
 |---|---|---|
 | [34](https://github.com/Turnless/kymider/actions/runs/37092735681) | `5a56372` | First full green devnet run: 27 tx, 40/40 checks (before the salt and the consent step) |
-| [38](https://github.com/Turnless/kymider/actions/runs/37098203726) | `b815b26` | Salted commitment + consent step: 31 tx, 45/45 checks. **This is the run `DEVNET-PROOF.md` records** |
+| [38](https://github.com/Turnless/kymider/actions/runs/37098203726) | `b815b26` | Salted commitment + consent step: 31 tx, 45/45 checks |
 | [39](https://github.com/Turnless/kymider/actions/runs/37098216655) | `b815b26` | Failed: `Wallet.InsufficientFunds: could not balance dust` on the first deploy. DUST was checked at the runner's clock but the SDK pays fees at the indexer tip's time. Fixed in `6cad506` (`client/wallet.ts` waits until the fee estimate succeeds) |
-| [47](https://github.com/Turnless/kymider/actions/runs/37105699882), [48](https://github.com/Turnless/kymider/actions/runs/37105707040) | `5c704e2` | Round 4 contracts: every job green, devnet simulation, `prove:onchain` and `verify:onchain` included. Not yet copied into `DEVNET-PROOF.md` |
+| [47](https://github.com/Turnless/kymider/actions/runs/37105699882), [48](https://github.com/Turnless/kymider/actions/runs/37105707040) | `5c704e2` | Round 4 contracts: every job green. Run 48: 32 tx, 2 refusals before submission, 47/47 checks |
+| [54](https://github.com/Turnless/kymider/actions/runs/38152734953) | `d03bf03` (branch `ccr-b84b6751-3p9bb3`) | Round 5: every job green. 37 tx, 3 refusals before submission, 54/54 checks; Loan C proved its track record on the Loan and was accepted at 105% (5,250 on 5,000). |
+| [56](https://github.com/Turnless/kymider/actions/runs/38165213326) | `93cc853` (branch `ccr-b84b6751-3p9bb3`) | Round 5 after its review (re-pricing in OFFERED, 19 devnet cases): every job green. 37 tx, 3 refusals, 54/54 checks; Loan C accepted at 105%. **This is the run `DEVNET-PROOF.md` records** |
+
+## Round 5 changes (the track record has a price)
+
+| Change | What it does | Where |
+|---|---|---|
+| `Loan.proveRepaidHistory` | The borrower proves two LoanDirectory records on the Loan itself: two Merkle paths to `repaidLeaf(borrower, loan, lender)`, distinct loans, neither the Loan (`kernel.self()`), one common root (published as `priorRepaidRoot`). Once per loan, before `ACTIVE`; in `OFFERED` it re-prices the standing offer to its tier's lower figure (`offerAfter`, review R5-2) | `contracts/loan.compact` (11 circuits; 24 across 4 contracts, 13 exported pure helpers) |
+| Lower ratios | Once proven, `underwrite` takes 105% for a live VERIFIED tier and 130% otherwise (`verifiedHistoryRatioBps`, `standardHistoryRatioBps`). In the ratios, not the bar, because the lender writes the bar and could quote a bar discount away | `contracts/loan.compact`, `contracts/loanMath.ts` (`ratioBpsFor`, `collateralFor(p, tier, priorRepaid)`) |
+| Root check | The Loan cannot read the directory, so a borrower could prove against a tree they built. The lender checks `priorRepaidRoot` with the directory's `checkRoot`: `LoanClient.priorRepaidRootChecks`, `underwrite(loan, { directory })` refuses otherwise; the console's lender record shows it | `client/loans.ts`, `frontend/src/lender/LenderLoan.tsx` |
+| Relaxed bar, rejected | The handoff suggested a relaxed bar; it would be cosmetic (the lender sets the bar every quote), so the effect is on collateral instead | — |
+| `prove:onchain` | Loan C now also proves the record on the Loan, is quoted, proved VERIFIED, a 110% offer (5,500) is refused before submission, and it is offered and accepted at 105% (5,250). Two new claims in `verify:onchain` | `scripts/prove-onchain.ts`, `scripts/lib/flow.ts`, `scripts/lib/claims.ts` |
+| Console | "Prove two repaid loans" proves in the directory and on the Loan (re-pricing a standing offer); the Offer button is blocked unless the root checks; borrower and lender screens show the loan's own ratios | `frontend/src/lib/simulatedLoanDesk.ts`, `frontend/src/borrower/LoanDetail.tsx` |
+| Tests | `tests/unit/loanHistory.contract.test.ts` (23), desk tests (2): 366 offline tests in 13 files, claim-check updates; e2e fast path asserts 105% / 130% and the lender's root line. Mutation check: removing each of the three new asserts (distinct loans, self-vouch, one root) fails exactly one test | `tests/unit/`, `frontend/e2e/fast-path.spec.ts` |
+| Honest limits, stated | A track record now has a price and is cheap to mint (six directory tx, no Loan needed); listings are public, so with two repaid listings the proof hides nothing; the records tree holds 1,024. Wave 3 fix: per-loan keys and a lender allowlist | README "Honest limits" |
+| Review of round 5 (2026-10-11) | Independent judge-style review, 7/10. Fixed: the offer-first race (re-pricing in OFFERED), stale 150%/110% labels on the lender desk, Terms card and stepper, the Live view now shows the track record and checks its root, `LoanClient.underwrite` requires the directory once history is proven, the console blocks the offer on a failed root, privacy overclaims removed from README / SUBMISSION / deck / console / PROOF step text, Landing circuit count | all of the above |
 
 ## Owner's to-do (not Claude's)
 

@@ -1,5 +1,5 @@
 import { money } from '../lib/client';
-import { blockDate, type LoanView } from '../lib/loans';
+import { blockDate, percentOfBps, type LoanView } from '../lib/loans';
 
 /**
  * The loan's lifecycle as a timeline, read entirely off the public ledger:
@@ -22,19 +22,22 @@ function loanSteps(loan: LoanView, now: bigint): LoanStep[] {
   const declined = status === 'DECLINED';
   const paid = Number(loan.paymentsMade);
   const late = Number(loan.latePayments);
+  // The loan's own ratios: 110% / 150%, or 105% / 130% with two repaid loans proven.
+  const vPct = percentOfBps(loan.ratioIfVerifiedBps);
+  const sPct = percentOfBps(loan.ratioIfStandardBps);
 
   const tierCaption =
     tier === 'VERIFIED'
       ? tierLive || underwritten
-        ? 'Verified · 110%'
+        ? `Verified · ${vPct}`
         : 'Verified, lapsed'
       : tier === 'STANDARD'
-        ? 'Standard · 150%'
+        ? `Standard · ${sPct}`
         : loan.proofWaived
-          ? 'Waived · 150%'
+          ? `Waived · ${sPct}`
           : declined
             ? 'Not proven'
-            : 'Optional · 110% if it passes';
+            : `Optional · ${vPct} if it passes`;
 
   const steps: (Omit<LoanStep, 'state'> & { done: boolean; skip: boolean })[] = [];
   const add = (s: Omit<LoanStep, 'state'>, done: boolean, skip = false) =>
@@ -67,9 +70,9 @@ function loanSteps(loan: LoanView, now: bigint): LoanStep[] {
       label: 'Offered',
       caption:
         status === 'OFFERED'
-          ? `${money(loan.offeredCollateral)} · ${loan.offeredTier === 'VERIFIED' ? '110%' : '150%'}`
+          ? `${money(loan.offeredCollateral)} · ${loan.offeredTier === 'VERIFIED' ? vPct : sPct}`
           : underwritten
-            ? `${money(loan.collateralRequired)} · ${tier === 'VERIFIED' ? '110%' : '150%'}`
+            ? `${money(loan.collateralRequired)} · ${tier === 'VERIFIED' ? vPct : sPct}`
             : declined
               ? 'Declined'
               : "Lender offers the tier's figure",

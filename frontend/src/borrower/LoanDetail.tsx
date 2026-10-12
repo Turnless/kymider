@@ -104,6 +104,9 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
   const { desk } = useLoans();
   const { client } = useKymider();
   const lender = loan.lender.name;
+  // The loan's own ratios: 110% / 150%, or 105% / 130% with two repaid loans proven.
+  const vPct = percentOfBps(loan.ratioIfVerifiedBps);
+  const sPct = percentOfBps(loan.ratioIfStandardBps);
 
   if (loan.status === 'APPLIED' && !loan.quote) {
     return (
@@ -135,8 +138,8 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
           proven
             ? `Tier recorded. Waiting for ${lender} to make an offer`
             : waived
-              ? `Proof waived. Waiting for ${lender} to offer 150%`
-              : `Clear ${lender}'s bar for 110% collateral`
+              ? `Proof waived. Waiting for ${lender} to offer ${sPct}`
+              : `Clear ${lender}'s bar for ${vPct} collateral`
         }
       >
         <div className="rounded-[13px] bg-[rgba(255,247,235,0.05)] px-4 py-3">
@@ -158,7 +161,7 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
               {preview === 'PASS' ? 'Your committed facts clear the bar' : 'Your committed facts do not clear the bar'}
               {' → '}
               <span className="font-semibold text-cream">
-                {wouldBe === 'VERIFIED' ? 'Verified · 110%' : 'Standard · 150%'}
+                {wouldBe === 'VERIFIED' ? `Verified · ${vPct}` : `Standard · ${sPct}`}
               </span>
             </p>
           </div>
@@ -172,19 +175,19 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
         )}
         {loan.tierLive && (
           <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.45)]">
-            While it is live the lender cannot quote it away, and can only offer you 110%.
+            While it is live the lender cannot quote it away, and can only offer you {vPct}.
           </p>
         )}
         {loan.proofWindowOpen && (
           <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.45)]">
             Your proof window is open until the quote lapses: until you prove or waive, the lender
-            can neither offer 150% nor quote again.
+            can neither offer {sPct} nor quote again.
           </p>
         )}
         {waived && (
           <p className="mt-3 text-[12px] leading-[1.5] text-[rgba(255,247,235,0.6)]">
             You answered this quote without a proof: the lender learned nothing about your facts and
-            may now offer 150%. Nothing binds until you accept that offer.
+            may now offer {sPct}. Nothing binds until you accept that offer.
           </p>
         )}
 
@@ -194,7 +197,7 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
         </p>
         {preview === 'FAIL' && (
           <p className="mt-2 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.45)]">
-            A proof that does not clear the bar is recorded as Standard: 150% collateral, a usable
+            A proof that does not clear the bar is recorded as Standard: {sPct} collateral, a usable
             answer rather than a dead end.
           </p>
         )}
@@ -228,7 +231,7 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
               type="button"
               className="btn w-full py-[13px] sm:w-auto sm:px-[24px]"
               style={{ background: 'rgba(255,247,235,0.1)', color: 'var(--color-cream)' }}
-              title="Answer the quote without a proof: the lender learns nothing about your facts and may offer 150% at once"
+              title={`Answer the quote without a proof: the lender learns nothing about your facts and may offer ${sPct} at once`}
               onClick={() => act.run('waive', () => desk.waiveProof(loan.address))}
               disabled={act.busy !== null}
             >
@@ -237,7 +240,7 @@ function NextStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act })
                   <LoanSpinner /> Waiving
                 </>
               ) : (
-                "Don't prove; accept 150% terms"
+                `Don't prove; accept ${sPct} terms`
               )}
             </button>
           )}
@@ -375,7 +378,9 @@ function OfferStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act }
   const { desk } = useLoans();
   const lender = loan.lender.name;
   const verified = loan.offeredTier === 'VERIFIED';
-  const ratio = verified ? '110%' : '150%';
+  const vPct = percentOfBps(loan.ratioIfVerifiedBps);
+  const sPct = percentOfBps(loan.ratioIfStandardBps);
+  const ratio = verified ? vPct : sPct;
   // A 150% offer exists only after the quote was answered or lapsed: say why.
   const quoteLive = loan.quote !== null && now < loan.quote.expiresAt;
   const why = verified
@@ -391,12 +396,13 @@ function OfferStep({ loan, now, act }: { loan: LoanView; now: bigint; act: Act }
         <p className="label-dark mb-1">The offer on the ledger</p>
         <p className="tnum text-[15px] font-semibold text-cream">
           {money(loan.offeredCollateral)} on {money(loan.terms.principal)} ·{' '}
-          {verified ? 'Verified · 110%' : 'Standard · 150%'}
+          {verified ? `Verified · ${vPct}` : `Standard · ${sPct}`}
+          {loan.priorRepaidProven && ' · two repaid loans'}
         </p>
         <p className="tnum mt-1 text-[11px] text-[rgba(255,247,235,0.45)]">
           {verified
-            ? `150% would be ${money(loan.collateralIfStandard)}: you post ${money(loan.collateralIfStandard - loan.collateralIfVerified)} less.`
-            : `A live verified tier would make it ${money(loan.collateralIfVerified)} (110%).`}
+            ? `${sPct} would be ${money(loan.collateralIfStandard)}: you post ${money(loan.collateralIfStandard - loan.collateralIfVerified)} less.`
+            : `A live verified tier would make it ${money(loan.collateralIfVerified)} (${vPct}).`}
         </p>
       </div>
 
@@ -483,7 +489,7 @@ function HistoryProof({ loan, act }: { loan: LoanView; act: Act }) {
   const records = desk.repaidRecords().filter((r) => r.loan !== loan.address);
   const [picked, setPicked] = useState<string[]>([]);
 
-  if (loan.historyProofCount >= 2) {
+  if (loan.priorRepaidProven) {
     return (
       <section className="card p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -491,9 +497,17 @@ function HistoryProof({ loan, act }: { loan: LoanView; act: Act }) {
           <span className="badge badge-pass">Two repaid loans proven</span>
         </div>
         <p className="mt-3 text-[12px] leading-[1.6] text-[rgba(15,23,42,0.6)]">
-          The directory now shows {loan.lender.name} that this application's borrower has two
-          repaid loans on record. Which loans, which lenders and how much stay with you.
-        </p>
+            Every collateral figure on this loan is a step lower: verified{' '}
+            <span className="tnum font-semibold">
+              {percentOfBps(loan.ratioIfVerifiedBps)} ({money(loan.collateralIfVerified)})
+            </span>
+            , standard{' '}
+            <span className="tnum font-semibold">
+              {percentOfBps(loan.ratioIfStandardBps)} ({money(loan.collateralIfStandard)})
+            </span>
+            . The contract sets these figures, so {loan.lender.name} cannot quote them away. The
+            proof does not name the loans, but your repaid listings are public under your key.
+          </p>
       </section>
     );
   }
@@ -519,9 +533,18 @@ function HistoryProof({ loan, act }: { loan: LoanView; act: Act }) {
         </span>
       </div>
       <p className="mb-4 text-[12px] leading-[1.6] text-[rgba(15,23,42,0.6)]">
-        Attach a repayment history to this application. The lender learns that two repaid loans
-        exist in the directory under your key, not which loans, which lenders or how much.
+        Attach a repayment history to this application and every collateral figure drops a step:
+        verified 110% to 105%, standard 150% to 130%. The proof does not name the two loans. Your
+        repaid listings are public under your key, though: with only two on record, anyone can
+        tell which ones they are.
       </p>
+      {loan.status === 'OFFERED' && (
+        <p className="mb-4 text-[11px] leading-[1.5] text-[rgba(15,23,42,0.5)]">
+          An offer is standing at {money(loan.offeredCollateral)}. Proving now lowers it in place to{' '}
+          {money((loan.terms.principal * (loan.offeredTier === 'VERIFIED' ? 10_500n : 13_000n)) / 10_000n)}
+          ; you do not need to decline it first.
+        </p>
+      )}
 
       {records.length < 2 ? (
         <p className="rounded-[13px] bg-[rgba(15,23,42,0.03)] px-4 py-3 text-[12px] text-[rgba(15,23,42,0.55)]">
@@ -636,7 +659,11 @@ function TermsCard({ loan }: { loan: LoanView }) {
                   : 'Set when you accept an offer'}
           </span>
         </div>
-        <LoanCollateralCompare principal={t.principal} applies={applies} />
+        <LoanCollateralCompare
+          principal={t.principal}
+          applies={applies}
+          ratios={{ verifiedBps: loan.ratioIfVerifiedBps, standardBps: loan.ratioIfStandardBps }}
+        />
       </div>
     </section>
   );

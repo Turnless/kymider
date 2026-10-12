@@ -231,6 +231,7 @@ export function LiveView() {
                         read={r}
                         label={labelFor(contracts, r.address)}
                         loans={loansByAddress(reads.contracts)}
+                        repaidRoots={repaidRootsOf(reads.contracts)}
                       />
                     ) : null,
                   )}
@@ -501,14 +502,28 @@ function loansByAddress(reads: readonly ContractRead[]): Map<string, LoanView> {
   return out;
 }
 
+/**
+ * Every root the deployed LoanDirectory's repaid-records tree has had, or
+ * null if no directory was read. A Loan's track-record proof is only as good
+ * as its root being one of these (the Loan cannot read the directory).
+ */
+function repaidRootsOf(reads: readonly ContractRead[]): ReadonlySet<string> | null {
+  for (const r of reads) {
+    if (r.status === 'ok' && r.view.kind === 'loanDirectory') return new Set(r.view.repaidRoots);
+  }
+  return null;
+}
+
 function StateCard({
   read,
   label,
   loans,
+  repaidRoots,
 }: {
   read: Extract<ContractRead, { status: 'ok' }>;
   label: string;
   loans: ReadonlyMap<string, LoanView>;
+  repaidRoots: ReadonlySet<string> | null;
 }) {
   const v = read.view;
   return (
@@ -533,7 +548,7 @@ function StateCard({
         ) : v.kind === 'loanDirectory' ? (
           <DirectoryBody v={v} loans={loans} />
         ) : (
-          <LoanBody v={v} />
+          <LoanBody v={v} repaidRoots={repaidRoots} />
         )}
       </div>
     </section>
@@ -633,7 +648,7 @@ function DirectoryBody({ v, loans }: { v: LoanDirectoryView; loans: ReadonlyMap<
   );
 }
 
-function LoanBody({ v }: { v: LoanView }) {
+function LoanBody({ v, repaidRoots }: { v: LoanView; repaidRoots: ReadonlySet<string> | null }) {
   const rate = Number(v.terms.interestBps) / 100;
   const days = Number(v.terms.periodSeconds) / 86_400;
   return (
@@ -642,10 +657,26 @@ function LoanBody({ v }: { v: LoanView }) {
         <StatusPill status={v.status} />
         <span
           className={`badge ${v.tier === 'VERIFIED' ? 'badge-pass' : v.tier === 'STANDARD' ? 'badge-pending' : 'badge-neutral'}`}
-          title={v.tier === 'VERIFIED' ? '110% collateral tier, proved in zero knowledge' : undefined}
+          title={
+            v.tier === 'VERIFIED'
+              ? `${v.priorRepaidProven ? '105%' : '110%'} collateral tier, proved in zero knowledge`
+              : undefined
+          }
         >
           Tier {v.tier.toLowerCase()}
         </span>
+        {v.priorRepaidProven && (
+          <span
+            className={`badge ${repaidRoots === null ? 'badge-neutral' : repaidRoots.has(v.priorRepaidRoot) ? 'badge-pass' : 'badge-fail'}`}
+            title="Two prior repaid loans proven on this Loan: collateral 105% verified, 130% otherwise"
+          >
+            {repaidRoots === null
+              ? 'Track record: root not checked'
+              : repaidRoots.has(v.priorRepaidRoot)
+                ? 'Track record: root in the directory'
+                : 'Track record: root NOT in the directory'}
+          </span>
+        )}
         {v.latePayments > 0n && <span className="badge badge-fail">{v.latePayments.toString()} late</span>}
       </div>
       <Figures>

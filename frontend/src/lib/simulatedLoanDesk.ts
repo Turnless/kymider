@@ -50,6 +50,7 @@ import {
   owedFor,
   proofWaived,
   proofWindowOpen,
+  ratioBpsFor,
   tierIsLive,
   type Listing,
   type LoanDirectoryLedger,
@@ -400,7 +401,17 @@ export class SimulatedLoanDesk implements LoanDesk {
     // The circuit's own test: a VERIFIED tier counts only while block time is
     // before its expiry. Anything else is offered at 150%.
     const verified = tierIsLive(led, this.clock);
-    const collateral = collateralFor(led.terms.principal, verified ? Tier.VERIFIED : Tier.STANDARD);
+    // The Loan cannot read the directory, so the lender checks the root its
+    // track-record proof published before offering the lower figure.
+    if (led.priorRepaidProven && !this.directory.ledger().repaid.checkRoot(led.priorRepaidRoot)) {
+      throw new Error("the borrower's repayment-history root is not in the directory: decline instead");
+    }
+    // Two prior repaid loans proven on the Loan lower each figure a step.
+    const collateral = collateralFor(
+      led.terms.principal,
+      verified ? Tier.VERIFIED : Tier.STANDARD,
+      led.priorRepaidProven,
+    );
     return { tier: this.doUnderwriteAt(loan, lenderSk, collateral), collateral };
   }
 
@@ -726,8 +737,12 @@ export class SimulatedLoanDesk implements LoanDesk {
       collateralRequired: led.collateralRequired,
       offeredCollateral: led.offeredCollateral,
       offeredTier: TIER_NAMES[led.offeredTier],
-      collateralIfVerified: collateralFor(terms.principal, Tier.VERIFIED),
-      collateralIfStandard: collateralFor(terms.principal, Tier.STANDARD),
+      collateralIfVerified: collateralFor(terms.principal, Tier.VERIFIED, led.priorRepaidProven),
+      collateralIfStandard: collateralFor(terms.principal, Tier.STANDARD, led.priorRepaidProven),
+      ratioIfVerifiedBps: ratioBpsFor(Tier.VERIFIED, led.priorRepaidProven),
+      ratioIfStandardBps: ratioBpsFor(Tier.STANDARD, led.priorRepaidProven),
+      priorRepaidProven: led.priorRepaidProven,
+      priorRepaidRootChecks: !led.priorRepaidProven || this.directory.ledger().repaid.checkRoot(led.priorRepaidRoot),
       disbursed: led.disbursed,
       balanceOwed: led.balanceOwed,
       installmentAmount: led.installmentAmount,
@@ -870,9 +885,30 @@ export class SimulatedLoanDesk implements LoanDesk {
     };
     const ra = record(a);
     const rb = record(b);
-    this.directory.call(this.client.borrowerSecretKey(), this.clock, (c, ctx) =>
-      c.proveTwoRepaid(ctx, target.bytes, ra.loan, ra.lender, ra.path, rb.loan, rb.lender, rb.path),
-    );
+    const led = this.ledgerOf(target);
+    const status = STATUS_NAMES[led.status];
+    const onLoan = (status === 'APPLIED' || status === 'OFFERED') && !led.priorRepaidProven;
+    // A standing offer is re-priced to its tier's lower figure, in the same call.
+    const offerAfter =
+      status === 'OFFERED' ? collateralFor(led.terms.principal, led.offeredTier, true) : 0n;
+    const key = hex(target.listingKey);
+    const inDirectory = (this.directory.snapshot().proofs.get(key) ?? 0n) >= 2n;
+    if (!onLoan && inDirectory) throw new Error('loan is no longer open to proofs');
+    // The directory first, where any lender browsing it sees the count, and
+    // whose refusals name the record at fault ("... is not in the directory").
+    // Then the Loan, until it is active: there the record lowers every
+    // collateral figure a step, a standing offer included. Both take the same two paths, built from
+    // the current tree, so a pair the directory accepts the Loan accepts too.
+    if (!inDirectory) {
+      this.directory.call(this.client.borrowerSecretKey(), this.clock, (c, ctx) =>
+        c.proveTwoRepaid(ctx, target.bytes, ra.loan, ra.lender, ra.path, rb.loan, rb.lender, rb.path),
+      );
+    }
+    if (onLoan) {
+      this.run(target, target.borrowerSk, (c, ctx) =>
+        c.proveRepaidHistory(ctx, ra.loan, ra.lender, ra.path, rb.loan, rb.lender, rb.path, offerAfter),
+      );
+    }
     this.changed();
   }
 

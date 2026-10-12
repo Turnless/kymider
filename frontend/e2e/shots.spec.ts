@@ -17,7 +17,7 @@ import {
 /**
  * The Wave 2 deck screenshots, made from the running console:
  *
- *   npm run shots   →   hackathon/wave2/deck/shots/0N-*.jpg
+ *   npm run shots   →   hackathon/wave2/deck/shots/NN-*.jpg
  *
  * 1440×900 at 2× device pixels, JPEG. Each shot is cropped to the part of the
  * screen the slide is about. Runs only in the `shots` project, never under
@@ -161,6 +161,30 @@ test('deck screenshots @shots', async ({ page }) => {
     (el as HTMLTextAreaElement).scrollTop = 0;
   });
   await shot(page, '07-auditor.jpg');
+
+  // 09 · A track record on a new application: two repaid loans proven, and
+  // every figure on the loan a step lower (20,000 at 105% and 130%).
+  await switchRole(page, 'borrower');
+  await nav(page, 'Loans');
+  const next = await applyForLoan(page, { principal: '20,000', interest: '8', installments: '4' });
+  const history = page.locator('section', { hasText: 'Optional · Prove two repaid loans' });
+  const picks = history.getByRole('checkbox');
+  await picks.nth(0).check();
+  await picks.nth(1).check();
+  await button(history, 'Prove two repaid loans').click();
+  const proven = page.locator('main section.card', { hasText: 'Every collateral figure on this loan is a step lower' });
+  await expect(proven).toContainText('105% ($21,000)');
+  await crop(page, '09-track-record.jpg', [page.locator('main header'), proven], { fullWidth: true });
+
+  // 10 · The lender's side of it: 130% (26,000) is the only no-proof figure,
+  // and the root the Loan published checks out against the directory.
+  await switchRole(page, 'lender');
+  await openLenderLoan(page, next);
+  const record = page.locator('main section.card', { hasText: 'Public record' });
+  await expect(record).toContainText('2 repaid loans proven on the Loan; root is in the directory');
+  const offer = desk.locator('div', { has: page.getByText('3 · Offer') }).last();
+  await expect(offer).toContainText('26,000130%');
+  await crop(page, '10-track-record-lender.jpg', [page.locator('main header'), record, offer], { fullWidth: true });
 
   // 08 · Live chain.
   await nav(page, 'Live chain');

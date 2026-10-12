@@ -31,8 +31,8 @@ private entry, earned points (see `hackathon/wave1-results.md`).
       run shots`); replace the "Preprod pending" wording in `README.md` (table,
       "On-chain evidence", "What is real", honest limits), this file
       (description, progress item 8, "What changed", Links), `DECK.html`
-      (slides 1, 7, 10), `VIDEO-SCRIPT.md` ("Before you press record", 2:25) and `X-THREAD.md`
-      (post 2, launch thread 5/7) with links to `PROOF.md`.
+      (slides 1, 7, 10), `VIDEO-SCRIPT.md` ("Before you press record", 2:30) and `X-THREAD.md`
+      (post 2, launch post "Proof it runs" line) with links to `PROOF.md`.
 - [ ] **Try Lace on Preprod** in the Live view; if it works, drop "untested on
       Preprod" from `README.md` (UX section, "What is real") and progress item
       7 below.
@@ -91,14 +91,16 @@ Disbursement, installments, late flags and defaults run on block time, with a
 Each repayment extends a hash chain on the loan. An auditor can check an
 exported payment log against that on-chain hash offline. A shared LoanDirectory
 records repaid loans in a HistoricMerkleTree, so a borrower can prove "two
-prior loans repaid" on a new application without naming the loans, lenders or
-amounts.
+prior loans repaid" on a new application (the proof's inputs stay off the
+ledger, though a key's repaid listings are public). Proven on the new Loan itself, that track record lowers every
+collateral figure a step, 110% to 105% and 150% to 130%. The ratios are
+constants in the contract, so the lender cannot quote the discount away.
 
-Evidence: 4 Compact contracts (23 circuits) compiled in CI on
-toolchain 0.31.1; 339 offline tests on the compiled contracts;
-48 browser tests of the console; an 18-case devnet simulation with
+Evidence: 4 Compact contracts (24 circuits) compiled in CI on
+toolchain 0.31.1; 366 offline tests on the compiled contracts;
+48 browser tests of the console; a 19-case devnet simulation with
 real proofs on every push, followed by the full flow proven and re-read on
-that devnet (recorded run on commit b815b26: 31 transactions, 45 of 45
+that devnet (recorded run on commit 93cc853: 37 transactions, 54 of 54
 read-back checks: https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md).
 Preprod deployment: pending.
 
@@ -112,7 +114,7 @@ VERIFIED tier costs nothing to get today. Attested data provenance is Wave 3.
 All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
 (https://github.com/Turnless/kymider/tree/main).
 
-1. **`Loan` contract** (`contracts/loan.compact`, 10 circuits):
+1. **`Loan` contract** (`contracts/loan.compact`, 11 circuits):
    per-loan lifecycle from application to repaid, defaulted or declined;
    `proveTier` against the borrower's salted facts commitment; 110% vs 150%
    collateral enforced with an exact-floor check (`isFloorOfBps`), because
@@ -121,8 +123,11 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
    can neither offer 150% nor re-quote, and `waiveProof` for a borrower who
    takes 150% without proving; block-time quote expiry, a 30-minute minimum
    quote life, due dates, lateness and a 3-day grace period; at most 3 quotes
-   per loan; a payment-history hash chain with seed-derived nonces. Circuits:
-   `quoteTerms`, `proveTier`, `waiveProof`, `underwrite` (the offer),
+   per loan; a payment-history hash chain with seed-derived nonces; and
+   `proveRepaidHistory`, which checks two directory Merkle paths in the Loan
+   and lowers its ratios to 105% / 130% (the lender checks the published root
+   against the directory). Circuits: `quoteTerms`, `proveTier`, `waiveProof`,
+   `proveRepaidHistory`, `underwrite` (the offer),
    `accept(expectedCollateral)`, `declineOffer`, `decline`, `disburse`,
    `repay`, `markDefault`.
 2. **`LoanDirectory` contract** (`contracts/loanDirectory.compact`, 4 circuits):
@@ -133,7 +138,7 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
    default is read from the `Loan`); repayment records in a
    `HistoricMerkleTree<10>`; and `proveTwoRepaid`, which checks two private
    Merkle paths with `checkRoot`.
-3. **339 offline tests** in 12 files, all driving
+3. **366 offline tests** in 13 files, all driving
    the compiled contracts (Wave 1 had 54), plus **48 Playwright
    tests** that run the README's judge path and each refusal at 1440 and 390 px
    in CI.
@@ -141,7 +146,7 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
    `prove:onchain` and `verify:onchain`. The client computes every quotient the
    circuits check.
 5. **Devnet simulation** for Wave 2 (`tests/simulation/wave2.simulation.test.ts`,
-   7 cases, two wallets, real proofs) in CI on every push.
+   8 cases, two wallets, real proofs) in CI on every push.
 6. **Console loan screens**: borrower (apply, prove tier or waive the proof,
    accept, repay, prove history, export history), lender (applications,
    quote, offer, disburse, default, record), portfolio.
@@ -149,10 +154,10 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
    untested on Preprod.
 8. **On-chain proof scripts**: `prove:onchain` runs the flow and records every
    transaction; `verify:onchain` re-reads them. CI runs both on a local devnet
-   on every push; run 37098203726 on commit b815b26 (31 transactions, 45 of
-   45 checks) is recorded in https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md.
-   The current flow adds a waiver transaction and two refusals recorded
-   before submission, in each CI run's `proof-local` artifact. A manually triggered Preprod job writes
+   on every push; run 38165213326 on commit 93cc853 (37 transactions, including
+   Loan B's waiver and Loan C accepted at 105% on its proven track record,
+   three refusals recorded before submission, 54 of 54 checks)
+   is recorded in https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. A manually triggered Preprod job writes
    `PROOF.md`; that run is pending the owner's funded wallet.
 9. **Wave 3 preview**: an auditor checks a borrower's exported payment log
    against the on-chain history hash (`/app/audit`).
@@ -160,7 +165,8 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
     the borrower-acceptance step, listing status rules and no seed characters
     in logs (first review); the proof window and `waiveProof`, acceptance that
     names the figure, listing keys, and no defaults set in the directory
-    (second review).
+    (second review); and, from the second review's suggestions, a track
+    record with an economic effect (105% / 130% with two repaid loans).
 
 ---
 
@@ -170,17 +176,18 @@ Wave 1 proved creditworthiness as a PASS/FAIL attestation. Wave 2 makes the
 proof buy something: a lower collateral ratio that the lender cannot raise for a
 verified borrower and the borrower must accept.
 
-- Contracts: 2 → 4 (+ `Loan`, `LoanDirectory`); circuits 9 → 23.
+- Contracts: 2 → 4 (+ `Loan`, `LoanDirectory`); circuits 9 → 24.
   https://github.com/Turnless/kymider/blob/main/contracts/loan.compact
-- Offline tests: 54 → 339; browser tests: 0 → 48.
+- Offline tests: 54 → 366; browser tests: 0 → 48.
   https://github.com/Turnless/kymider/tree/main/tests/unit
-- Devnet simulation: 11 → 18 cases.
+- Devnet simulation: 11 → 19 cases.
   https://github.com/Turnless/kymider/tree/main/tests/simulation
 - New Compact features in use: block time (`blockTimeLt/Lte/Gt/Gte`),
-  `HistoricMerkleTree` with `checkRoot`, more witnesses (`factsSalt`,
+  `HistoricMerkleTree` with `checkRoot`, `merkleTreePathRoot` and
+  `kernel.self()` in the Loan, more witnesses (`factsSalt`,
   `paymentNonce`), division-free quotient checks.
 - On-chain: local devnet only → the full flow proven and re-read on a devnet in
-  CI on every push (31 transactions, 45 of 45 checks in run 37098203726, commit b815b26);
+  CI on every push (37 transactions, 54 of 54 checks in run 38165213326, commit 93cc853);
   Preprod deployment pending.
   https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md
 - Console: solvency screens → plus loan desk, portfolio, auditor preview and a
@@ -246,7 +253,7 @@ for the Live view (untested on Preprod).
 | Live console | https://turnless.github.io/kymider/ |
 | Demo video (narrated) | {{VIDEO_URL}} |
 | Slide deck | https://turnless.github.io/kymider/deck/ (PDF: https://github.com/Turnless/kymider/blob/main/hackathon/wave2/DECK.pdf) |
-| On-chain proof | Devnet, run 37098203726 on commit b815b26, 31 transactions, 45 of 45 checks: https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. Re-run on every push: https://github.com/Turnless/kymider/actions/workflows/ci.yml (job "Devnet simulation", artifact `proof-local`). Preprod: pending; after the run, https://github.com/Turnless/kymider/blob/main/PROOF.md |
+| On-chain proof | Devnet, run 38165213326 on commit 93cc853, 37 transactions, 54 of 54 checks: https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. Re-run on every push: https://github.com/Turnless/kymider/actions/workflows/ci.yml (job "Devnet simulation", artifact `proof-local`). Preprod: pending; after the run, https://github.com/Turnless/kymider/blob/main/PROOF.md |
 | Preprod transaction | {{PREPROD_TX}} |
 | Build with (tech tag) | Midnight |
 | Category | DeFi, lending, privacy |

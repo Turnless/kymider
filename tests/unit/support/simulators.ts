@@ -14,6 +14,7 @@
 import {
   createCircuitContext,
   createConstructorContext,
+  encodeContractAddress,
   sampleContractAddress,
   type CircuitContext,
   type ContractAddress,
@@ -391,7 +392,25 @@ export class LoanSimulator {
   markDefault(): this {
     return this.run((c) => this.contract.impureCircuits.markDefault(c));
   }
+
+  /**
+   * The borrower proves two prior repaid loans, by their directory records.
+   * `offerAfter` is the re-priced figure when an offer stands (0 otherwise).
+   */
+  proveRepaidHistory(a: RepaidRecordInput, b: RepaidRecordInput, offerAfter = 0n): this {
+    return this.run((c) =>
+      this.contract.impureCircuits.proveRepaidHistory(c, a.loan, a.lender, a.path, b.loan, b.lender, b.path, offerAfter),
+    );
+  }
+
+  /** This instance's address as the 32 bytes a circuit sees (kernel.self()). */
+  addressBytes(): Uint8Array {
+    return encodeContractAddress(this.address);
+  }
 }
+
+/** One repaid-loan record as a borrower presents it: loan, lender, Merkle path. */
+export type RepaidRecordInput = { loan: Uint8Array; lender: Uint8Array; path: MerkleTreePath<Uint8Array> };
 
 export const repaidLeaf = (borrowerPk: Uint8Array, loanAddr: Uint8Array, lenderPk: Uint8Array): Uint8Array =>
   loanDirectoryPureCircuits.repaidLeaf(borrowerPk, loanAddr, lenderPk);

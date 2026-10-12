@@ -25,14 +25,18 @@ export const QUOTE = { ...CLAIM, ttlSeconds: 7_200n };
 export const TERMS_A: LoanTerms = { principal: 1_000n, interestBps: 1_000n, installments: 2n, periodSeconds: 86_400n };
 /** Loan B: the borrower waives the tier proof, so 150% collateral. 2,100 owed in one installment. */
 export const TERMS_B: LoanTerms = { principal: 2_000n, interestBps: 500n, installments: 1n, periodSeconds: 86_400n };
-/** Loan C: a new application that carries the two-repaid-loans proof. */
+/**
+ * Loan C: a new application that carries the two-repaid-loans proof, in the
+ * directory and on the Loan itself, so it is offered 105% (5,250) instead of
+ * 110% (5,500).
+ */
 export const TERMS_C: LoanTerms = { principal: 5_000n, interestBps: 800n, installments: 4n, periodSeconds: 86_400n };
 
 /** `contracts.loans` in the deployments file, in this order. */
 export const LOAN_ROLES = [
   'Loan A: VERIFIED tier, 110% collateral',
   'Loan B: STANDARD tier, 150% collateral',
-  'Loan C: new application with a two-loan history proof',
+  'Loan C: two repaid loans proven, VERIFIED tier, 105% collateral',
 ] as const;
 
 export const LOAN_SHORT_NAMES = ['Loan A', 'Loan B', 'Loan C'] as const;
@@ -211,7 +215,32 @@ export const STEPS = {
   proveHistoryC: step(
     'Borrower proves two repaid Kymider loans for application C',
     'The applicant holds two distinct repayment leaves under their own key: the directory records "2" for loan C.',
-    'Which two loans, which lenders, the amounts and dates. The new lender learns the count only.',
+    'The paths are circuit inputs, not on the ledger; but the borrower\'s REPAID listings are public, so with exactly two of them a reader can tell which loans these are.',
+  ),
+  proveRepaidC: step(
+    'Borrower proves the two repaid loans on loan C itself: every collateral figure drops a step',
+    'Two Merkle paths to repayment leaves under the borrower\'s own key lead to one LoanDirectory root, which the Loan publishes and any reader can check against the directory. Loan C now prices VERIFIED at 105% and STANDARD at 130%.',
+    'Only the root reaches the ledger; the same caveat as the directory proof: a key with exactly two REPAID listings shows which they are.',
+  ),
+  quoteC: step(
+    'Lender quotes the bar on loan C',
+    'Only the named lender could quote; the bar is the same as on loan A, the ratios are the contract\'s.',
+    'The lender\'s secret key.',
+  ),
+  proveTierC: step(
+    'Borrower proves the tier on loan C in zero knowledge: VERIFIED',
+    'The committed facts clear the quoted bar.',
+    'Balance, debts and income. Only the tier reaches the ledger.',
+  ),
+  underwriteC: step(
+    'Lender offers loan C at 105% collateral (5,250): VERIFIED with two repaid loans',
+    'With a VERIFIED tier and a proven track record the circuit takes only the 105% figure; 110% (5,500) was refused before submission, below. The lender checked the published root against the LoanDirectory first.',
+    'Which loans the track record is made of.',
+  ),
+  acceptC: step(
+    'Borrower accepts the offer on loan C',
+    'Loan C is ACTIVE at 105% collateral, named by the borrower.',
+    'The borrower\'s secret key.',
   ),
 } satisfies Record<string, StepInfo>;
 
@@ -245,7 +274,15 @@ export const REFUSALS = {
     expected: 'a verified tier is live until it lapses',
     shows: 'The lender cannot reset the tier by quoting again; loan A keeps quotesIssued = 1.',
   },
+  overaskC: {
+    label: 'Lender tries to offer loan C at 110% (5,500), ignoring its proven track record',
+    expected: 'collateral does not match the tier',
+    shows: 'Two proven repaid loans are binding on the lender: the only figure it can offer is 105%.',
+  },
 } satisfies Record<string, RefusalInfo>;
+
+/** The refusals made on loan A (the 110% headline), as the claims check them. */
+export const REFUSALS_A = [REFUSALS.overaskA, REFUSALS.requoteA] as const;
 
 /** Every step, in run order, for the explanation section of PROOF.md. */
 export const STEP_LIST: readonly StepInfo[] = Object.values(STEPS);
