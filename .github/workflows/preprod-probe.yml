@@ -1,0 +1,47 @@
+name: Preprod probe
+
+# Read-only reachability check of Midnight Preprod's public endpoints: which
+# indexer API versions answer over HTTP and WebSocket, and whether the node
+# RPC answers. No wallet, no secret. Runs on pushes that touch this file.
+
+on:
+  push:
+    paths: ['.github/workflows/preprod-probe.yml']
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Indexer GraphQL over HTTP, by API version
+        run: |
+          for v in v1 v2 v3 v4 v5 v6; do
+            url="https://indexer.preprod.midnight.network/api/$v/graphql"
+            code=$(curl -s -o /tmp/body -w '%{http_code}' -m 20 -H 'content-type: application/json' \
+              -d '{"query":"{ __typename }"}' "$url" || echo ERR)
+            echo "$v HTTP $code: $(head -c 200 /tmp/body 2>/dev/null)"
+          done
+      - name: Indexer schema (v4), block query
+        run: |
+          curl -s -m 20 -H 'content-type: application/json' \
+            -d '{"query":"{ block { height hash timestamp } }"}' \
+            https://indexer.preprod.midnight.network/api/v4/graphql | head -c 600; echo
+      - name: Indexer WebSocket upgrade, by API version
+        run: |
+          for v in v3 v4 v5; do
+            echo "== $v"
+            curl -s -i -m 15 --http1.1 \
+              -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+              -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+              -H 'Sec-WebSocket-Protocol: graphql-transport-ws' \
+              "https://indexer.preprod.midnight.network/api/$v/graphql/ws" 2>&1 | head -12 || true
+          done
+      - name: Node RPC
+        run: |
+          curl -s -m 20 -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"system_version","params":[]}' \
+            https://rpc.preprod.midnight.network | head -c 300; echo
+          curl -s -m 20 -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"chain_getHeader","params":[]}' \
+            https://rpc.preprod.midnight.network | head -c 300; echo
