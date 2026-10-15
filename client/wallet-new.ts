@@ -19,6 +19,8 @@ import { environmentFor } from './context.js';
 import { MidnightWalletProvider } from './wallet.js';
 
 process.env['MIDNIGHT_NETWORK'] ??= 'preprod';
+// Offline: no endpoint is contacted, so a Blockfrost project ID is not needed.
+process.env['BLOCKFROST_PROJECT_ID'] ||= 'nightpreprod-offline';
 const config = getConfig();
 setNetworkId(config.networkId);
 

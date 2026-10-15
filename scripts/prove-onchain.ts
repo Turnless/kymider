@@ -88,7 +88,11 @@ const logger = pino({
   hooks: {
     logMethod(args, method) {
       const redacted = args.map((a) =>
-        typeof a === 'string' ? a.replace(/(master seed|mnemonic|seed)(:\s*)\S+/gi, '$1$2[redacted]') : a,
+        typeof a === 'string'
+          ? a
+              .replace(/(master seed|mnemonic|seed)(:\s*)\S+/gi, '$1$2[redacted]')
+              .replace(/project_id=[^&\s"']+/gi, 'project_id=[redacted]')
+          : a,
       ) as typeof args;
       method.apply(this, redacted);
     },

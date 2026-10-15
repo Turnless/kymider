@@ -5,6 +5,7 @@
 // each transaction hash is looked up with a plain GraphQL query a judge can
 // repeat with curl (see PROOF.md).
 
+import { withTokenFromEnv } from '../../client/config.js';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import {
   loanDirectoryLedger,
@@ -69,7 +70,7 @@ export async function lookupTxs(
 
 /** Decoded public state of every contract the deployments file names. */
 export async function readStates(d: Deployments): Promise<OnchainStates> {
-  const provider = indexerPublicDataProvider(d.indexer, d.indexerWS);
+  const provider = indexerPublicDataProvider(withTokenFromEnv(d.indexer), withTokenFromEnv(d.indexerWS));
   const read = async <T>(address: string, decode: (data: never) => T): Promise<T | null> => {
     const state = await provider.queryContractState(address);
     return state ? decode(state.data as never) : null;
@@ -95,7 +96,7 @@ export type Verification = {
 export async function verifyDeployments(d: Deployments): Promise<Verification> {
   const states = await readStates(d);
   const lookups = await lookupTxs(
-    d.indexer,
+    withTokenFromEnv(d.indexer),
     d.txs.map((t) => t.txHash),
   );
   return {
