@@ -315,7 +315,7 @@ Gate-level first. The full checklist with every placeholder location is in
       make the product public, change the tech tag from Base to Midnight, and
       paste the text from `wave2/SUBMISSION.md`. In Wave 1, none of the 60
       entries without a connected repo and none of the 54 private ones scored.
-- [ ] **Preprod:** create a wallet, fund it at
+- [ ] **Preprod:** no wallet app needed: `npm run wallet:new` prints 24 words and the matching `mn_addr_preprod1…` address (or use a wallet app instead), fund it at
       https://midnight-tmnight-preprod.nethermind.dev/, add the GitHub secret
       `PREPROD_WALLET_SEED`, and run Actions → "Preprod proof" on `main`
       (GitHub only dispatches workflows from the default branch). Check that

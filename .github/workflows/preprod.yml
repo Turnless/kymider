@@ -14,6 +14,11 @@ name: Preprod proof
 #   PREPROD_WALLET_SEED   hex seed or mnemonic of a wallet funded with tNIGHT
 #                         (faucet: https://midnight-tmnight-preprod.nethermind.dev/)
 #
+# No wallet app is needed: `npm run wallet:new` (on your own machine) prints
+# fresh recovery words and the address this run derives from them. The run
+# registers the tNIGHT for DUST itself; an unfunded wallet stops at once with
+# its address in the log.
+#
 # One wallet plays both roles; the borrower and the lenders keep separate dapp
 # keys, which is the identity the circuits check (scripts/lib/wallets.ts).
 
