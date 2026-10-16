@@ -255,6 +255,17 @@ export class MidnightWalletProvider implements MidnightProvider, WalletProvider 
   }
 }
 
+/** "done", or "applied/highest (n%)" while a part of the wallet is still catching up. */
+function progressText(progress: unknown): string {
+  if (isProgressStrictlyComplete(progress)) return 'done';
+  const p = progress as { appliedIndex?: bigint; highestIndex?: bigint } | undefined;
+  if (p && typeof p.appliedIndex === 'bigint' && typeof p.highestIndex === 'bigint' && p.highestIndex > 0n) {
+    const pct = Number((p.appliedIndex * 1000n) / p.highestIndex) / 10;
+    return `${p.appliedIndex}/${p.highestIndex} (${pct}%)`;
+  }
+  return 'starting';
+}
+
 function isProgressStrictlyComplete(progress: unknown): boolean {
   if (!progress || typeof progress !== 'object') {
     return false;
@@ -273,15 +284,20 @@ export async function syncWallet(
 ): Promise<FacadeState> {
   logger.info('Syncing wallet...');
   let emissionCount = 0;
+  // The wallet emits many times a second while it catches up with a long
+  // public chain (Preprod's shielded and DUST history is millions of blocks);
+  // log a progress line at most every 30 s, with how far each part has got.
+  let lastLogged = 0;
   return Rx.firstValueFrom(
     wallet.state().pipe(
       Rx.tap((state: FacadeState) => {
         emissionCount++;
-        const shielded = isProgressStrictlyComplete(state.shielded.state.progress);
-        const unshielded = isProgressStrictlyComplete(state.unshielded.progress);
-        const dust = isProgressStrictlyComplete(state.dust.state.progress);
+        const now = Date.now();
+        if (now - lastLogged < 30_000 && emissionCount > 1) return;
+        lastLogged = now;
         logger.info(
-          `Wallet sync [${emissionCount}]: shielded=${shielded}, unshielded=${unshielded}, dust=${dust}`,
+          `Wallet sync [${emissionCount}]: shielded ${progressText(state.shielded.state.progress)}, ` +
+            `unshielded ${progressText(state.unshielded.progress)}, dust ${progressText(state.dust.state.progress)}`,
         );
       }),
       Rx.filter(
