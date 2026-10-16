@@ -1,0 +1,297 @@
+{
+  "network": "preprod",
+  "indexer": "https://midnight-preprod.blockfrost.io/api/v0",
+  "indexerWS": "wss://midnight-preprod.blockfrost.io/api/v0/ws",
+  "generatedAt": "2026-10-16T12:39:37.098Z",
+  "contracts": {
+    "solvencyProof": "8f6059d02a405c085c8a0c25f704e0404dc665a079511e5ed08bf09095114423",
+    "registry": "433e8241024c42e326a3f2b3a25450fb5255e30943b00ce8afb127dd709c183a",
+    "loanDirectory": "d9dca0e3cf18d1313c1b5462c49b2202267bb232ec545de1bbbcd24fe444298a",
+    "loans": [
+      "c5501e903ed99e7fbefaa208c25800fbb741a640e2fd361d3c8437860f94f4f6",
+      "8f32cb080d2f2d9177c0ec056bdfdc4713528b9191abcb333e43d7a7eabc61c1",
+      "1f1c6bae998337a21dc9528ff04844ec552306ef71621bdd3fdad11092def1a4"
+    ]
+  },
+  "txs": [
+    {
+      "label": "Borrower deploys the shared Registry",
+      "txId": "00b625777669aabba0a1a7e123df9a0689b043454ee2b4446c52c4dc368c2127cb",
+      "txHash": "748d8e9b870ac107b7630180cecfe0fa9575bc6306e28ef724b68de30629a111",
+      "blockHeight": 3005897,
+      "contract": "433e8241024c42e326a3f2b3a25450fb5255e30943b00ce8afb127dd709c183a"
+    },
+    {
+      "label": "Borrower deploys their SolvencyProof instance",
+      "txId": "004422e1ee1702430cc96bbe443ca6a2aa9c515bc3a56cd24c98bb32153406c267",
+      "txHash": "d639cfbbae0c4cd8f6694ae4fef651049b2048a9588eb9cd6a2ecdd7dfa7b8c9",
+      "blockHeight": 3005901,
+      "contract": "8f6059d02a405c085c8a0c25f704e0404dc665a079511e5ed08bf09095114423"
+    },
+    {
+      "label": "Borrower indexes the instance in the Registry",
+      "txId": "0064d9546ad281bd2d6a95cdb9dcbd971638e106baee3c6fa0969b87c2c8e4988e",
+      "txHash": "5b2fcc70489d1931be054091a606fd9fa74fb4d4305796163d1daf181dfe5b0d",
+      "blockHeight": 3005906,
+      "contract": "433e8241024c42e326a3f2b3a25450fb5255e30943b00ce8afb127dd709c183a"
+    },
+    {
+      "label": "Borrower authorizes the lender",
+      "txId": "00a0edb562a12f6418a19150731d4ea40551954c3b3baa2946e57da9337c8ac9dd",
+      "txHash": "d603d6e1fc28f2fde0b3ada17088ed7d3648d068c9c018d63f00ca5eb68be7af",
+      "blockHeight": 3005911,
+      "contract": "8f6059d02a405c085c8a0c25f704e0404dc665a079511e5ed08bf09095114423"
+    },
+    {
+      "label": "Lender requests a solvency claim (net worth >= 500,000, DTI <= 40%)",
+      "txId": "00422fd85a1d253c2598c2c61b4ef5662a4328da9e7a264f21b38b2b1250ec98c0",
+      "txHash": "dfd35d6bc1a4f38d3def6e164127930c1497aa4ef5590e52a82997a1c779560a",
+      "blockHeight": 3005916,
+      "contract": "8f6059d02a405c085c8a0c25f704e0404dc665a079511e5ed08bf09095114423"
+    },
+    {
+      "label": "Borrower proves solvency in zero knowledge",
+      "txId": "000ffccc9419cec345c2c44420ba299383f9bdbd4481cca84dd1088407ce4ef867",
+      "txHash": "06f8a995087a42a0a23602dc14ad8257949be871a2d4bf0e3995d44b27515576",
+      "blockHeight": 3005922,
+      "contract": "8f6059d02a405c085c8a0c25f704e0404dc665a079511e5ed08bf09095114423"
+    },
+    {
+      "label": "Lender approves the claim",
+      "txId": "00d581b9262027239d0472b5c6bc82937693542818dfbcf4a1ab5279d1cda28f13",
+      "txHash": "ffcebdb9e463ba33eb5da98cc35a038d57fd7a4ec2f981967324b994b939ddbd",
+      "blockHeight": 3005927,
+      "contract": "8f6059d02a405c085c8a0c25f704e0404dc665a079511e5ed08bf09095114423"
+    },
+    {
+      "label": "Borrower deploys the shared LoanDirectory",
+      "txId": "0064f90afc43abebc3ab6ec43742f0fda632771edff80e25be5b04f8e29a41513f",
+      "txHash": "162d112bb49fb1add77529fe383ade4216e26165e9807bc1a029ac09afb4a302",
+      "blockHeight": 3005932,
+      "contract": "d9dca0e3cf18d1313c1b5462c49b2202267bb232ec545de1bbbcd24fe444298a"
+    },
+    {
+      "label": "Borrower opens loan A (principal 1,000), bound to the committed facts",
+      "txId": "0024be3a9c4f8b580a532b7e32ef911c4ca5c6e1539f250224ffdb9e8650ec6ad3",
+      "txHash": "e631b081dc8ea01e45208a3a0f5013b86ee8ca7fe6d185cfce823bfa0484b590",
+      "blockHeight": 3005937,
+      "contract": "c5501e903ed99e7fbefaa208c25800fbb741a640e2fd361d3c8437860f94f4f6"
+    },
+    {
+      "label": "Borrower lists loan A in the LoanDirectory",
+      "txId": "00c034b4c618bf0ca7c1975cfff15ff042fe22febba31e465b0cddb1732ab42fea",
+      "txHash": "69c3aefd03bd6646083d6fd82dbae29a180e9b643739be70e48596ff8ab64153",
+      "blockHeight": 3005943,
+      "contract": "d9dca0e3cf18d1313c1b5462c49b2202267bb232ec545de1bbbcd24fe444298a"
+    },
+    {
+      "label": "Lender quotes the bar for the 110% tier on loan A",
+      "txId": "005991e38a04bc5b104ef058fb0cbb0aa69670222fc9418a50a7c39d46b74dc087",
+      "txHash": "9235934e182c3094c144a7f0149c906f99414df552e176643ea36da0e64c3b9b",
+      "blockHeight": 3005948,
+      "contract": "c5501e903ed99e7fbefaa208c25800fbb741a640e2fd361d3c8437860f94f4f6"
+    },
+    {
+      "label": "Borrower proves the tier on loan A in zero knowledge: VERIFIED",
+      "txId": "0096b7eff442d84eedf6a40d9b76afae73abe414f3d02e4946c07d3d09c9c235d8",
+      "txHash": "9ce134bea1bd8c2a01e342664b8319ed426e5e0852d53cbaa484812e7a0d2ae2",
+      "blockHeight": 3005954,
+      "contract": "c5501e903ed99e7fbefaa208c25800fbb741a640e2fd361d3c8437860f94f4f6"
+    },
+    {
+      "label": "Lender offers loan A at 110% collateral (1,100)",
+      "txId": "007e7b47b06e5d76b7308f4dac6539bc16f426e73670524558d4160064cea0a00c",
+      "txHash": "3d6d54b200b03f69fb48e34973fb9fe22fc1573417367ce2e70cc2da9e3c9533",
+      "blockHeight": 3005959,
+      "contract": "c5501e903ed99e7fbefaa208c25800fbb741a640e2fd361d3c8437860f94f4f6"
+    },
+    {
+      "label": "Borrower accepts the offer on loan A",
+      "txId": "00e7af3141300f03377ad3d3c7d73d3d3c3283e5afdd906e64ea5a0257417720ec",
+      "txHash": "9b299b442f2c7881ef983024ff00368fe8c17da8075ca2f4fabcd7cf500705e1",
+      "blockHeight": 3005964,
+      "contract": "c5501e903ed99e7fbefaa208c25800fbb741a640e2fd361d3c8437860f94f4f6"
+    },
+    {
+      "label": "Lender marks loan A ACTIVE in the LoanDirectory",
+      "txId": "00a1c820b0cfe612393ded4d5f8e2d3e5b6ff7582a9e3f1b6dc9eff214e8c18ddf",
+      "txHash": "670491d17eeb445108d312febfef1e1ec20777b6b8456c350eb73a42b92546a8",
+      "blockHeight": 3005969,
+      "contract": "d9dca0e3cf18d1313c1b5462c49b2202267bb232ec545de1bbbcd24fe444298a"
+    },
+    {
+      "label": "Lender disburses loan A",
+      "txId": "00daa9facaeb8de1129c14cba23d7dbdd155cc9e004b1dfd3f1731fb48d2485630",
+      "txHash": "f388f596ed952ab533980898159dc23973f5b3a3792a991eea7db14ffaa4994b",
+      "blockHeight": 3005974,
+      "contract": "c5501e903ed99e7fbefaa208c25800fbb741a640e2fd361d3c8437860f94f4f6"
+    },
+    {
+      "label": "Borrower repays an installment of loan A",
+      "txId": "00a2f84f13068104bb97deacf99074500310a801dc964e0624e45bcaad7d373d56",
+      "txHash": "8e84cbe522e582cf7f5bc88c331d0a515096ed347c88a5a03f287e6ce7ec0551",
+      "blockHeight": 3005980,
+      "contract": "c5501e903ed99e7fbefaa208c25800fbb741a640e2fd361d3c8437860f94f4f6"
+    },
+    {
+      "label": "Borrower repays an installment of loan A",
+      "txId": "003aa65fdf8e3ad9b63f7600351c149fce1d77d4104df28e43b85b295eb1bc6c00",
+      "txHash": "8132db3988b0fe7945c4b2696718f6e0693fb159c6f4637a47031b948a74ccb5",
+      "blockHeight": 3005986,
+      "contract": "c5501e903ed99e7fbefaa208c25800fbb741a640e2fd361d3c8437860f94f4f6"
+    },
+    {
+      "label": "Lender records loan A as repaid",
+      "txId": "00b5a1d9e2ef8f2b42043bad11decb46f1f948337802391d7c7c45f38e3bb29f98",
+      "txHash": "dd98165d2057c5930f038427f7522a66d041df5811c4c435c3351892e8d15229",
+      "blockHeight": 3005992,
+      "contract": "d9dca0e3cf18d1313c1b5462c49b2202267bb232ec545de1bbbcd24fe444298a"
+    },
+    {
+      "label": "Borrower opens loan B (principal 2,000), bound to the committed facts",
+      "txId": "009812acab64559e75b9aba12787c6294c9b7ebcf373d60d0f421c1aea9275ef6d",
+      "txHash": "7c16109a365e939297092d7201453cbe47717fde27a9dfb3edb6d69173ff5063",
+      "blockHeight": 3005996,
+      "contract": "8f32cb080d2f2d9177c0ec056bdfdc4713528b9191abcb333e43d7a7eabc61c1"
+    },
+    {
+      "label": "Borrower lists loan B in the LoanDirectory",
+      "txId": "003ba3262d8547ff6396878a25370a2715cbcaf3c8cfe22bd60301a89269eb339f",
+      "txHash": "738537d464bbd1036431ea6998021d21bac9203b4e03dbc397094fc6a4baf4c3",
+      "blockHeight": 3006002,
+      "contract": "d9dca0e3cf18d1313c1b5462c49b2202267bb232ec545de1bbbcd24fe444298a"
+    },
+    {
+      "label": "Lender quotes the bar on loan B",
+      "txId": "002302bfe083ac496dbe663c4885d19ddd953743adcf8f6583c19133573e89c546",
+      "txHash": "76d1c05af8fce12dd5e70fd0408eca828caa16ee74dfe187819dc9caf89fbcb3",
+      "blockHeight": 3006007,
+      "contract": "8f32cb080d2f2d9177c0ec056bdfdc4713528b9191abcb333e43d7a7eabc61c1"
+    },
+    {
+      "label": "Borrower waives the tier proof on loan B",
+      "txId": "00b8ab35915b31ac1da6cdfb8f6adabaeb2aba52c8b34b63d836c6339c06939d9e",
+      "txHash": "c50f1aafc85ec2898a6a8260ad4be62222ae97dc55b701d593b7dbbe437f406d",
+      "blockHeight": 3006012,
+      "contract": "8f32cb080d2f2d9177c0ec056bdfdc4713528b9191abcb333e43d7a7eabc61c1"
+    },
+    {
+      "label": "Lender offers loan B at 150% collateral (3,000): proof waived",
+      "txId": "006995dd6085efe569b32aafae569bf29cef89295128a30513125935ea6e65b7a4",
+      "txHash": "4165661d1477b790ce29af0a75a18e8fb30a5ba5961a6785727aafd33378876b",
+      "blockHeight": 3006017,
+      "contract": "8f32cb080d2f2d9177c0ec056bdfdc4713528b9191abcb333e43d7a7eabc61c1"
+    },
+    {
+      "label": "Borrower accepts the offer on loan B",
+      "txId": "00f33b02cbf4bcf28da70ac64a82fd8c3f56ad6952a5fa213f7ec5fe88cb3cb7f0",
+      "txHash": "966b5d46d148c27f5bba003d86ff68625b6c2d5712787ab56937df5fa4c0f9b1",
+      "blockHeight": 3006021,
+      "contract": "8f32cb080d2f2d9177c0ec056bdfdc4713528b9191abcb333e43d7a7eabc61c1"
+    },
+    {
+      "label": "Lender marks loan B ACTIVE in the LoanDirectory",
+      "txId": "0087e0ffb928b7c840f3597729b1438143aa3b53fca99273d83db38ad44e84bba8",
+      "txHash": "65022a61ee6ced29a89e1235e764705ffca3fe4dc4753655be2f86a1782ca545",
+      "blockHeight": 3006027,
+      "contract": "d9dca0e3cf18d1313c1b5462c49b2202267bb232ec545de1bbbcd24fe444298a"
+    },
+    {
+      "label": "Lender disburses loan B",
+      "txId": "0083452cfc3f9157dab8b79d8959ad49ae984e810b4304391ce3b83ec307422d9f",
+      "txHash": "4c59253153478a03d781f982ce559843f049234f971f9fbe47fe7024042e13e9",
+      "blockHeight": 3006032,
+      "contract": "8f32cb080d2f2d9177c0ec056bdfdc4713528b9191abcb333e43d7a7eabc61c1"
+    },
+    {
+      "label": "Borrower repays loan B",
+      "txId": "0041100b76a2d1f44d7b179c54ae9d7080e76e10ae37e4a6189499305e2b6719c7",
+      "txHash": "ec356cff83befd2cffa99d854437236ca3bb601128198468fade8af9146b2f84",
+      "blockHeight": 3006038,
+      "contract": "8f32cb080d2f2d9177c0ec056bdfdc4713528b9191abcb333e43d7a7eabc61c1"
+    },
+    {
+      "label": "Lender records loan B as repaid",
+      "txId": "00e46b854afe2585cbcc589aed48eb80a2708f99b7e2fc8d006df348d81d90cdc7",
+      "txHash": "09bf9b0ebb88ed3b368f021e21fd0a903e78352121ac7a2a4a614b738c9820bf",
+      "blockHeight": 3006044,
+      "contract": "d9dca0e3cf18d1313c1b5462c49b2202267bb232ec545de1bbbcd24fe444298a"
+    },
+    {
+      "label": "Borrower opens loan C (principal 5,000), a new application",
+      "txId": "00aaa598f99767b1246c6d8f2ecd632fc2a632c11c9d2b24699b501f80e19897dd",
+      "txHash": "1617081c23e17d20c073247b8cd2580e27e7e44a9fdef86d5266d5f1f36db19c",
+      "blockHeight": 3006049,
+      "contract": "1f1c6bae998337a21dc9528ff04844ec552306ef71621bdd3fdad11092def1a4"
+    },
+    {
+      "label": "Borrower lists loan C in the LoanDirectory",
+      "txId": "006a4a519c82ca96426ea9c1f7058f07ab74c5254097fa550def22d15e922839c7",
+      "txHash": "4d00c7e4800b4832dc7c0729f354a46c7afde9c519079c8c8d330dee4aa91bd5",
+      "blockHeight": 3006054,
+      "contract": "d9dca0e3cf18d1313c1b5462c49b2202267bb232ec545de1bbbcd24fe444298a"
+    },
+    {
+      "label": "Borrower proves two repaid Kymider loans for application C",
+      "txId": "00d03b9b0e4c45ca11bc14b1eb58090abb9678d73fe1de8c5e38f4cb2ddcc95f62",
+      "txHash": "5e4e14c254055f15cf5ca7e89f7cddf4b075aec1ef44564fe329678b7fa383e1",
+      "blockHeight": 3006059,
+      "contract": "d9dca0e3cf18d1313c1b5462c49b2202267bb232ec545de1bbbcd24fe444298a"
+    },
+    {
+      "label": "Borrower proves the two repaid loans on loan C itself: every collateral figure drops a step",
+      "txId": "00a975f7aec0ca1a1c10432ca3980e95da23275e0be7a0eb4fd7b5a4165674f7bd",
+      "txHash": "3b5d7cfd8a4540ece7777857e92a771eb890ac9de8c965158afc6cc9276897eb",
+      "blockHeight": 3006064,
+      "contract": "1f1c6bae998337a21dc9528ff04844ec552306ef71621bdd3fdad11092def1a4"
+    },
+    {
+      "label": "Lender quotes the bar on loan C",
+      "txId": "00f7c6a1807d8b66042e1f5abc9afa43b5381328fc9785725269e68da7f4334019",
+      "txHash": "6b168582d5371c7fdadf144e23d09562caac3eec36f84b62e38777732608d7d0",
+      "blockHeight": 3006070,
+      "contract": "1f1c6bae998337a21dc9528ff04844ec552306ef71621bdd3fdad11092def1a4"
+    },
+    {
+      "label": "Borrower proves the tier on loan C in zero knowledge: VERIFIED",
+      "txId": "00539d99910a5514362cc9f6b4ab1b8f33db38231a155c80773a6dd5d23eedfc30",
+      "txHash": "2d0493cd99328f3aecaff19fd787bb76965175108183683f93a19c145d250c0b",
+      "blockHeight": 3006075,
+      "contract": "1f1c6bae998337a21dc9528ff04844ec552306ef71621bdd3fdad11092def1a4"
+    },
+    {
+      "label": "Lender offers loan C at 105% collateral (5,250): VERIFIED with two repaid loans",
+      "txId": "005a0f861cb2e5bfbac891b256e5fc5a0382f69a2c15a5f8c9397f2e0cf1f18d23",
+      "txHash": "4308996e5c6343979c12c7cb9057a9ec3dd19e150b74afd7e1328c4f6763351b",
+      "blockHeight": 3006081,
+      "contract": "1f1c6bae998337a21dc9528ff04844ec552306ef71621bdd3fdad11092def1a4"
+    },
+    {
+      "label": "Borrower accepts the offer on loan C",
+      "txId": "00629515091c9dddc5cfdb4e7bc490cf668568b58700fd14ead4dff960606f69b7",
+      "txHash": "aa74edd81011c10b628ad3ea764df517c33a1922e11bc17168b666940df316c0",
+      "blockHeight": 3006086,
+      "contract": "1f1c6bae998337a21dc9528ff04844ec552306ef71621bdd3fdad11092def1a4"
+    }
+  ],
+  "refusals": [
+    {
+      "label": "Lender tries to offer loan A at 150% (1,500) while its VERIFIED tier is live",
+      "contract": "c5501e903ed99e7fbefaa208c25800fbb741a640e2fd361d3c8437860f94f4f6",
+      "circuit": "underwrite",
+      "message": "collateral does not match the tier"
+    },
+    {
+      "label": "Lender tries to re-quote loan A while its VERIFIED tier is live",
+      "contract": "c5501e903ed99e7fbefaa208c25800fbb741a640e2fd361d3c8437860f94f4f6",
+      "circuit": "quoteTerms",
+      "message": "a verified tier is live until it lapses"
+    },
+    {
+      "label": "Lender tries to offer loan C at 110% (5,500), ignoring its proven track record",
+      "contract": "1f1c6bae998337a21dc9528ff04844ec552306ef71621bdd3fdad11092def1a4",
+      "circuit": "underwrite",
+      "message": "collateral does not match the tier"
+    }
+  ]
+}
