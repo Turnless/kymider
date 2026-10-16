@@ -13,6 +13,7 @@ import {
   type FinalizedTransaction,
   LedgerParameters,
   ZswapSecretKeys,
+  unshieldedToken,
 } from '@midnight-ntwrk/midnight-js-protocol/ledger';
 import type {
   MidnightProvider,
@@ -121,6 +122,23 @@ export class MidnightWalletProvider implements MidnightProvider, WalletProvider 
   ) {
     this.wallet = wallet;
     this.unshieldedKeystore = unshieldedKeystore;
+  }
+
+  /**
+   * Wait until the wallet's unshielded NIGHT balance is positive, up to
+   * `timeoutMs`; returns the balance, or 0n on timeout. Registering NIGHT for
+   * DUST spends the NIGHT coin and re-creates it, so straight after a
+   * registration the synced balance reads 0 until the new coin is seen.
+   */
+  async waitForNight(timeoutMs: number): Promise<bigint> {
+    const raw = unshieldedToken().raw;
+    return Rx.firstValueFrom(
+      this.wallet.state().pipe(
+        Rx.map((state) => state.unshielded.balances[raw] ?? 0n),
+        Rx.filter((night) => night > 0n),
+        Rx.timeout({ first: timeoutMs, with: () => Rx.of(0n) }),
+      ),
+    );
   }
 
   /** The DUST this wallet holds at the indexer tip's time: what a fee can draw on. */
