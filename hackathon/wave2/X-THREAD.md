@@ -7,8 +7,7 @@ is one long post. Tag
 not read as spam. Attach the named image where one is suggested; the paths are
 the deck screenshots in `hackathon/wave2/deck/shots/`.
 
-Post 2 waits for the Preprod run, which is pending the owner's wallet. Post 3
-cites the devnet run; switch it to Preprod once `PROOF.md` exists.
+The Preprod run is done (run 38886842306); posts 2 and 3 cite it.
 
 ---
 
@@ -29,8 +28,7 @@ Image: `03-prove-tier.jpg`, or slide 3 of the deck.
 
 ## 2. Milestone post (after the Preprod deploy)
 
-Do not post until the Preprod run is done. Replace `{{PREPROD_TX}}` with an
-explorer link to one transaction from `PROOF.md`.
+The Preprod run is done; the link is to its full record.
 
 > Kymider's Loan contract is on Midnight Preprod.
 >
@@ -40,7 +38,7 @@ explorer link to one transaction from `PROOF.md`.
 > Compact has no division, so the circuit checks the exact floor of 110% by
 > cross-multiplying.
 >
-> {{PREPROD_TX}}
+> https://github.com/Turnless/kymider/blob/main/PROOF.md
 
 Image: `05-refusal-150.jpg`.
 
@@ -88,8 +86,8 @@ the four 16:9 images from `hackathon/wave2/x/` in this order; X shows them as a
 > → An auditor checks your exported payments against the loan's on-chain
 > hash. Change one amount: rejected (image 4).
 >
-> Proof it runs: 37 transactions on a Midnight devnet with real ZK proofs, 54
-> of 54 claims read back. 366 offline tests, 48 browser tests.
+> Proof it runs: 37 transactions on Midnight Preprod, the public testnet,
+> every claim read back from the chain. 366 offline tests, 48 browser tests.
 >
 > Honest limits: figures are self-reported, no tokens move yet, and a track
 > record can be faked by lending to yourself. Wave 3 has a data provider sign
@@ -99,9 +97,8 @@ the four 16:9 images from `hackathon/wave2/x/` in this order; X shows them as a
 > Video: {{VIDEO_URL}}
 > Code: https://github.com/Turnless/kymider
 
-Before posting: replace `{{VIDEO_URL}}`; once Preprod has run, change the
-"Proof it runs" line to the Preprod record and a transaction link from
-`PROOF.md`. If the Preprod link exists, it is worth more than the devnet line.
+Before posting: replace `{{VIDEO_URL}}`. Optionally add the record's link,
+https://github.com/Turnless/kymider/blob/main/PROOF.md, under "Code".
 
 ---
 

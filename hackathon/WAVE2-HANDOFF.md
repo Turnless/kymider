@@ -11,6 +11,20 @@ New work branches off `main`.
 
 ## Where we stopped (read this first)
 
+- **Preprod is done (2026-10-16).** [Run 38886842306](https://github.com/Turnless/kymider/actions/runs/38886842306)
+  on `main` @ `eb1a189` committed `PROOF.md` and
+  `frontend/public/deployments/preprod.json` (`273cc38`): 37 transactions
+  (blocks 3,005,897 to 3,006,086), 3 refusals, `verify:onchain` 54/54 read
+  from Preprod. Wallet `mn_addr_preprod14ltdla4n…` (owner's; seed in the
+  `PREPROD_WALLET_SEED` secret; its tNIGHT is registered for DUST).
+- **Midnight's own Preprod endpoints were shut down on 2026-10-09**; Preprod
+  is served by Blockfrost (`client/config.ts`, secret `BLOCKFROST_PROJECT_ID`,
+  never written to a record). A fresh wallet syncs DUST for about 1½ h, so a
+  Preprod run takes about 2¼ h in total.
+- **Live view on Preprod is record-only:** Blockfrost needs a private key, so
+  the browser shows the committed record ("Recorded") and links PROOF.md
+  instead of re-reading the chain.
+
 - **State:** round 4 is done, **green in CI and merged to `main`**
   (`326dde6`, which merges `wave2` @ `5c704e2`). CI runs 47 and 48 on
   `5c704e2` passed every job, including the devnet simulations,
@@ -35,7 +49,7 @@ New work branches off `main`.
      refusals, 47/47 checks on `5c704e2`. README, SUBMISSION, deck slides
      1/8/10 + `DECK.pdf`, and the video script now cite those. (The landing
      card only links DEVNET-PROOF.md, no counts.)
-  2. After the owner's Preprod run: replace every "Preprod pending" with
+  2. ~~After the owner's Preprod run~~ **Done 2026-10-16** (Lace action still open): replace every "Preprod pending" with
      links (list in `wave2/SUBMISSION.md`), re-capture `08-live.jpg`
      (`cd frontend && npm run shots`), and consider one wallet-backed action
      in the Live view (the borrower runs `proveTier` or `accept` on a
