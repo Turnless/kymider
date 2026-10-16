@@ -16,6 +16,7 @@
 // `contracts.loans` is ordered: loan A (VERIFIED, 110%), loan B (STANDARD,
 // 150%), loan C (the application carrying the history proof).
 
+import { withoutProjectId } from '../../client/config.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { TxReceipt } from '../../client/txlog.js';
@@ -83,8 +84,9 @@ export function buildDeployments(args: {
 }): Deployments {
   return {
     network: args.network,
-    indexer: args.indexer,
-    indexerWS: args.indexerWS,
+    // Public form only: a Blockfrost project token never reaches the record.
+    indexer: withoutProjectId(args.indexer),
+    indexerWS: withoutProjectId(args.indexerWS),
     generatedAt:
       typeof args.generatedAt === 'string' ? args.generatedAt : args.generatedAt.toISOString(),
     contracts: {
