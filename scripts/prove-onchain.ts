@@ -112,6 +112,8 @@ const dustTimeoutMs = Number(
   process.env['KYMIDER_DUST_TIMEOUT_MS'] ?? (isRemote ? 60 * 60_000 : 3 * 60_000),
 );
 const minDust = BigInt(process.env['KYMIDER_MIN_DUST'] ?? '1');
+// How long a zero NIGHT balance may last after a DUST registration (see connect).
+const nightWaitMs = Number(process.env['KYMIDER_NIGHT_WAIT_MS'] ?? (isRemote ? 15 * 60_000 : 2 * 60_000));
 
 const proofFile = path.resolve(process.cwd(), 'PROOF.md');
 const deploymentsFile = deploymentsPath(network);
@@ -134,7 +136,14 @@ async function connect(role: string, secret: WalletSecret) {
   logger.info(`Connecting the ${role} wallet to '${network}'...`);
   const ctx = await connectWallet(logger, secret, syncTimeoutMs);
   // Logs the wallet's public address, registers NIGHT for DUST if needed.
-  const night = await waitForFunds(ctx.wallet.wallet, ctx.env, false, ctx.wallet.unshieldedKeystore);
+  let night = await waitForFunds(ctx.wallet.wallet, ctx.env, false, ctx.wallet.unshieldedKeystore);
+  if (night === 0n) {
+    // A DUST registration (done just above, on a wallet's first run) spends
+    // the NIGHT coin and re-creates it; the balance reads 0 until the new coin
+    // is seen. Give it a few minutes before calling the wallet unfunded.
+    logger.info('NIGHT balance reads 0; waiting for the coin a DUST registration re-creates...');
+    night = await ctx.wallet.waitForNight(nightWaitMs);
+  }
   if (night === 0n) {
     throw new Error(
       `the ${role} wallet holds no NIGHT on '${network}'. Fund the address logged above` +
