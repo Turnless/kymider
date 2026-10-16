@@ -423,7 +423,7 @@ function Simulated() {
     ],
     [
       'Real proofs',
-      `${DEVNET_CASES} devnet cases prove and submit in CI on every push, and the full loan flow is proven on that devnet and read back. Preprod: pending; until it runs, the console's Live chain view says it is not deployed.`,
+      `The full loan flow ran on Midnight Preprod, the public testnet: 37 transactions, every claim read back from the chain (PROOF.md). ${DEVNET_CASES} devnet cases also prove and submit in CI on every push.`,
     ],
     [
       'Money',

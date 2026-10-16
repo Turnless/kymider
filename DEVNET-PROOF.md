@@ -5,9 +5,9 @@ GitHub's runners: the `Devnet simulation` job starts a Midnight node, indexer
 and proof server (`docker-compose.yml`), runs `npm run prove:onchain` (every
 transaction with a real ZK proof, recorded as it finalizes), then
 `npm run verify:onchain`, which reads every contract back from the indexer and
-checks each claim. The Preprod run, which produces `PROOF.md` on a public
-network, is pending the owner's wallet (see the README's
-[On-chain evidence](./README.md#on-chain-evidence-devnet-now-preprod-pending)).
+checks each claim. The same flow on the public Preprod network is in
+[`PROOF.md`](./PROOF.md) (see the README's
+[On-chain evidence](./README.md#on-chain-evidence-preprod-and-the-devnet)).
 
 | | |
 |---|---|

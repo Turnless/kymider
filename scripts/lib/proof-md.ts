@@ -93,7 +93,8 @@ export function renderProofMd({ deployments: d, receipts, claims, explorer }: Pr
     'borrows **at 110% collateral instead of 150%** because the tier proof (not the facts) reaches the ledger.',
     'Loan A takes that route, and the lender\'s attempts to offer it 150% or to re-quote it are refused by the',
     'contract before submission. Loan B waives the proof and is held to 150%. Both are repaid and recorded,',
-    'and a third application proves "two repaid Kymider loans" without naming them.',
+    'and loan C proves those two repaid loans, on the Loan itself, which lowers its collateral to **105%**: the',
+    'lender\'s 110% offer is refused before submission, and loan C is offered and accepted at 105%.',
     '',
   );
 

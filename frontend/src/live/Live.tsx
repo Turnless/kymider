@@ -96,7 +96,11 @@ export function LiveView() {
   const deployment = load !== 'loading' && load.state === 'found' ? load.deployment : null;
   const contracts = useMemo(() => (deployment ? deployedContracts(deployment) : []), [deployment]);
   const indexer = deployment?.indexer ?? info.indexer;
-  const readKey = deployment ? `${network}:${deployment.generatedAt}:${tick}` : null;
+  // Preprod's indexer is served by Blockfrost, which needs a private project
+  // key: a browser cannot read it without exposing the key. The page then
+  // shows the run's committed record, which CI re-read from the chain.
+  const recordOnly = deployment !== null && needsIndexerKey(deployment.indexer);
+  const readKey = deployment && !recordOnly ? `${network}:${deployment.generatedAt}:${tick}` : null;
 
   // 2. Each contract's public state, and each recorded tx, from the indexer.
   useEffect(() => {
@@ -153,8 +157,9 @@ export function LiveView() {
           </div>
           <h1 className="text-[26px] font-bold tracking-[-0.02em]">Live chain</h1>
           <p className="mt-1 max-w-[560px] text-[12px] leading-[1.6] text-[rgba(15,23,42,0.5)]">
-            Deployed Kymider contracts and their public ledgers, read from the {info.label} indexer.
-            Nothing on this screen is simulated.
+            {recordOnly
+              ? `Deployed Kymider contracts and every transaction of the ${info.label} run, from its committed record. Nothing on this screen is simulated.`
+              : `Deployed Kymider contracts and their public ledgers, read from the ${info.label} indexer. Nothing on this screen is simulated.`}
           </p>
         </div>
         <NetworkPicker value={network} onChange={pickNetwork} />
@@ -176,10 +181,11 @@ export function LiveView() {
             </section>
           ) : (
             <>
+              {recordOnly && <RecordOnlyNotice network={info.label} />}
               <section className="card overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[rgba(15,23,42,0.08)] px-5 py-[14px]">
                   <h2 className="text-[13px] font-semibold">Contracts</h2>
-                  <div className="flex items-center gap-3">
+                  <div className={`flex items-center gap-3 ${recordOnly ? 'hidden' : ''}`}>
                     <span className="text-[11px] text-[rgba(15,23,42,0.4)]">
                       {reads && reads !== 'loading'
                         ? `Read ${reads.readAt.toLocaleTimeString()}`
@@ -214,7 +220,13 @@ export function LiveView() {
                             <div className="text-[13px] font-semibold">{c.label}</div>
                             <HexCopy value={c.address} lead={10} tail={6} />
                           </div>
-                          <ReadStatus read={read} loading={reads === 'loading'} />
+                          {recordOnly ? (
+                            <span className="badge badge-pass self-start sm:self-auto" title="In the run's committed record; re-read from the chain by CI">
+                              Recorded
+                            </span>
+                          ) : (
+                            <ReadStatus read={read} loading={reads === 'loading'} />
+                          )}
                         </li>
                       );
                     })}
@@ -256,6 +268,7 @@ export function LiveView() {
                         key={`${t.label}-${i}`}
                         tx={t}
                         lookup={reads && reads !== 'loading' ? reads.txs[i] : undefined}
+                        recordOnly={recordOnly}
                       />
                     ))}
                   </ul>
@@ -276,9 +289,9 @@ export function LiveView() {
               {deployment && <DarkRow label="File written" value={formatIso(deployment.generatedAt)} />}
             </dl>
             <p className="mt-5 text-[11px] leading-[1.5] text-[rgba(255,247,235,0.42)]">
-              Reading needs no wallet: public ledger state is public. Each contract's state is
-              fetched as serialized bytes and decoded with the same compiled contract the circuits
-              run, so a field shown here is the field on chain.
+              {recordOnly
+                ? 'Every address and hash here was returned by Midnight when the transaction finalized, and written to the record by the run; nothing was typed by hand. CI then re-read each one from the chain.'
+                : "Reading needs no wallet: public ledger state is public. Each contract's state is fetched as serialized bytes and decoded with the same compiled contract the circuits run, so a field shown here is the field on chain."}
             </p>
           </section>
         </aside>
@@ -330,6 +343,37 @@ function NotDeployed({ network, file }: { network: string; file: string }) {
   );
 }
 
+/** An indexer that needs a private key (Blockfrost): not readable from a browser. */
+function needsIndexerKey(url: string): boolean {
+  try {
+    return new URL(url).hostname.endsWith('.blockfrost.io');
+  } catch {
+    return false;
+  }
+}
+
+function RecordOnlyNotice({ network }: { network: string }) {
+  return (
+    <section className="card p-5" data-testid="record-only">
+      <p className="label mb-2">From the run's record</p>
+      <p className="text-[12px] leading-[1.6] text-[rgba(15,23,42,0.6)]">
+        {network}'s indexer is served by Blockfrost, which needs a private key, so this page does
+        not re-read the chain from your browser. The record below was written by the {network} run
+        and then re-read from {network} by CI: every claim and every transaction hash checked (
+        <a
+          className="underline"
+          href="https://github.com/Turnless/kymider/blob/main/PROOF.md"
+          target="_blank"
+          rel="noreferrer"
+        >
+          PROOF.md
+        </a>
+        ). Any hash can be looked up on {network} with a free Blockfrost key.
+      </p>
+    </section>
+  );
+}
+
 function ReadStatus({ read, loading }: { read: ContractRead | undefined; loading: boolean }) {
   if (loading || !read) {
     return <span className="badge badge-neutral self-start sm:self-auto">Reading</span>;
@@ -362,7 +406,7 @@ function ReadStatus({ read, loading }: { read: ContractRead | undefined; loading
   );
 }
 
-function TxRow({ tx, lookup }: { tx: DeploymentTx; lookup: TxLookup | undefined }) {
+function TxRow({ tx, lookup, recordOnly = false }: { tx: DeploymentTx; lookup: TxLookup | undefined; recordOnly?: boolean }) {
   const hash = tx.txHash ?? tx.txId;
   const height = lookup?.status === 'found' ? lookup.blockHeight : tx.blockHeight ?? null;
   return (
@@ -379,7 +423,11 @@ function TxRow({ tx, lookup }: { tx: DeploymentTx; lookup: TxLookup | undefined 
         {height !== null && height !== undefined && (
           <span className="tnum text-[11px] text-[rgba(15,23,42,0.45)]">block {height.toLocaleString()}</span>
         )}
-        {lookup === undefined ? (
+        {recordOnly ? (
+          <span className="badge badge-pass" title="Finalized when the run recorded it; re-read from the chain by CI">
+            Recorded
+          </span>
+        ) : lookup === undefined ? (
           <span className="badge badge-neutral">Checking</span>
         ) : lookup.status === 'found' ? (
           <span className="badge badge-pass" title="The indexer returned this transaction">

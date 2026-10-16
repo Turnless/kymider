@@ -24,12 +24,10 @@ console source (`frontend/src/lender/LenderLoan.tsx`,
   console.)
 - The console seeds two repaid loans for the borrower, so the track-record
   proof at 2:00 needs no preparation.
-- A second tab with `DEVNET-PROOF.md` on GitHub
-  (<https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md>): 37 transactions, 3 refusals and 54 of 54
-  read-back checks from CI run 38165213326 on commit `93cc853` (the current
-  contracts). Preprod is pending; once the
-  Preprod run has committed `PROOF.md`, use that file instead, and the 2:25
-  alternative below.
+- A second tab with `PROOF.md` on GitHub
+  (<https://github.com/Turnless/kymider/blob/main/PROOF.md>): the full flow on Midnight Preprod, 37
+  transactions, 3 refusals, and 54 of 54 checks re-read from Preprod
+  (run 38886842306).
 - The deck in a third tab, on slide 3 (the 110% number):
   <https://turnless.github.io/kymider/deck/#3>.
 - Notifications off. Move the mouse slowly; pause one beat after every click so
@@ -146,19 +144,16 @@ directory", and **Offer at 130% · 26,000**.
 ---
 
 ### 2:30-2:45 · On-chain proof
-**Show:** the `DEVNET-PROOF.md` tab.
+**Show:** the `PROOF.md` tab.
 
-**2:30** - **Do:** Point at "Read-back checks: 54 of 54 PASS", then scroll the
-Transactions table to rows 33-37 (`Loan.proveRepaidHistory` through
-`Loan.accept` at 5,250).
+**2:30** - **Do:** Point at "Network: preprod (public Midnight testnet)", then
+scroll the Transactions table to rows 33-37 (`Loan.proveRepaidHistory` through
+`Loan.accept` at 5,250), then to "Claims checked against the chain" (every row
+PASS).
 
-> These contracts also ran on a Midnight devnet with real proofs: 37
-> transactions, 54 of 54 claims read back, and loan C accepted at 105%.
-
-*After the Preprod run (owner):* show `PROOF.md` on GitHub instead, click one
-hash into the explorer ({{PREPROD_TX}}), and say "The same contracts ran on
-Midnight Preprod, the public testnet. Here is loan C's 105% offer." in place
-of the first sentence.
+> These contracts ran on Midnight Preprod, the public testnet: 37
+> transactions, every claim read back from the chain, and loan C accepted at
+> 105%.
 
 ---
 

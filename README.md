@@ -25,7 +25,7 @@ step: 105% verified, 130% without a proof.
 
 | Live console | Video | Deck | On-chain proof | Tests | What is simulated |
 |---|---|---|---|---|---|
-| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | Narrated video: being recorded, link added before Oct 17 | [Slides](https://turnless.github.io/kymider/deck/) · [PDF](./hackathon/wave2/DECK.pdf) | Devnet: 37 tx, 54/54 read-back checks on commit `93cc853` ([DEVNET-PROOF.md](./DEVNET-PROOF.md)), re-run in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push; Preprod pending ([details](#on-chain-evidence-devnet-now-preprod-pending)) | 366 offline, 48 browser, 19 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
+| [turnless.github.io/kymider](https://turnless.github.io/kymider/) | Narrated video: being recorded, link added before Oct 17 | [Slides](https://turnless.github.io/kymider/deck/) · [PDF](./hackathon/wave2/DECK.pdf) | Devnet: 37 tx, 54/54 read-back checks on commit `93cc853` ([DEVNET-PROOF.md](./DEVNET-PROOF.md)), re-run in [CI](https://github.com/Turnless/kymider/actions/workflows/ci.yml) on every push. **Preprod: 37 tx, 54/54 checks** ([PROOF.md](./PROOF.md), [details](#on-chain-evidence-preprod-and-the-devnet)) | 366 offline, 48 browser, 19 devnet ([below](#tests-and-scripts)) | Money: no token moves. Console: contracts run in-browser, no proofs ([details](#what-is-real-and-what-is-not)) |
 
 ---
 
@@ -92,10 +92,12 @@ contract's own `assert` message, raised by the compiled `Loan` and
    repaid". Change one amount in the JSON and verify again: **Rejected**. This
    is an integrity check, not a disclosure of secrets
    ([why](#the-auditor-preview-integrity-not-secrecy)).
-10. **On chain.** **Live chain** reads deployed instances through the
-    indexer. Preprod is not deployed yet, so today it shows "Not deployed to
-    Preprod yet". The proven run is in CI on a local devnet
-    ([on-chain evidence](#on-chain-evidence-devnet-now-preprod-pending)).
+10. **On chain.** **Live chain** shows the Preprod deployment: all 6
+    contracts and 37 transactions with their blocks, from the run's committed
+    record. Preprod's indexer is served by Blockfrost, which needs a private
+    key, so the page does not re-read the chain from your browser; CI re-read
+    every claim and hash from Preprod ([PROOF.md](./PROOF.md),
+    [on-chain evidence](#on-chain-evidence-preprod-and-the-devnet)).
 
 This exact path runs in CI as a Playwright test at desktop and phone width
 ([`frontend/e2e/fast-path.spec.ts`](./frontend/e2e/fast-path.spec.ts)).
@@ -157,14 +159,14 @@ Sep 27 and Oct 17, 2026, on the `wave2` branch, now merged to [`main`](https://g
 | Devnet simulation | 11 cases, 2 wallets | 19 cases (+8 Wave 2 lifecycle), run in CI on every push |
 | Client | `KymiderClient` | + [`LoanClient`](./client/loans.ts), `npm run loan:deploy`, `npm run loan:demo`, `prove:onchain` / `verify:onchain` |
 | Console | Solvency screens | + loan screens for borrower and lender, portfolio, auditor preview, Live chain view |
-| Chain | Local devnet only | Local devnet in CI on every push, with every transaction recorded and re-read; indexer-backed Live view. Preprod: workflow ready, run pending the owner's wallet |
+| Chain | Local devnet only | **Midnight Preprod (public testnet): the full flow, 37 transactions, every claim re-read (54/54)** ([PROOF.md](./PROOF.md)); the same flow on a local devnet in CI on every push |
 | AKINDO record | Repo not connected, product private, tagged "Base" | Pending, owner only: connect the repo, make the product public, tag Midnight |
 
 What Wave 1 judges asked entries for, and where it is now
 ([analysis](./hackathon/wave1-results.md)): *say exactly which parts need privacy* (see
 the [dual-ledger table](#the-dual-ledger-what-is-private-what-is-public));
 *add audio to the video* (the Wave 2 video is narrated); *show a public-testnet
-transaction* (pending: [on-chain evidence](#on-chain-evidence-devnet-now-preprod-pending)).
+transaction* (37 on Preprod: [PROOF.md](./PROOF.md)).
 
 ---
 
@@ -380,7 +382,7 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
   ([`tests/simulation/`](./tests/simulation/)). First full green run:
   [run 34](https://github.com/Turnless/kymider/actions/runs/37092735681), on
   commit `5a56372`, before the salted commitment and the consent step
-  ([scope](#on-chain-evidence-devnet-now-preprod-pending)).
+  ([scope](#on-chain-evidence-preprod-and-the-devnet)).
 
 ### Product & Vision (15%)
 
@@ -394,8 +396,8 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 
 - A console that runs the real contracts with no install, for borrower, lender
   and auditor.
-- A Live view that reads deployed instances through the indexer. Connecting
-  Lace is built but untested on Preprod (pending the Preprod deployment).
+- A Live view of the Preprod deployment (contracts and every transaction,
+  from the committed record). Connecting Lace is built but untested on Preprod.
 - Works at phone width; the Playwright suite checks every route at 390 px for
   horizontal scroll.
 
@@ -423,15 +425,30 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
 | Part | Status |
 |---|---|
 | Contracts, circuits, asserts | Real. Compiled by CI; the same modules run in tests, the console and the client |
-| ZK proofs | Real on the local devnet in CI (simulation, `prove:onchain`). Preprod: pending. **Not** generated in the browser console: it executes circuits with `compact-runtime` and skips proving |
-| Console chain | Simulated in-browser ledger with a controllable block clock. The Live view reads Preprod's indexer; nothing is deployed there yet, and it says so |
+| ZK proofs | Real on Midnight Preprod (37 transactions, [PROOF.md](./PROOF.md)) and on the local devnet in CI (simulation, `prove:onchain`). **Not** generated in the browser console: it executes circuits with `compact-runtime` and skips proving |
+| Console chain | Simulated in-browser ledger with a controllable block clock. The Live view shows the Preprod deployment from its committed record (Blockfrost's indexer needs a private key, so it is not re-read in the browser) |
 | Money | **Simulated.** Collateral, principal and balances are figures in contract state. No token is minted, locked or moved |
 | Financial facts | Self-reported. The circuit proves arithmetic on committed figures; it cannot know they are true |
 | Lace wallet | Live view only, untested on Preprod; the console's simulated mode needs no wallet |
 
 ---
 
-## On-chain evidence: devnet now, Preprod pending
+## On-chain evidence: Preprod and the devnet
+
+- **Midnight Preprod (public testnet):** [run 38886842306](https://github.com/Turnless/kymider/actions/runs/38886842306) (commit
+  `eb1a189`) ran the full flow on Preprod in **37 transactions** (blocks
+  3,005,897 to 3,006,086) and `verify:onchain` re-read every claim and every
+  hash from Preprod: **54 of 54 checks PASS**. Loan A was offered and accepted
+  at 110% (1,100 on 1,000); Loan B, proof waived, at 150%; both repaid and
+  recorded; Loan C proved those two repaid loans and was accepted at 105%
+  (5,250 on 5,000), for example
+  `4308996e5c6343979c12c7cb9057a9ec3dd19e150b74afd7e1328c4f6763351b`, the 105%
+  offer, at block 3,006,081. The three refusals were refused on Preprod too.
+  Every address and hash: [PROOF.md](./PROOF.md); the same record for the
+  console: [`preprod.json`](./frontend/public/deployments/preprod.json).
+  Midnight's own Preprod indexer was shut down on 2026-10-09, so the run reads
+  and writes through Blockfrost (a project key in the CI secret
+  `BLOCKFROST_PROJECT_ID`, never written to the record).
 
 - **Every CI run** ([workflow](https://github.com/Turnless/kymider/actions/workflows/ci.yml),
   job "Devnet simulation") starts a local Midnight devnet in Docker, runs the
@@ -455,10 +472,10 @@ Mapped to the criteria in [`hackathon/program.md`](./hackathon/program.md).
   (`collateral does not match the tier`). The read-back shows they left no
   trace. Every address and transaction
   hash is in [DEVNET-PROOF.md](./DEVNET-PROOF.md), labelled as a local devnet.
-- **Preprod: pending the owner's wallet.** [`preprod.yml`](./.github/workflows/preprod.yml)
-  runs the same proof on Preprod when dispatched with a funded wallet secret
-  and commits `PROOF.md` and `frontend/public/deployments/preprod.json`.
-  Neither exists yet, so the Live view shows "Not deployed to Preprod yet".
+- **Reproduce it:** [`preprod.yml`](./.github/workflows/preprod.yml) (Actions →
+  "Preprod proof") runs the same proof with a funded wallet secret and a
+  Blockfrost key, and commits `PROOF.md` and the deployments file. A fresh
+  wallet spends about 1½ hours syncing Preprod's DUST history first.
 
 ---
 
@@ -679,9 +696,10 @@ all of it on every push.
   borrower's `SolvencyProof` runs in the client, not in a circuit.
 - **Browser console skips proving.** It executes the circuits; it does not
   generate proofs or use a wallet.
-- **Preprod: pending.** Deployment runs from a manual CI job once the owner's
-  funded wallet secret is added; until then on-chain evidence is the CI devnet
-  run ([on-chain evidence](#on-chain-evidence-devnet-now-preprod-pending)).
+- **The Live view does not re-read Preprod in the browser.** Preprod's indexer
+  is served by Blockfrost, which needs a private key; the page shows the run's
+  committed record, which CI re-read from Preprod
+  ([on-chain evidence](#on-chain-evidence-preprod-and-the-devnet)).
 
 ---
 

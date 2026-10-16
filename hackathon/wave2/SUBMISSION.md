@@ -2,10 +2,10 @@
 
 Paste each section into the matching AKINDO field. Character counts are for the
 text between the horizontal rules, measured with `wc -m`. Delete the HTML
-comments before pasting. Every `{{...}}` is a placeholder; both (`{{VIDEO_URL}}`,
-`{{PREPROD_TX}}`) are listed in the owner checklist. Where a step is still
-pending (Preprod, video, AKINDO record), the copy below says so; update it once
-the step is done.
+comments before pasting. Every `{{...}}` is a placeholder; the one left,
+`{{VIDEO_URL}}`, is in the owner checklist. Where a step is still pending
+(video, AKINDO record), the copy below says so; update it once the step is
+done.
 
 ---
 
@@ -24,15 +24,11 @@ private entry, earned points (see `hackathon/wave1-results.md`).
       console at https://turnless.github.io/kymider/ and the deck at
       https://turnless.github.io/kymider/deck/ (Pages deploys from `main` only).
       `docs/architecture-wave1/2/3.md` and `docs/scaffold.md` are present on `main`.
-- [ ] **Preprod run.** Add the `PREPROD_WALLET_SEED` secret (a wallet funded
-      with tNIGHT), run Actions → "Preprod proof", and check it committed
-      `PROOF.md` and `frontend/public/deployments/preprod.json`. Then: run
-      `npm run verify:preprod`; re-capture `08-live.jpg` (`cd frontend && npm
-      run shots`); replace the "Preprod pending" wording in `README.md` (table,
-      "On-chain evidence", "What is real", honest limits), this file
-      (description, progress item 8, "What changed", Links), `DECK.html`
-      (slides 1, 7, 10), `VIDEO-SCRIPT.md` ("Before you press record", 2:30) and `X-THREAD.md`
-      (post 2, launch post "Proof it runs" line) with links to `PROOF.md`.
+- [x] **Preprod run** (2026-10-16): run 38886842306 committed `PROOF.md` and
+      `frontend/public/deployments/preprod.json` (37 transactions, 54 of 54
+      checks re-read from Preprod). It reads Preprod through Blockfrost (the
+      `BLOCKFROST_PROJECT_ID` secret). README, this file, the deck, the video
+      script, the X drafts and the landing page cite it.
 - [ ] **Try Lace on Preprod** in the Live view; if it works, drop "untested on
       Preprod" from `README.md` (UX section, "What is real") and progress item
       7 below.
@@ -40,13 +36,10 @@ private entry, earned points (see `hackathon/wave1-results.md`).
 - [ ] Put your name on `DECK.html` slide 12 (it reads "Kymider team"; an HTML
       comment marks the spot), then regenerate the PDF:
       `cd frontend && npm run deck:pdf`, and commit `hackathon/wave2/DECK.pdf`.
-- [ ] Fill both placeholders:
-      - `{{VIDEO_URL}}`: Links below, `VIDEO-SCRIPT.md` ("After recording"),
-        `X-THREAD.md`. In `README.md`, replace "being recorded, link added
-        before Oct 17" (table and Communication) with the link.
-      - `{{PREPROD_TX}}`: Links below, `VIDEO-SCRIPT.md` (2:25),
-        `X-THREAD.md` (post 2). An explorer link to one Preprod transaction
-        from `PROOF.md`.
+- [ ] Fill the placeholder `{{VIDEO_URL}}`: Links below, `VIDEO-SCRIPT.md`
+      ("After recording"), `X-THREAD.md`. In `README.md`, replace "being
+      recorded, link added before Oct 17" (table and Communication) with the
+      link.
       Before submitting, `grep -rnI "{{\|being recorded" README.md hackathon/wave2/DECK.html`
       returns nothing and the Links table below has no `{{`.
 - [ ] Submit before **Oct 17, 2026** (AKINDO's timer says Oct 19 15:00 UTC; do
@@ -102,7 +95,9 @@ toolchain 0.31.1; 366 offline tests on the compiled contracts;
 real proofs on every push, followed by the full flow proven and re-read on
 that devnet (recorded run on commit 93cc853: 37 transactions, 54 of 54
 read-back checks: https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md).
-Preprod deployment: pending.
+On Midnight Preprod, the public testnet, the same flow ran in 37 transactions
+and every claim was re-read from Preprod, 54 of 54 checks:
+https://github.com/Turnless/kymider/blob/main/PROOF.md
 
 What is simulated: no token moves, and the figures are self-reported, so a
 VERIFIED tier costs nothing to get today. Attested data provenance is Wave 3.
@@ -150,15 +145,16 @@ All built Sep 27 - Oct 17, 2026, on the `wave2` branch, now merged to `main`
 6. **Console loan screens**: borrower (apply, prove tier or waive the proof,
    accept, repay, prove history, export history), lender (applications,
    quote, offer, disburse, default, record), portfolio.
-7. **Live view**: indexer reads of deployed instances; Lace connect built,
-   untested on Preprod.
+7. **Live view**: the Preprod deployment (contracts and all 37 transactions,
+   from the committed record); Lace connect built, untested on Preprod.
 8. **On-chain proof scripts**: `prove:onchain` runs the flow and records every
    transaction; `verify:onchain` re-reads them. CI runs both on a local devnet
    on every push; run 38165213326 on commit 93cc853 (37 transactions, including
    Loan B's waiver and Loan C accepted at 105% on its proven track record,
    three refusals recorded before submission, 54 of 54 checks)
-   is recorded in https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. A manually triggered Preprod job writes
-   `PROOF.md`; that run is pending the owner's funded wallet.
+   is recorded in https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. A manually triggered Preprod job ran
+   the same flow on Midnight Preprod (run 38886842306: 37 transactions, 54 of
+   54 checks re-read from Preprod) and committed https://github.com/Turnless/kymider/blob/main/PROOF.md.
 9. **Wave 3 preview**: an auditor checks a borrower's exported payment log
    against the on-chain history hash (`/app/audit`).
 10. **Hardening after two reviews**: salted facts commitment, re-quote cap,
@@ -186,15 +182,16 @@ verified borrower and the borrower must accept.
   `HistoricMerkleTree` with `checkRoot`, `merkleTreePathRoot` and
   `kernel.self()` in the Loan, more witnesses (`factsSalt`,
   `paymentNonce`), division-free quotient checks.
-- On-chain: local devnet only → the full flow proven and re-read on a devnet in
-  CI on every push (37 transactions, 54 of 54 checks in run 38165213326, commit 93cc853);
-  Preprod deployment pending.
+- On-chain: local devnet only → the full flow on Midnight Preprod, the public
+  testnet (37 transactions, 54 of 54 checks re-read from Preprod):
+  https://github.com/Turnless/kymider/blob/main/PROOF.md ; and on a devnet in CI on every push
+  (run 38165213326, commit 93cc853):
   https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md
 - Console: solvency screens → plus loan desk, portfolio, auditor preview and a
   Live view reading the chain.
 - What Wave 1 judges asked entries for, now addressed: the README states exactly which data is
   private and which is public (a dual-ledger table); the video is narrated.
-  A public-testnet transaction: pending the Preprod run.
+  A public-testnet transaction: 37 of them, on Preprod (PROOF.md).
 - AKINDO record: connecting the repo, making the product public and tagging
   Midnight (owner, before submission).
 
@@ -240,8 +237,9 @@ SDK 1.2.0. React 19, react-router-dom 7, TypeScript 6, Tailwind 4 and Vite 8 for
 console, which runs the compiled contracts in the browser. Vitest for offline
 contract tests and the devnet simulation; Playwright for the console. Docker
 Compose for the local devnet (Midnight node, indexer, proof server). GitHub
-Actions for CI and the Preprod deploy job; GitHub Pages for the console. Lace
-for the Live view (untested on Preprod).
+Actions for CI and the Preprod deploy job; Blockfrost for Preprod's indexer
+and node; GitHub Pages for the console. Lace for the Live view (untested on
+Preprod).
 
 ---
 
@@ -253,8 +251,8 @@ for the Live view (untested on Preprod).
 | Live console | https://turnless.github.io/kymider/ |
 | Demo video (narrated) | {{VIDEO_URL}} |
 | Slide deck | https://turnless.github.io/kymider/deck/ (PDF: https://github.com/Turnless/kymider/blob/main/hackathon/wave2/DECK.pdf) |
-| On-chain proof | Devnet, run 38165213326 on commit 93cc853, 37 transactions, 54 of 54 checks: https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. Re-run on every push: https://github.com/Turnless/kymider/actions/workflows/ci.yml (job "Devnet simulation", artifact `proof-local`). Preprod: pending; after the run, https://github.com/Turnless/kymider/blob/main/PROOF.md |
-| Preprod transaction | {{PREPROD_TX}} |
+| On-chain proof | Devnet, run 38165213326 on commit 93cc853, 37 transactions, 54 of 54 checks: https://github.com/Turnless/kymider/blob/main/DEVNET-PROOF.md. Re-run on every push: https://github.com/Turnless/kymider/actions/workflows/ci.yml (job "Devnet simulation", artifact `proof-local`). Preprod: 37 transactions, 54 of 54 checks, https://github.com/Turnless/kymider/blob/main/PROOF.md (run https://github.com/Turnless/kymider/actions/runs/38886842306) |
+| Preprod transaction | 4308996e5c6343979c12c7cb9057a9ec3dd19e150b74afd7e1328c4f6763351b (Loan C offered at 105%, block 3,006,081; every hash in PROOF.md) |
 | Build with (tech tag) | Midnight |
 | Category | DeFi, lending, privacy |
 | Tags | #Midnight #Compact #ZeroKnowledge #Lending #DeFi |
